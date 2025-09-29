@@ -1,6 +1,7 @@
 // Netlify Function: adminSettings (GET/PUT settings.json)
 // Header: x-admin-key === ADMIN_PASSWORD
-// Validates image/contact URLs are http/https
+// يحدّث: data/settings.json  +  public/data/settings.json (نسخة تُنشر للواجهة)
+
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
@@ -8,7 +9,9 @@ const GH_TOKEN = process.env.GITHUB_TOKEN;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const GH_API = "https://api.github.com";
 
-function forbidden(){ return { statusCode: 401, body: JSON.stringify({ ok:false, error:"unauthorized" })}; }
+function forbidden(){
+  return { statusCode: 401, body: JSON.stringify({ ok:false, error:"unauthorized" })};
+}
 function isHttpUrl(u){
   try{ const x=new URL(u); return x.protocol==="http:"||x.protocol==="https:"; }catch{ return false; }
 }
@@ -22,6 +25,7 @@ async function ghGetJson(path){
   const content = Buffer.from(data.content || "", "base64").toString("utf-8");
   return { json: JSON.parse(content), sha: data.sha };
 }
+
 async function ghPutJson(path, json, sha, message){
   const content = Buffer.from(JSON.stringify(json, null, 2), "utf-8").toString("base64");
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
@@ -33,10 +37,12 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
-export async function handler(event){
+module.exports.handler = async (event) => {
+  // تحقّق مفتاح الأدمن
   if((event.headers["x-admin-key"] || event.headers["X-Admin-Key"]) !== ADMIN_PASSWORD){
     return forbidden();
   }
+
   try{
     if(event.httpMethod === "GET"){
       const { json: settings } = await ghGetJson("data/settings.json");
@@ -46,26 +52,35 @@ export async function handler(event){
     if(event.httpMethod === "PUT"){
       const body = JSON.parse(event.body || "{}");
       const input = body.settings;
-      if(!input) return { statusCode: 400, body: JSON.stringify({ ok:false }) };
+      if(!input) return { statusCode: 400, body: JSON.stringify({ ok:false, error:"missing_settings" }) };
 
-      // Validate URLs: branding.logo, contact.whatsapp, any images values
+      // تحقق روابط أساسية (http/https فقط)
       const candidates = [
         input?.branding?.logo_url,
         input?.contact?.whatsapp_link,
         ...Object.values(input?.images || {})
       ].filter(Boolean);
-
       if(!candidates.every(isHttpUrl)){
         return { statusCode: 400, body: JSON.stringify({ ok:false, error:"invalid_url" }) };
       }
 
+      // حدّث الملف الرئيسي
       const { sha } = await ghGetJson("data/settings.json");
       await ghPutJson("data/settings.json", input, sha, "admin:update settings");
+
+      // إنشاء/تحديث نسخة عامة تُنشر للواجهة
+      let publicSha = null;
+      try {
+        const got = await ghGetJson("public/data/settings.json");
+        publicSha = got.sha;
+      } catch (e) { /* قد لا يكون الملف موجودًا أول مرة */ }
+      await ghPutJson("public/data/settings.json", input, publicSha, "admin:update public settings");
+
       return { statusCode: 200, body: JSON.stringify({ ok:true }) };
     }
 
-    return { statusCode: 405, body: JSON.stringify({ ok:false }) };
+    return { statusCode: 405, body: JSON.stringify({ ok:false, error:"method_not_allowed" }) };
   }catch(err){
     return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
   }
-}
+};

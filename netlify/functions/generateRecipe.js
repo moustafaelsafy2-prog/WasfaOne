@@ -171,12 +171,11 @@ async function callGemini(prompt){
     safetySettings: []
   };
 
-  // Try primary (latest), then stable tag
-  const primary = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-  // تم تحديث اسم النموذج إلى 2.5 flash
-  // تم حذف نموذج fallback لتوحيد الاستدعاء
+  // 1. تحديد اسم النموذج الموصى به بشكل صريح
+  const modelName = "gemini-2.5-flash-preview-05-20";
+  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   
-  let res = await callGeminiOnce(primary, body);
+  let res = await callGeminiOnce(apiUrl, body);
   return res;
 }
 

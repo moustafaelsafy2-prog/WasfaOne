@@ -1,5 +1,4 @@
-// /netlify/functions/adminUsers.js
-import fetch from "node-fetch";
+// /netlify/functions/adminUsers.js  — Netlify Functions (V1) + Node 18
 
 const {
   ADMIN_PASSWORD,
@@ -10,123 +9,151 @@ const {
 } = process.env;
 
 const USERS_PATH = "data/users.json";
-
-const ghHeaders = {
+const BASE_URL = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/`;
+const baseHeaders = {
+  Authorization: `Bearer ${GITHUB_TOKEN}`,
   Accept: "application/vnd.github+json",
   "User-Agent": "WasfaOne-Netlify",
 };
 
+function resp(status, obj) {
+  return {
+    statusCode: status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+    body: JSON.stringify(obj),
+  };
+}
+
 async function ghGetJson(path) {
-  const url = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/${path}?ref=${GITHUB_REF}`;
-  const res = await fetch(url, { headers: { ...ghHeaders, Authorization: `Bearer ${GITHUB_TOKEN}` } });
-  if (!res.ok) throw new Error(`GitHub GET failed ${res.status}`);
-  const json = await res.json();
-  const content = Buffer.from(json.content, "base64").toString("utf8");
-  return { data: JSON.parse(content || "[]"), sha: json.sha };
+  const url = `${BASE_URL}${path}?ref=${encodeURIComponent(GITHUB_REF)}`;
+  const r = await fetch(url, { headers: baseHeaders });
+  if (r.status === 404) return { data: [], sha: null }; // ملف غير موجود بعد
+  if (!r.ok) throw new Error(`GH_GET_${r.status}`);
+  const j = await r.json();
+  const txt = Buffer.from(j.content || "", "base64").toString("utf8");
+  return { data: txt ? JSON.parse(txt) : [], sha: j.sha };
 }
 
 async function ghPutJson(path, nextData, message, sha) {
-  const url = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/${path}`;
+  const url = `${BASE_URL}${path}`;
   const body = {
     message,
     content: Buffer.from(JSON.stringify(nextData, null, 2), "utf8").toString("base64"),
     branch: GITHUB_REF,
-    sha,
   };
-  const res = await fetch(url, {
+  if (sha) body.sha = sha; // لو الملف موجود نمرر sha، وإلا GitHub ينشئه
+  const r = await fetch(url, {
     method: "PUT",
-    headers: { ...ghHeaders, Authorization: `Bearer ${GITHUB_TOKEN}` },
+    headers: baseHeaders,
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`GitHub PUT failed ${res.status}`);
-  return res.json();
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`GH_PUT_${r.status}:${t.slice(0,200)}`);
+  }
+  return r.json();
 }
 
-function json(res, status, data) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
-  });
-}
-
-function ensureAdmin(event) {
-  const key = event.headers["x-admin-key"] || event.headers["X-Admin-Key"];
-  if (!ADMIN_PASSWORD || key !== ADMIN_PASSWORD) throw new Error("unauthorized");
-}
-
-function sanitizeUser(u) {
-  const allowed = ["email","password","name","status","start_date","end_date","device_fingerprint","session_nonce","lock_reason"];
-  const out = {};
-  for (const k of allowed) out[k] = u?.[k] ?? null;
-  // Basic required fields
-  if (!out.email || !out.password || !out.name) throw new Error("missing_fields");
-  if (!out.status) out.status = "active";
-  return out;
-}
-
-export default async (event) => {
+exports.handler = async (event) => {
   try {
-    ensureAdmin(event);
+    if (event.httpMethod === "OPTIONS") return { statusCode: 204 };
+
+    // تحقق من الإعدادات
+    if (!ADMIN_PASSWORD || !GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
+      return resp(500, { ok: false, error: "config_missing" });
+    }
+
+    // تحقق من صلاحية الأدمن
+    const key =
+      event.headers["x-admin-key"] ||
+      event.headers["X-Admin-Key"] ||
+      event.headers["x-admin-key".toLowerCase()];
+    if (key !== ADMIN_PASSWORD) return resp(401, { ok: false, error: "unauthorized" });
 
     const method = event.httpMethod;
     const action = (event.queryStringParameters?.action || "").toLowerCase();
+    const body = event.body ? JSON.parse(event.body) : {};
 
     if (method === "GET") {
       const { data } = await ghGetJson(USERS_PATH);
-      return json(event, 200, { ok: true, users: data });
+      return resp(200, { ok: true, users: Array.isArray(data) ? data : [] });
     }
 
-    const body = event.body ? JSON.parse(event.body) : {};
-
-    // Load current
+    // حمل الحالة الحالية
     const { data: users, sha } = await ghGetJson(USERS_PATH);
 
     if (method === "POST") {
-      if (action === "resetDevice") {
-        const email = body?.email;
-        const idx = users.findIndex(u => (u.email||"").toLowerCase() === (email||"").toLowerCase());
-        if (idx === -1) return json(event, 404, { ok:false, error:"not_found" });
+      if (action === "resetdevice") {
+        const email = (body.email || "").toLowerCase();
+        const idx = users.findIndex(u => (u.email || "").toLowerCase() === email);
+        if (idx === -1) return resp(404, { ok: false, error: "not_found" });
         users[idx].device_fingerprint = null;
         users[idx].session_nonce = null;
-        await ghPutJson(USERS_PATH, users, `admin: reset device for ${email}`, sha);
-        return json(event, 200, { ok:true, user: users[idx] });
+        await ghPutJson(USERS_PATH, users, `admin: reset device ${email}`, sha);
+        return resp(200, { ok: true, user: users[idx] });
       }
-      // Create
-      const nu = sanitizeUser(body);
-      const exists = users.some(u => (u.email||"").toLowerCase() === nu.email.toLowerCase());
-      if (exists) return json(event, 409, { ok:false, error:"exists" });
+
+      // إنشاء مستخدم
+      const required = ["email", "password", "name"];
+      for (const r of required) if (!body[r]) return resp(400, { ok: false, error: `missing_${r}` });
+
+      const email = String(body.email).toLowerCase();
+      if (users.some(u => (u.email || "").toLowerCase() === email)) {
+        return resp(409, { ok: false, error: "exists" });
+      }
+
+      const nu = {
+        email,
+        password: String(body.password),
+        name: String(body.name),
+        status: body.status || "active",
+        start_date: body.start_date || null,
+        end_date: body.end_date || null,
+        device_fingerprint: null,
+        session_nonce: null,
+        lock_reason: body.lock_reason || null,
+      };
+
       users.push(nu);
-      await ghPutJson(USERS_PATH, users, `admin: create user ${nu.email}`, sha);
-      return json(event, 201, { ok:true, user: nu });
+      await ghPutJson(USERS_PATH, users, `admin: create ${email}`, sha);
+      return resp(201, { ok: true, user: nu });
     }
 
     if (method === "PUT") {
-      // Update by email (immutable key)
-      const email = body?.email;
-      if (!email) return json(event, 400, { ok:false, error:"missing_email" });
-      const idx = users.findIndex(u => (u.email||"").toLowerCase() === email.toLowerCase());
-      if (idx === -1) return json(event, 404, { ok:false, error:"not_found" });
-      const merged = { ...users[idx], ...sanitizeUser({ ...users[idx], ...body, email }) };
-      users[idx] = merged;
-      await ghPutJson(USERS_PATH, users, `admin: update user ${email}`, sha);
-      return json(event, 200, { ok:true, user: merged });
+      const email = (body.email || "").toLowerCase();
+      const idx = users.findIndex(u => (u.email || "").toLowerCase() === email);
+      if (!email || idx === -1) return resp(404, { ok: false, error: "not_found" });
+
+      const current = users[idx];
+      const next = {
+        ...current,
+        name: body.name ?? current.name,
+        status: body.status ?? current.status,
+        start_date: body.start_date ?? current.start_date,
+        end_date: body.end_date ?? current.end_date,
+      };
+      if (typeof body.password === "string" && body.password.trim() !== "") {
+        next.password = body.password;
+      }
+
+      users[idx] = next;
+      await ghPutJson(USERS_PATH, users, `admin: update ${email}`, sha);
+      return resp(200, { ok: true, user: next });
     }
 
     if (method === "DELETE") {
-      const email = body?.email;
-      if (!email) return json(event, 400, { ok:false, error:"missing_email" });
-      const next = users.filter(u => (u.email||"").toLowerCase() !== email.toLowerCase());
-      if (next.length === users.length) return json(event, 404, { ok:false, error:"not_found" });
-      await ghPutJson(USERS_PATH, next, `admin: delete user ${email}`, sha);
-      return json(event, 200, { ok:true, removed: email });
+      const email = (body.email || "").toLowerCase();
+      const next = users.filter(u => (u.email || "").toLowerCase() !== email);
+      if (next.length === users.length) return resp(404, { ok: false, error: "not_found" });
+      await ghPutJson(USERS_PATH, next, `admin: delete ${email}`, sha);
+      return resp(200, { ok: true, removed: email });
     }
 
-    return json(event, 405, { ok:false, error:"method_not_allowed" });
+    return resp(405, { ok: false, error: "method_not_allowed" });
   } catch (e) {
-    const code = e.message === "unauthorized" ? 401 : 500;
-    return new Response(JSON.stringify({ ok:false, error:e.message }), {
-      status: code,
-      headers: { "content-type": "application/json; charset=utf-8" },
-    });
+    return resp(500, { ok: false, error: "exception", message: e.message });
   }
 };

@@ -30,7 +30,7 @@
 
     /* preparation steps */
     .steps-list{counter-reset:step}
-    .step{position:relative;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 18px 18px 66px;box-shadow:0 8px 20px rgba(0,0,0,.04);margin-bottom:14px}
+    .step{position:relative;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 100px 18px 24px;box-shadow:0 8px 20px rgba(0,0,0,.04);margin-bottom:14px}
     .step::before{
       counter-increment:step; content:"خطوة " counter(step);
       position:absolute; right:16px; top:16px; min-width:56px; height:32px; border-radius:999px;
@@ -167,13 +167,6 @@
         </div>
       </div>
 
-      <div class="mt-4 flex items-center gap-4">
-        <div class="flex items-center gap-2">
-          <input id="maxSteps" type="number" min="3" max="8" value="6" class="w-16 border rounded-md p-2">
-          <span class="text-sm text-[var(--muted)]">حد أقصى للخطوات</span>
-        </div>
-      </div>
-
       <div id="banner" class="hidden mt-4 p-3 rounded-xl banner text-sm"></div>
 
       <div class="text-center my-6">
@@ -232,7 +225,7 @@
     // inputs
     const mealType=$('mealType'), cuisine=$('cuisine'), dietType=$('dietType'),
           calorieTarget=$('calorieTarget'), commonAllergy=$('commonAllergy'),
-          customAllergy=$('customAllergy'), maxStepsInput=$('maxSteps'),
+          customAllergy=$('customAllergy'),
           btn=$('generateBtn'), spin=$('loadingIndicator'),
           statusMsg=$('statusMsg'), errMsg=$('errorMsg'),
           banner=$('banner'), toast=$('toast');
@@ -284,18 +277,6 @@
       ].map(p=>`<div class="tl-pill ${p.c}"><span class="name">${p.n}</span><span class="grams">${p.g}</span><span class="flag">${p.f}</span></div>`).join("");
     }
 
-    // Combine/reduce steps to a maximum (default 6)
-    function condenseSteps(steps, max=6){
-      const clean=(Array.isArray(steps)?steps:[]).map(s=>String(s||"").trim()).filter(Boolean);
-      if(clean.length<=max) return clean;
-      const chunkSize=Math.ceil(clean.length/max);
-      const merged=[];
-      for(let i=0;i<clean.length;i+=chunkSize){
-        merged.push(clean.slice(i,i+chunkSize).join(" ثم "));
-      }
-      return merged.slice(0,max);
-    }
-
     // Map server schema to view
     function map(rec){
       return {
@@ -320,7 +301,7 @@
       return data;
     }
 
-    function render(view, maxSteps, note, warning){
+    function render(view, note, warning){
       resultContainer.classList.remove('hidden');
       contentArea.classList.remove('hidden');
 
@@ -328,8 +309,8 @@
       timeValue.textContent=view.time;
       servingsValue.textContent=view.servingsText;
       ingList.innerHTML=view.ingredients.map(i=>`<li>${i.name}</li>`).join("");
-      const compact=condenseSteps(view.steps, maxSteps);
-      stepsBox.innerHTML=compact.map(s=>`<div class="step"><p>${s}</p></div>`).join("");
+      const cleanSteps = (Array.isArray(view.steps) ? view.steps : []).map(s => String(s || "").trim()).filter(Boolean);
+      stepsBox.innerHTML = cleanSteps.map(s=>`<div class="step"><p>${s}</p></div>`).join("");
       renderTL(view.macros);
 
       if (warning) setBanner("تنبيه: تم توليد الوصفة لكن بعض قيود النظام المختار قد لا تكون مطبّقة بالكامل.", "amber");
@@ -347,7 +328,7 @@
         const payload={ mealType:mealType.value, cuisine:cuisine.value, dietType:dietType.value, caloriesTarget:Number(calorieTarget.value)||500, allergies, lang:"ar" };
         const data=await callAPI(payload);
         const view=map(data.recipe);
-        render(view, Number(maxStepsInput.value)||6, data.note, data.warning);
+        render(view, data.note, data.warning);
         // Updated status and toast messages to remove model name
         setStatus(`تم التوليد بنجاح`, true);
         pushToast(`تم توليد الوصفة بنجاح`,"success");
@@ -370,3 +351,4 @@
   </script>
 </body>
 </html>
+

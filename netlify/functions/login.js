@@ -1,13 +1,17 @@
+// /netlify/functions/login.js
 // Netlify Function: login
 // POST: { email, password, device_fingerprint_hash }
-// Env: GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME, GITHUB_REF, ADMIN_PASSWORD
-// Updates users.json: set device_fingerprint if empty, enforce single-device, set session_nonce + auth_token
+// Updates users.json: bind device if empty, enforce single-device, set session_nonce (refresh only), keep auth_token stable
+
+import crypto from "crypto";
+
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
 const GH_TOKEN = process.env.GITHUB_TOKEN;
 
 const GH_API = "https://api.github.com";
+const USERS_PATH = "data/users.json";
 
 async function ghGetJson(path){
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
@@ -34,12 +38,16 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
-function todayISO(){
-  // Compare by date-only (UTC-safe for simple windows)
-  return new Date().toISOString().slice(0,10);
+function todayDubai(){
+  const now = new Date();
+  const s = now.toLocaleDateString("en-CA", {
+    timeZone: "Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit"
+  });
+  return s; // YYYY-MM-DD
 }
+
 function withinWindow(start, end){
-  const d = todayISO();
+  const d = todayDubai();
   if(start && d < start) return false;
   if(end && d > end) return false;
   return true;
@@ -54,10 +62,21 @@ export async function handler(event){
     const body = JSON.parse(event.body||"{}");
     const { email, password, device_fingerprint_hash } = body;
 
-    const { json: users, sha } = await ghGetJson("data/users.json");
+    if(!email || !password || !device_fingerprint_hash){
+      return { statusCode: 400, body: JSON.stringify({ ok:false, reason:"missing_fields" }) };
+    }
 
-    const user = (users || []).find(u => (u.email||"").toLowerCase() === (email||"").toLowerCase());
-    if(!user || user.password !== password){
+    const { json: users, sha } = await ghGetJson(USERS_PATH);
+
+    const idx = users.findIndex(
+      u => (u.email||"").toLowerCase() === (email||"").toLowerCase()
+    );
+    if(idx === -1){
+      return { statusCode: 401, body: JSON.stringify({ ok:false, reason:"invalid" }) };
+    }
+
+    const user = users[idx];
+    if(user.password !== password){
       return { statusCode: 401, body: JSON.stringify({ ok:false, reason:"invalid" }) };
     }
 
@@ -65,21 +84,25 @@ export async function handler(event){
       return { statusCode: 403, body: JSON.stringify({ ok:false, reason:"inactive" }) };
     }
 
-    // Single device logic
+    // enforce single-device
     if(!user.device_fingerprint){
-      user.device_fingerprint = device_fingerprint_hash || null;
-    }else if(user.device_fingerprint !== device_fingerprint_hash){
-      return { statusCode: 403, body: JSON.stringify({ ok:false, reason:"device", message:"Account bound to another device." }) };
+      user.device_fingerprint = device_fingerprint_hash;
+    } else if(user.device_fingerprint !== device_fingerprint_hash){
+      return { statusCode: 423, body: JSON.stringify({
+        ok:false,
+        reason:"device_locked",
+        message:"الحساب مرتبط بجهاز آخر. لإعادة الربط: 00971502061209"
+      }) };
     }
 
-    // Create session
-    const session_nonce = crypto.randomUUID();
-    const auth_token = crypto.randomUUID();
-    user.session_nonce = session_nonce;
-    user.auth_token = auth_token;
+    // Refresh session_nonce only
+    user.session_nonce = crypto.randomUUID();
+    if(!user.auth_token){
+      user.auth_token = crypto.randomUUID(); // assign once
+    }
 
-    // Commit users.json
-    await ghPutJson("data/users.json", users, sha, `login: set session for ${user.email}`);
+    users[idx] = user;
+    await ghPutJson(USERS_PATH, users, sha, `login: refresh session for ${user.email}`);
 
     return {
       statusCode: 200,
@@ -87,8 +110,8 @@ export async function handler(event){
         ok: true,
         name: user.name || "",
         email: user.email,
-        token: auth_token,
-        session_nonce
+        token: user.auth_token,
+        session_nonce: user.session_nonce
       })
     };
   }catch(err){

@@ -1,33 +1,51 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>مُنشئ الوصفات بالذكاء الاصطناعي</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Cairo:wght@200..1000&display=swap');
     body{font-family:'Cairo','Inter',sans-serif;background:#f7f7f9;min-height:100vh;overflow-x:hidden}
+    /* Card */
     .recipe-card{box-shadow:0 10px 30px rgba(0,0,0,.08);transition:transform .3s; padding-bottom:2rem}
     .recipe-card:hover{transform:translateY(-2px)}
-    .ingredient-list li{position:relative;padding-right:1.5rem;line-height:1.8;margin-bottom:.75rem;font-size:1rem}
+    /* Ingredients */
+    .ingredient-list li{position:relative;padding-right:1.5rem;line-height:1.9;margin-bottom:.6rem;font-size:1rem}
     .ingredient-list li::before{content:'•';position:absolute;right:0;color:#ef4444;font-weight:bold}
-    .prep-step{counter-increment:step-counter;margin-top:1.5rem;padding-bottom:1rem;border-bottom:1px solid #f3f4f6}
-    .prep-step:last-child{border-bottom:none}
-    .step-title{font-size:1.125rem;font-weight:700;color:#1f2937;margin-bottom:.5rem;display:flex;align-items:center}
-    .step-title::before{content:counter(step-counter) ". ";color:#ef4444;font-size:1.25rem;font-weight:800;margin-left:.5rem}
-    .loader{border-top-color:#ef4444;animation:spinner 1.5s linear infinite}
-    @keyframes spinner{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    /* ==== Preparation Steps — Compact, readable cards ==== */
+    .steps-list{counter-reset:step-counter}
+    .prep-step{
+      position:relative;background:#fff;border:1px solid #eef0f3;border-radius:14px;
+      padding:14px 16px 14px 56px;margin:10px 0;line-height:1.9;box-shadow:0 4px 16px rgba(0,0,0,.03)
+    }
+    .prep-step:nth-child(odd){background:#fcfcfd}
+    .prep-step::before{
+      counter-increment:step-counter; content:counter(step-counter);
+      position:absolute; right:14px; top:14px; width:32px; height:32px; border-radius:999px;
+      background:#ef4444; color:#fff; display:grid; place-items:center; font-weight:800; font-size:.95rem;
+      box-shadow:0 2px 6px rgba(239,68,68,.35)
+    }
+    .step-title{margin:0 0 6px 0; font-size:1.05rem; font-weight:700; color:#111827}
+    .step-text{margin:0; color:#374151; font-size:1rem; word-break:break-word}
+    /* Loader */
+    .loader{border-top-color:#ef4444; animation:spin 1.5s linear infinite; border:2px dashed; width:20px;height:20px;border-radius:999px}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    /* Inputs touch size */
     select,input[type="number"],input[type="text"]{min-height:48px}
-    @media(max-width:1023px){
+    /* Mobile tweaks */
+    @media (max-width:1023px){
       .recipe-card .grid{display:flex;flex-direction:column}
       .recipe-card .order-1{order:1}
       .recipe-card .order-2{order:2}
+      .prep-step{padding:12px 12px 12px 52px}
+      .step-text{font-size:.98rem}
     }
   </style>
 </head>
 <body class="p-4 md:p-8">
-  <div class="max-w-5xl mx-auto container-wrapper">
+  <div class="max-w-5xl mx-auto">
     <!-- Header -->
     <header class="text-center mb-8">
       <h1 class="text-4xl font-extrabold text-red-600 mb-2">مُولِّد الوصفات الذكي</h1>
@@ -41,8 +59,10 @@
         <div>
           <label for="mealType" class="block text-sm font-medium text-gray-700 mb-1">نوع الوجبة</label>
           <select id="mealType" class="mt-1 block w-full pl-3 pr-10 py-3 border rounded-md">
-            <option value="غداء">غداء</option><option value="فطور">فطور</option>
-            <option value="عشاء" selected>عشاء</option><option value="وجبة خفيفة">وجبة خفيفة</option>
+            <option value="غداء">غداء</option>
+            <option value="فطور">فطور</option>
+            <option value="عشاء" selected>عشاء</option>
+            <option value="وجبة خفيفة">وجبة خفيفة</option>
           </select>
         </div>
         <div>
@@ -82,7 +102,7 @@
         <div>
           <label for="commonAllergy" class="block text-sm font-medium text-gray-700 mb-1">الحساسية الغذائية الشائعة</label>
           <select id="commonAllergy" class="mt-1 block w-full pl-3 pr-10 py-3 border rounded-md">
-            <option value="" selected>لا يوجد</option>
+            <option value="">لا يوجد</option>
             <option value="حساسية القمح/الجلوتين">القمح / الجلوتين</option>
             <option value="حساسية الألبان/اللاكتوز">الألبان / اللاكتوز</option>
             <option value="حساسية المكسرات">المكسرات</option>
@@ -103,7 +123,7 @@
       </div>
 
       <button id="generateBtn" class="mt-6 w-full flex justify-center items-center py-3 px-4 text-lg font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition shadow-md hover:shadow-lg disabled:bg-red-400">
-        <div id="loadingIndicator" class="hidden w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div>
+        <div id="loadingIndicator" class="hidden loader ml-2"></div>
         توليد الوصفة الآن
       </button>
       <p id="statusMsg" class="mt-3 text-center text-sm text-blue-600 hidden"></p>
@@ -160,7 +180,7 @@
         <!-- Steps -->
         <div class="lg:col-span-2 order-2">
           <h3 class="text-2xl font-extrabold text-gray-900 mb-6 border-b pb-2 border-gray-100">طريقة التحضير:</h3>
-          <div id="preparationSteps" class="space-y-4"></div>
+          <div id="preparationSteps" class="steps-list"></div>
         </div>
       </div>
       <pre id="rawJson" class="hidden"></pre>
@@ -168,35 +188,34 @@
   </div>
 
   <script>
-    // يشير إلى الدالة الناجحة الحالية على الخادم (لا مفاتيح بالمتصفح)
-    const API_ENDPOINT = "/.netlify/functions/generateRecipe"; /* :contentReference[oaicite:2]{index=2} */
+    // نقطة الخدمة على الخادم (Netlify Function) — لا مفاتيح هنا
+    const API_ENDPOINT = "/.netlify/functions/generateRecipe";
 
-    const el = (id)=>document.getElementById(id);
+    // عناصر DOM
+    const el = id => document.getElementById(id);
     const mealTypeEl=el('mealType'), cuisineEl=el('cuisine'), dietTypeEl=el('dietType'),
           calorieTargetEl=el('calorieTarget'), commonAllergyEl=el('commonAllergy'),
           customAllergyEl=el('customAllergy'), focusEl=el('focus'),
           generateBtn=el('generateBtn'), loadingIndicator=el('loadingIndicator'),
           errorMsg=el('errorMsg'), statusMsg=el('statusMsg'), recipeOutput=el('recipeOutput');
-
     const recipeTitle=el('recipeTitle'), timeValue=el('timeValue'), servingsValue=el('servingsValue'),
           caloriesValue=el('caloriesValue'), proteinValue=el('proteinValue'),
           carbsValue=el('carbsValue'), fatsValue=el('fatsValue'),
           ingredientsList=el('ingredientsList'), preparationSteps=el('preparationSteps'),
           rawJson=el('rawJson');
 
-    function show(msg, ok=true){ statusMsg.textContent=msg||""; statusMsg.classList.toggle('hidden',!msg); statusMsg.classList.toggle('text-blue-600',ok); statusMsg.classList.toggle('text-red-600',!ok); }
-    function err(msg){ errorMsg.textContent=msg||""; errorMsg.classList.toggle('hidden',!msg); }
+    function show(msg, ok=true){ statusMsg.textContent=msg||""; statusMsg.classList.toggle('hidden',!msg); statusMsg.classList.toggle('text-blue-600',ok); statusMsg.classList.toggle('text-red-600',!ok) }
+    function err(msg){ errorMsg.textContent=msg||""; errorMsg.classList.toggle('hidden',!msg) }
     function clearOut(){
       recipeTitle.textContent=""; timeValue.textContent=""; servingsValue.textContent="";
       caloriesValue.textContent=""; proteinValue.textContent=""; carbsValue.textContent=""; fatsValue.textContent="";
-      ingredientsList.innerHTML=""; preparationSteps.innerHTML=""; rawJson.textContent="";
-      recipeOutput.classList.add('hidden');
+      ingredientsList.innerHTML=""; preparationSteps.innerHTML=""; rawJson.textContent=""; recipeOutput.classList.add('hidden');
     }
 
-    // يحوّل مخطط الخادم (المعتمد حالياً) إلى هيكل العرض القديم لديك
-    // server schema: { title, servings, total_time_min, macros{protein_g,carbs_g,fat_g,calories}, ingredients[string[]], steps[string[]], lang }  :contentReference[oaicite:3]{index=3}
-    function mapServerToLegacyView(rec){
-      const data = {
+    // يحوّل مخطط الخادم إلى تنسيق العرض القديم
+    // server schema: { title, servings, total_time_min, macros{protein_g,carbs_g,fat_g,calories}, ingredients[string[]], steps[string[]], lang }
+    function mapServerToView(rec){
+      return {
         title: rec.title,
         time: `جاهز في ${rec.total_time_min} دقيقة`,
         servings: `${rec.servings} حصة`,
@@ -206,13 +225,12 @@
           carbs:   String(rec.macros.carbs_g),
           fats:    String(rec.macros.fat_g)
         },
-        ingredients: rec.ingredients.map(s=>({ name: s, quantity: "" })), // نعرض النص كاملاً كاسم
-        preparation: rec.steps.map((s,i)=>({ title: `الخطوة ${i+1}`, instruction: s }))
+        ingredients: rec.ingredients.map(s=>({ name: s, quantity: "" })),
+        preparation: rec.steps.map((s,i)=>({ title: ``, instruction: s })) // العنوان فارغ؛ الترقيم من CSS
       };
-      return data;
     }
 
-    function renderLegacy(data){
+    function renderRecipe(data){
       recipeTitle.textContent = data.title;
       timeValue.textContent   = data.time;
       servingsValue.textContent = data.servings;
@@ -232,22 +250,35 @@
       data.preparation.forEach(step=>{
         const div=document.createElement('div');
         div.className="prep-step";
-        div.innerHTML = `<div class="step-title">${step.title}</div><p class="text-gray-600 pr-0 text-base">${step.instruction}</p>`;
+        div.innerHTML = `
+          <h4 class="step-title">${step.title || "الخطوة"}</h4>
+          <p class="step-text">${step.instruction}</p>
+        `;
         preparationSteps.appendChild(div);
       });
 
       rawJson.textContent = JSON.stringify(data, null, 2);
       recipeOutput.classList.remove('hidden');
+      setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),120);
+    }
 
-      setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),100);
+    async function requestRecipe(payload){
+      const r = await fetch(API_ENDPOINT, {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json().catch(()=> ({}));
+      if(!r.ok || !data.ok) throw new Error(data?.error || `تعذر الاتصال (${r.status})`);
+      return data; // { ok:true, recipe, model }
     }
 
     async function generate(){
       clearOut(); err(""); show("جاري التوليد ...");
       generateBtn.disabled=true; loadingIndicator.classList.remove('hidden');
-      generateBtn.innerHTML = '<div class="w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div> جارٍ التوليد...';
+      generateBtn.innerHTML = '<div class="loader ml-2"></div> جارٍ التوليد...';
 
-      const allergies = [];
+      const allergies=[];
       if (commonAllergyEl.value) allergies.push(commonAllergyEl.value);
       if (customAllergyEl.value.trim()) allergies.push(customAllergyEl.value.trim());
 
@@ -260,12 +291,9 @@
       };
 
       try{
-        const r = await fetch(API_ENDPOINT, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-        const data = await r.json().catch(()=>({}));
-        if(!r.ok || !data.ok) throw new Error(data?.error || "تعذر الاتصال بالخادم");
-        show(`تم التوليد بنجاح — الموديل: ${data.model||"غير محدد"}`);
-        const view = mapServerToLegacyView(data.recipe);
-        renderLegacy(view);
+        const data = await requestRecipe(payload);
+        show(`تم التوليد — الموديل: ${data.model||"غير محدد"}`);
+        renderRecipe(mapServerToView(data.recipe));
       }catch(e){
         err(e.message||"حدث خطأ غير متوقع"); show("", true);
       }finally{

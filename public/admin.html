@@ -69,6 +69,10 @@
             <div><input required name="email" placeholder="البريد" type="email" class="input" /></div>
             <div><input required name="password" placeholder="كلمة السر" class="input" /></div>
             <div>
+              <label class="hint" style="display:block;margin-bottom:.25rem">إذا كان البريد موجودًا</label>
+              <label style="display:flex;gap:.5rem;align-items:center"><input type="checkbox" name="upsert"/> حدِّث المستخدم بدلًا من الإنشاء</label>
+            </div>
+            <div>
               <select name="status" class="select">
                 <option value="active">active</option>
                 <option value="suspended">suspended</option>
@@ -200,6 +204,7 @@
 
     // ============ Users CRUD ============
     const tbody = document.getElementById('usersTbody');
+    let currentUsers = []; // ذاكرة لسرعة التحقق من التكرار
 
     async function loadUsers(){
       try{
@@ -278,18 +283,20 @@
     }
 
     function renderUsers(list){
+      currentUsers = Array.isArray(list)? list: [];
       tbody.innerHTML = '';
-      list.forEach(u => tbody.appendChild(rowTemplate(u)));
+      currentUsers.forEach(u => tbody.appendChild(rowTemplate(u)));
     }
 
     // Create new user
     document.getElementById('createUserForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
-      const form = e.currentTarget; // احفظ المرجع قبل await لتجنب Null بعد الانتظار
+      const form = e.currentTarget;
       const fd = new FormData(form);
+      const email = (fd.get('email')||'').toString().trim().toLowerCase();
       const body = {
         name: (fd.get('name')||'').toString().trim(),
-        email: (fd.get('email')||'').toString().trim().toLowerCase(),
+        email,
         password: (fd.get('password')||'').toString(),
         status: (fd.get('status')||'active').toString(),
         start_date: fd.get('start_date')||null,
@@ -298,12 +305,22 @@
         session_nonce: null,
         lock_reason: null
       };
+      const upsert = fd.get('upsert') === 'on';
+      const exists = currentUsers.some(u => (u.email||'').toLowerCase() === email);
       try{
-        await api('adminUsers','POST', body);
-        form.reset(); // كانت e.currentTarget.reset() تسبب Cannot read properties of null بعد await
+        if(exists && !upsert){
+          alert('هذا البريد موجود مسبقًا. ضع علامة "حدّث المستخدم بدلًا من الإنشاء" أو غيّر البريد.');
+          return;
+        }
+        if(exists && upsert){
+          await api('adminUsers','PUT', body);
+        } else {
+          await api('adminUsers','POST', body);
+        }
+        form.reset();
         await loadUsers();
-        alert('تم حفظ المستخدم الجديد');
-      }catch(err){ alert('فشل إنشاء المستخدم: '+ err.message); }
+        alert('تم الحفظ');
+      }catch(err){ alert('فشل حفظ المستخدم: '+ err.message); }
     });
 
     // Settings (placeholder submit only)

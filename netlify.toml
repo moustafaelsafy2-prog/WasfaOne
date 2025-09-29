@@ -1,2 +1,11 @@
-publish = "public"
-functions = "netlify/functions"
+[build]
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"
+
+# تمرير مسارات الدوال كما هي
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200

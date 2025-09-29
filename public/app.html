@@ -1,152 +1,283 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>مُنشئ الوصفات بالذكاء الاصطناعي</title>
-
-  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&display=swap');
-    body { font-family: 'Cairo', sans-serif; background:#f7f7f9; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Cairo:wght@200..1000&display=swap');
+    body{font-family:'Cairo','Inter',sans-serif;background:#f7f7f9;min-height:100vh;overflow-x:hidden}
+    .recipe-card{box-shadow:0 10px 30px rgba(0,0,0,.08);transition:transform .3s; padding-bottom:2rem}
+    .recipe-card:hover{transform:translateY(-2px)}
+    .ingredient-list li{position:relative;padding-right:1.5rem;line-height:1.8;margin-bottom:.75rem;font-size:1rem}
+    .ingredient-list li::before{content:'•';position:absolute;right:0;color:#ef4444;font-weight:bold}
+    .prep-step{counter-increment:step-counter;margin-top:1.5rem;padding-bottom:1rem;border-bottom:1px solid #f3f4f6}
+    .prep-step:last-child{border-bottom:none}
+    .step-title{font-size:1.125rem;font-weight:700;color:#1f2937;margin-bottom:.5rem;display:flex;align-items:center}
+    .step-title::before{content:counter(step-counter) ". ";color:#ef4444;font-size:1.25rem;font-weight:800;margin-left:.5rem}
+    .loader{border-top-color:#ef4444;animation:spinner 1.5s linear infinite}
+    @keyframes spinner{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    select,input[type="number"],input[type="text"]{min-height:48px}
+    @media(max-width:1023px){
+      .recipe-card .grid{display:flex;flex-direction:column}
+      .recipe-card .order-1{order:1}
+      .recipe-card .order-2{order:2}
+    }
   </style>
 </head>
-<body class="min-h-screen flex flex-col">
-  <header class="bg-white shadow-sm">
-    <div class="max-w-5xl mx-auto px-4 py-4">
-      <h1 class="text-2xl font-bold">مُنشئ الوصفات بالذكاء الاصطناعي</h1>
-      <p class="text-gray-600 text-sm">نولّد وصفة كاملة ببنية قياسية عبر الخادم (Netlify Function)</p>
+<body class="p-4 md:p-8">
+  <div class="max-w-5xl mx-auto container-wrapper">
+    <!-- Header -->
+    <header class="text-center mb-8">
+      <h1 class="text-4xl font-extrabold text-red-600 mb-2">مُولِّد الوصفات الذكي</h1>
+      <p class="text-gray-600 text-lg">اختر تفضيلاتك الغذائية ودع الذكاء الاصطناعي يُحضّر لك وجبتك المثالية.</p>
+    </header>
+
+    <!-- Form -->
+    <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg mb-8">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 border-gray-100">حدد مواصفات الوجبة والنظام الغذائي</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div>
+          <label for="mealType" class="block text-sm font-medium text-gray-700 mb-1">نوع الوجبة</label>
+          <select id="mealType" class="mt-1 block w-full pl-3 pr-10 py-3 border rounded-md">
+            <option value="غداء">غداء</option><option value="فطور">فطور</option>
+            <option value="عشاء" selected>عشاء</option><option value="وجبة خفيفة">وجبة خفيفة</option>
+          </select>
+        </div>
+        <div>
+          <label for="cuisine" class="block text-sm font-medium text-gray-700 mb-1">المطبخ</label>
+          <select id="cuisine" class="mt-1 block w-full pl-3 pr-10 py-3 border rounded-md">
+            <option value="شرق أوسطي" selected>شرق أوسطي</option>
+            <option value="مطبخ مصري">مطبخ مصري</option>
+            <option value="مطبخ شامي">مطبخ شامي</option>
+            <option value="مطبخ خليجي">مطبخ خليجي</option>
+            <option value="مطبخ مغربي/تونسي/جزائري">مغربي/تونسي/جزائري</option>
+            <option value="مطبخ يمني">مطبخ يمني</option>
+            <option value="إيطالي">إيطالي</option>
+            <option value="آسيوي">آسيوي</option>
+            <option value="عالمي/مبتكر">عالمي/مبتكر</option>
+          </select>
+        </div>
+        <div>
+          <label for="dietType" class="block text-sm font-medium text-gray-700 mb-1">النظام الغذائي المتبع</label>
+          <select id="dietType" class="mt-1 block w-full pl-3 pr-10 py-3 border rounded-md">
+            <option value="عادي/متوازن" selected>عادي / متوازن</option>
+            <option value="نظام د. محمد سعيد">نظام د. محمد سعيد</option>
+            <option value="كيتو">كيتو</option>
+            <option value="نباتي (Vegetarian)">نباتي (Vegetarian)</option>
+            <option value="فيجن (Vegan)">فيجن (Vegan)</option>
+            <option value="قليل الكربوهيدرات">قليل الكربوهيدرات</option>
+            <option value="خالي من الجلوتين">خالي من الجلوتين</option>
+            <option value="عالي البروتين">عالي البروتين</option>
+          </select>
+        </div>
+        <div>
+          <label for="calorieTarget" class="block text-sm font-medium text-gray-700 mb-1">السعرات الحرارية المطلوبة (لكل حصة)</label>
+          <input type="number" id="calorieTarget" min="100" max="2000" step="50" value="550" class="mt-1 block w-full px-3 py-3 border rounded-md" placeholder="مثال: 500 سعرة">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div>
+          <label for="commonAllergy" class="block text-sm font-medium text-gray-700 mb-1">الحساسية الغذائية الشائعة</label>
+          <select id="commonAllergy" class="mt-1 block w-full pl-3 pr-10 py-3 border rounded-md">
+            <option value="" selected>لا يوجد</option>
+            <option value="حساسية القمح/الجلوتين">القمح / الجلوتين</option>
+            <option value="حساسية الألبان/اللاكتوز">الألبان / اللاكتوز</option>
+            <option value="حساسية المكسرات">المكسرات</option>
+            <option value="حساسية البيض">البيض</option>
+            <option value="حساسية المأكولات البحرية">المأكولات البحرية</option>
+            <option value="حساسية فول الصويا">فول الصويا</option>
+          </select>
+        </div>
+        <div>
+          <label for="customAllergy" class="block text-sm font-medium text-gray-700 mb-1">حساسيات أخرى يجب تجنبها (اختياري)</label>
+          <input type="text" id="customAllergy" placeholder="الثوم، الفول السوداني ..." class="mt-1 block w-full px-3 py-3 border rounded-md">
+        </div>
+      </div>
+
+      <div class="mt-6">
+        <label for="focus" class="block text-sm font-medium text-gray-700 mb-1">المكون الرئيسي / التركيز (اختياري)</label>
+        <input type="text" id="focus" class="mt-1 block w-full px-3 py-3 border rounded-md" placeholder="مثل: دجاج وخضار..." value="وصفة دجاج صحية غنية بالبروتين">
+      </div>
+
+      <button id="generateBtn" class="mt-6 w-full flex justify-center items-center py-3 px-4 text-lg font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition shadow-md hover:shadow-lg disabled:bg-red-400">
+        <div id="loadingIndicator" class="hidden w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div>
+        توليد الوصفة الآن
+      </button>
+      <p id="statusMsg" class="mt-3 text-center text-sm text-blue-600 hidden"></p>
+      <p id="errorMsg" class="mt-3 text-center text-sm text-red-500 hidden">حدث خطأ. يرجى المحاولة مرة أخرى.</p>
     </div>
-  </header>
 
-  <main class="flex-1">
-    <div class="max-w-5xl mx-auto px-4 py-6 grid md:grid-cols-3 gap-6">
-      <!-- النموذج -->
-      <section class="md:col-span-1 bg-white rounded-xl p-4 shadow">
-        <h2 class="font-semibold mb-3">مدخلات الوصفة</h2>
+    <!-- Output -->
+    <div id="recipeOutput" class="recipe-card bg-white p-6 md:p-8 rounded-xl border border-gray-200 hidden">
+      <div class="text-center mb-6">
+        <h2 id="recipeTitle" class="text-3xl font-extrabold text-gray-900 mb-2"></h2>
+        <div class="flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-4 sm:space-x-reverse text-gray-500 text-sm font-medium">
+          <p class="flex items-center">
+            <svg class="w-4 h-4 ml-1 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span id="timeValue"></span>
+          </p>
+          <p class="flex items-center">
+            <svg class="w-4 h-4 ml-1 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20v-2A3 3 0 005.356 18.143 3 3 0 005 20h5V20m0 0h10a2 2 0 002-2v-2a3 3 0 00-5.356-1.857M10 20v-2a3 3 0 0110.356 1.857 3 3 0 01-10.356 0zM6 10a3 3 0 11-6 0 3 3 0 016 0zM17 4a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span id="servingsValue"></span>
+          </p>
+        </div>
+      </div>
 
-        <label class="block text-sm mb-1">نوع الوجبة</label>
-        <select id="mealType" class="w-full mb-3 border rounded p-2">
-          <option value="الفطور">الفطور</option>
-          <option value="الغداء">الغداء</option>
-          <option value="العشاء">العشاء</option>
-          <option value="سناك">سناك</option>
-        </select>
-
-        <label class="block text-sm mb-1">المطبخ</label>
-        <select id="cuisine" class="w-full mb-3 border rounded p-2">
-          <option value="عربي">عربي</option>
-          <option value="متوسطي">متوسطي</option>
-          <option value="إيطالي">إيطالي</option>
-          <option value="هندي">هندي</option>
-          <option value="آسيوي">آسيوي</option>
-        </select>
-
-        <label class="block text-sm mb-1">نظام غذائي</label>
-        <select id="dietType" class="w-full mb-3 border rounded p-2">
-          <option value="منخفض الكربوهيدرات">منخفض الكربوهيدرات</option>
-          <option value="كيتو">كيتو</option>
-          <option value="متوازن">متوازن</option>
-          <option value="نباتي">نباتي</option>
-          <option value="خالي من الغلوتين">خالي من الغلوتين</option>
-        </select>
-
-        <label class="block text-sm mb-1">الهدف الحراري (سعرة/الحصة)</label>
-        <input id="calorieTarget" type="number" min="150" max="1200" step="10" value="500" class="w-full mb-3 border rounded p-2" />
-
-        <label class="block text-sm mb-1">حساسيات شائعة</label>
-        <select id="commonAllergy" class="w-full mb-3 border rounded p-2">
-          <option value="">لا يوجد</option>
-          <option value="مكسرات">مكسرات</option>
-          <option value="ألبان">ألبان</option>
-          <option value="بيض">بيض</option>
-          <option value="مأكولات بحرية">مأكولات بحرية</option>
-          <option value="جلوتين">جلوتين</option>
-        </select>
-
-        <label class="block text-sm mb-1">حساسيات مخصصة (افصل بفواصل)</label>
-        <input id="customAllergy" type="text" placeholder="سمسم، صويا ..." class="w-full mb-3 border rounded p-2" />
-
-        <label class="block text-sm mb-1">تركيز خاص</label>
-        <select id="focus" class="w-full mb-4 border rounded p-2">
-          <option value="">بدون</option>
-          <option value="غني بالبروتين">غني بالبروتين</option>
-          <option value="قليل الدهون">قليل الدهون</option>
-          <option value="سريع التحضير">سريع التحضير</option>
-          <option value="مكونات اقتصادية">مكونات اقتصادية</option>
-        </select>
-
-        <button id="generateBtn" class="w-full bg-black text-white rounded-lg py-2 font-semibold disabled:opacity-50">
-          توليد الوصفة الآن
-        </button>
-
-        <div id="loadingIndicator" class="hidden text-sm text-gray-600 mt-3">... جاري التوليد</div>
-        <p id="statusMsg" class="hidden text-sm mt-2"></p>
-        <div id="errorMsg" class="hidden text-sm text-red-600 mt-2"></div>
-      </section>
-
-      <!-- المخرجات -->
-      <section class="md:col-span-2 bg-white rounded-xl p-4 shadow">
-        <h2 class="font-semibold mb-4">النتيجة</h2>
-
-        <h3 id="recipeTitle" class="text-xl font-bold mb-2"></h3>
-
-        <div class="grid md:grid-cols-3 gap-4 mb-4">
-          <div class="bg-gray-50 rounded-lg p-3">
-            <div class="text-xs text-gray-500">الوقت الإجمالي</div>
-            <div id="timeValue" class="text-lg font-semibold">—</div>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 border-t pt-6 border-gray-100">
+        <!-- Macros + Ingredients -->
+        <div class="lg:col-span-1 order-1">
+          <div class="bg-white p-4 md:p-6 rounded-xl mb-6 flex flex-col items-center border border-gray-100 shadow-sm">
+            <h3 class="text-xl font-bold text-red-600 mb-4">القيمة الغذائية (لكل حصة)</h3>
+            <div class="mb-6 w-36 h-36 flex flex-col items-center justify-center rounded-full bg-red-100 border-4 border-red-500 shadow-md">
+              <div id="caloriesValue" class="text-3xl font-black text-gray-900"></div>
+              <div class="text-sm font-medium text-red-600">سعرة حرارية</div>
+            </div>
+            <div class="w-full grid grid-cols-3 gap-3 text-center">
+              <div class="p-2 rounded-lg bg-green-50 border border-green-200">
+                <div id="proteinValue" class="text-xl font-bold text-green-700"></div>
+                <div class="text-xs font-medium text-gray-600 mt-1">بروتين</div>
+              </div>
+              <div class="p-2 rounded-lg bg-blue-50 border border-blue-200">
+                <div id="carbsValue" class="text-xl font-bold text-blue-700"></div>
+                <div class="text-xs font-medium text-gray-600 mt-1">كربوهيدرات</div>
+              </div>
+              <div class="p-2 rounded-lg bg-yellow-50 border border-yellow-200">
+                <div id="fatsValue" class="text-xl font-bold text-yellow-700"></div>
+                <div class="text-xs font-medium text-gray-600 mt-1">دهون</div>
+              </div>
+            </div>
           </div>
-          <div class="bg-gray-50 rounded-lg p-3">
-            <div class="text-xs text-gray-500">الحصص</div>
-            <div id="servingsValue" class="text-lg font-semibold">—</div>
-          </div>
-          <div class="bg-gray-50 rounded-lg p-3">
-            <div class="text-xs text-gray-500">السعرات/الحصة</div>
-            <div id="caloriesValue" class="text-lg font-semibold">—</div>
+
+          <div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-100">المكونات:</h3>
+            <ul id="ingredientsList" class="ingredient-list pr-4 text-gray-700"></ul>
           </div>
         </div>
 
-        <div class="grid md:grid-cols-3 gap-4 mb-6">
-          <div class="bg-gray-50 rounded-lg p-3">
-            <div class="text-xs text-gray-500">بروتين (غ)</div>
-            <div id="proteinValue" class="text-lg font-semibold">—</div>
-          </div>
-          <div class="bg-gray-50 rounded-lg p-3">
-            <div class="text-xs text-gray-500">كربوهيدرات (غ)</div>
-            <div id="carbsValue" class="text-lg font-semibold">—</div>
-          </div>
-          <div class="bg-gray-50 rounded-lg p-3">
-            <div class="text-xs text-gray-500">دهون (غ)</div>
-            <div id="fatsValue" class="text-lg font-semibold">—</div>
-          </div>
+        <!-- Steps -->
+        <div class="lg:col-span-2 order-2">
+          <h3 class="text-2xl font-extrabold text-gray-900 mb-6 border-b pb-2 border-gray-100">طريقة التحضير:</h3>
+          <div id="preparationSteps" class="space-y-4"></div>
         </div>
-
-        <div class="mb-6">
-          <h4 class="font-semibold mb-2">المكونات</h4>
-          <ul id="ingredientsList" class="list-disc pr-5 space-y-1"></ul>
-        </div>
-
-        <div class="mb-6">
-          <h4 class="font-semibold mb-2">الخطوات</h4>
-          <ol id="preparationSteps" class="list-decimal pr-5 space-y-1"></ol>
-        </div>
-
-        <details class="bg-gray-50 rounded-lg p-3">
-          <summary class="cursor-pointer font-semibold">Raw JSON</summary>
-          <pre id="rawJson" class="text-xs mt-3 overflow-auto"></pre>
-        </details>
-      </section>
+      </div>
+      <pre id="rawJson" class="hidden"></pre>
     </div>
-  </main>
+  </div>
 
-  <footer class="bg-white border-t">
-    <div class="max-w-5xl mx-auto px-4 py-3 text-xs text-gray-500">
-      يعمل عبر Netlify Functions و Gemini. لا يتم كشف أي مفاتيح على المتصفح.
-    </div>
-  </footer>
+  <script>
+    // يشير إلى الدالة الناجحة الحالية على الخادم (لا مفاتيح بالمتصفح)
+    const API_ENDPOINT = "/.netlify/functions/generateRecipe"; /* :contentReference[oaicite:2]{index=2} */
 
-  <!-- ربط سكربت الواجهة -->
-  <script src="/assets/app.js" defer></script>
+    const el = (id)=>document.getElementById(id);
+    const mealTypeEl=el('mealType'), cuisineEl=el('cuisine'), dietTypeEl=el('dietType'),
+          calorieTargetEl=el('calorieTarget'), commonAllergyEl=el('commonAllergy'),
+          customAllergyEl=el('customAllergy'), focusEl=el('focus'),
+          generateBtn=el('generateBtn'), loadingIndicator=el('loadingIndicator'),
+          errorMsg=el('errorMsg'), statusMsg=el('statusMsg'), recipeOutput=el('recipeOutput');
+
+    const recipeTitle=el('recipeTitle'), timeValue=el('timeValue'), servingsValue=el('servingsValue'),
+          caloriesValue=el('caloriesValue'), proteinValue=el('proteinValue'),
+          carbsValue=el('carbsValue'), fatsValue=el('fatsValue'),
+          ingredientsList=el('ingredientsList'), preparationSteps=el('preparationSteps'),
+          rawJson=el('rawJson');
+
+    function show(msg, ok=true){ statusMsg.textContent=msg||""; statusMsg.classList.toggle('hidden',!msg); statusMsg.classList.toggle('text-blue-600',ok); statusMsg.classList.toggle('text-red-600',!ok); }
+    function err(msg){ errorMsg.textContent=msg||""; errorMsg.classList.toggle('hidden',!msg); }
+    function clearOut(){
+      recipeTitle.textContent=""; timeValue.textContent=""; servingsValue.textContent="";
+      caloriesValue.textContent=""; proteinValue.textContent=""; carbsValue.textContent=""; fatsValue.textContent="";
+      ingredientsList.innerHTML=""; preparationSteps.innerHTML=""; rawJson.textContent="";
+      recipeOutput.classList.add('hidden');
+    }
+
+    // يحوّل مخطط الخادم (المعتمد حالياً) إلى هيكل العرض القديم لديك
+    // server schema: { title, servings, total_time_min, macros{protein_g,carbs_g,fat_g,calories}, ingredients[string[]], steps[string[]], lang }  :contentReference[oaicite:3]{index=3}
+    function mapServerToLegacyView(rec){
+      const data = {
+        title: rec.title,
+        time: `جاهز في ${rec.total_time_min} دقيقة`,
+        servings: `${rec.servings} حصة`,
+        macros: {
+          calories: String(rec.macros.calories),
+          protein: String(rec.macros.protein_g),
+          carbs:   String(rec.macros.carbs_g),
+          fats:    String(rec.macros.fat_g)
+        },
+        ingredients: rec.ingredients.map(s=>({ name: s, quantity: "" })), // نعرض النص كاملاً كاسم
+        preparation: rec.steps.map((s,i)=>({ title: `الخطوة ${i+1}`, instruction: s }))
+      };
+      return data;
+    }
+
+    function renderLegacy(data){
+      recipeTitle.textContent = data.title;
+      timeValue.textContent   = data.time;
+      servingsValue.textContent = data.servings;
+      caloriesValue.textContent = data.macros.calories;
+      proteinValue.textContent  = `${data.macros.protein} جم`;
+      carbsValue.textContent    = `${data.macros.carbs} جم`;
+      fatsValue.textContent     = `${data.macros.fats} جم`;
+
+      ingredientsList.innerHTML = "";
+      data.ingredients.forEach(ing=>{
+        const li=document.createElement('li');
+        li.innerHTML = `<span class="font-bold text-gray-800">${ing.name}</span>${ing.quantity?` <span class="text-gray-500 text-sm mr-2">(${ing.quantity})</span>`:""}`;
+        ingredientsList.appendChild(li);
+      });
+
+      preparationSteps.innerHTML = "";
+      data.preparation.forEach(step=>{
+        const div=document.createElement('div');
+        div.className="prep-step";
+        div.innerHTML = `<div class="step-title">${step.title}</div><p class="text-gray-600 pr-0 text-base">${step.instruction}</p>`;
+        preparationSteps.appendChild(div);
+      });
+
+      rawJson.textContent = JSON.stringify(data, null, 2);
+      recipeOutput.classList.remove('hidden');
+
+      setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),100);
+    }
+
+    async function generate(){
+      clearOut(); err(""); show("جاري التوليد ...");
+      generateBtn.disabled=true; loadingIndicator.classList.remove('hidden');
+      generateBtn.innerHTML = '<div class="w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div> جارٍ التوليد...';
+
+      const allergies = [];
+      if (commonAllergyEl.value) allergies.push(commonAllergyEl.value);
+      if (customAllergyEl.value.trim()) allergies.push(customAllergyEl.value.trim());
+
+      const payload = {
+        mealType: mealTypeEl.value,
+        cuisine: cuisineEl.value,
+        dietType: dietTypeEl.value,
+        caloriesTarget: Number(calorieTargetEl.value)||500,
+        allergies, focus: (focusEl.value||"").trim(), lang:"ar"
+      };
+
+      try{
+        const r = await fetch(API_ENDPOINT, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+        const data = await r.json().catch(()=>({}));
+        if(!r.ok || !data.ok) throw new Error(data?.error || "تعذر الاتصال بالخادم");
+        show(`تم التوليد بنجاح — الموديل: ${data.model||"غير محدد"}`);
+        const view = mapServerToLegacyView(data.recipe);
+        renderLegacy(view);
+      }catch(e){
+        err(e.message||"حدث خطأ غير متوقع"); show("", true);
+      }finally{
+        generateBtn.disabled=false; loadingIndicator.classList.add('hidden'); generateBtn.textContent='توليد الوصفة الآن';
+      }
+    }
+
+    document.getElementById('generateBtn').addEventListener('click', async ()=>{
+      const v=Number(calorieTargetEl.value||0);
+      if(!v || v<100 || v>2000){ err("يرجى إدخال قيمة سعرات حرارية صالحة بين 100 و 2000."); return; }
+      await generate();
+    });
+  </script>
 </body>
 </html>

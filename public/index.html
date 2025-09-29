@@ -1,1 +1,66 @@
-<!-- index.html content here -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WasfaOne</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+</head>
+<body class="bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+  <!-- Header -->
+  <header class="flex justify-between items-center p-4 shadow">
+    <div id="logo" class="flex items-center space-x-2"></div>
+    <button id="lang-toggle" class="px-4 py-2 rounded bg-red-500 text-white hover:scale-105 transition">EN</button>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative" data-aos="fade-up">
+    <img id="hero-img" class="w-full h-96 object-cover" alt="">
+    <div class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-40 text-center text-white">
+      <h1 id="hero-title" class="text-4xl font-bold mb-4">WasfaOne</h1>
+      <a href="login.html" class="px-6 py-3 bg-red-500 rounded text-lg shadow hover:scale-105 transition">ابدأ الآن</a>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="grid md:grid-cols-3 gap-6 p-6">
+    <div class="feature-card" data-aos="fade-up" data-aos-delay="100">
+      <img id="feature-img-1" class="w-full h-40 object-cover rounded" alt="">
+      <h3 class="mt-2 text-xl font-bold" id="feature-title-1"></h3>
+      <p id="feature-desc-1"></p>
+    </div>
+    <div class="feature-card" data-aos="fade-up" data-aos-delay="200">
+      <img id="feature-img-2" class="w-full h-40 object-cover rounded" alt="">
+      <h3 class="mt-2 text-xl font-bold" id="feature-title-2"></h3>
+      <p id="feature-desc-2"></p>
+    </div>
+    <div class="feature-card" data-aos="fade-up" data-aos-delay="300">
+      <img id="feature-img-3" class="w-full h-40 object-cover rounded" alt="">
+      <h3 class="mt-2 text-xl font-bold" id="feature-title-3"></h3>
+      <p id="feature-desc-3"></p>
+    </div>
+  </section>
+
+  <!-- Diet Systems -->
+  <section class="p-6" data-aos="fade-up">
+    <h2 class="text-2xl font-bold mb-4" id="diet-title"></h2>
+    <div id="diet-list" class="grid gap-4"></div>
+  </section>
+
+  <!-- Contact -->
+  <footer class="bg-slate-800 text-white p-6 text-center">
+    <p id="contact-info"></p>
+    <a id="whatsapp-btn" href="#" target="_blank" class="mt-2 inline-block px-4 py-2 bg-green-500 rounded">واتساب</a>
+    <p class="mt-4">للاشتراك أو التجديد: 00971502061209 — واتساب/اتصال</p>
+  </footer>
+
+  <script src="assets/app.js"></script>
+  <script>
+    AOS.init();
+    loadIndexPage();
+  </script>
+</body>
+</html>

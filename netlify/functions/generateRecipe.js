@@ -1,52 +1,62 @@
-// Netlify Function: generateRecipe (no fallbacks, version-smart, strict schema)
+// netlify/functions/generateRecipe.js
+// UAE-ready — Tries a broad pool of Gemini models on v1beta, no fallbacks, strict JSON schema.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// نحاول مسارين متوافقين: v1 أولاً ثم v1beta-latest
-const MODEL_PRIMARY = "gemini-1.5-flash";
-const MODEL_FALLBACK = "gemini-1.5-flash-latest";
-const ENDPOINTS = [
-  `https://generativelanguage.googleapis.com/v1/models/${MODEL_PRIMARY}:generateContent`,
-  `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_FALLBACK}:generateContent`,
+// الأسماء مرتبة من الأدق للأوسع دعماً (بناءً على تجربتك في الإمارات)
+const MODEL_POOL = [
+  // Pro-first
+  "gemini-1.5-pro-latest",
+  "gemini-1.5-pro",
+  "gemini-1.5-pro-001",
+  "gemini-pro",
+  "gemini-1.0-pro",
+  // Flash
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-exp",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-001",
+  "gemini-1.5-flash-latest"
 ];
 
-// ---------- Utilities ----------
-const jsonRes = (statusCode, obj) => ({
-  statusCode,
+// ------------ Utilities ------------
+const jsonRes = (code, obj) => ({
+  statusCode: code,
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(obj),
+  body: JSON.stringify(obj)
 });
 const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
-const ok = (payload) => jsonRes(200, { ok: true, ...payload });
+const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
 
-// ---------- Schema validation ----------
 function validateRecipeSchema(rec) {
-  const must = ["title", "servings", "total_time_min", "macros", "ingredients", "steps", "lang"];
-  if (!rec || typeof rec !== "object") return { ok: false, error: "recipe_not_object" };
-  for (const k of must) if (!(k in rec)) return { ok: false, error: `missing_${k}` };
+  const must = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
+  if (!rec || typeof rec !== "object") return { ok:false, error:"recipe_not_object" };
+  for (const k of must) if (!(k in rec)) return { ok:false, error:`missing_${k}` };
 
-  if (typeof rec.title !== "string" || !rec.title.trim()) return { ok: false, error: "title_type" };
-  if (!Number.isFinite(rec.servings)) return { ok: false, error: "servings_type" };
-  if (!Number.isFinite(rec.total_time_min)) return { ok: false, error: "total_time_min_type" };
+  if (typeof rec.title !== "string" || !rec.title.trim()) return { ok:false, error:"title_type" };
+  if (!Number.isFinite(rec.servings)) return { ok:false, error:"servings_type" };
+  if (!Number.isFinite(rec.total_time_min)) return { ok:false, error:"total_time_min_type" };
 
   const m = rec.macros;
-  if (!m || typeof m !== "object") return { ok: false, error: "macros_type" };
-  for (const key of ["protein_g", "carbs_g", "fat_g", "calories"]) {
-    if (!Number.isFinite(m[key])) return { ok: false, error: `macro_${key}_type` };
+  if (!m || typeof m !== "object") return { ok:false, error:"macros_type" };
+  for (const key of ["protein_g","carbs_g","fat_g","calories"]) {
+    if (!Number.isFinite(m[key])) return { ok:false, error:`macro_${key}_type` };
   }
-  if (!Array.isArray(rec.ingredients) || rec.ingredients.some((x) => typeof x !== "string"))
-    return { ok: false, error: "ingredients_type" };
-  if (!Array.isArray(rec.steps) || rec.steps.some((x) => typeof x !== "string"))
-    return { ok: false, error: "steps_type" };
-  if (rec.lang !== "ar") return { ok: false, error: "lang_must_be_ar" };
+  if (!Array.isArray(rec.ingredients) || rec.ingredients.some(x => typeof x !== "string")) {
+    return { ok:false, error:"ingredients_type" };
+  }
+  if (!Array.isArray(rec.steps) || rec.steps.some(x => typeof x !== "string")) {
+    return { ok:false, error:"steps_type" };
+  }
+  if (rec.lang !== "ar") return { ok:false, error:"lang_must_be_ar" };
 
-  return { ok: true };
+  return { ok:true };
 }
 
-// ---------- Prompt builders ----------
 function systemInstruction() {
   return `
-أنت شيف محترف. أعد الناتج كـ JSON فقط وفق المخطط التالي، دون أي نص خارجه:
+أنت شيف محترف. أعد **JSON فقط** حسب هذا المخطط، بدون أي نص خارجه:
 {
   "title": string,
   "servings": number,
@@ -56,10 +66,10 @@ function systemInstruction() {
   "steps": string[],
   "lang": "ar"
 }
-- أرقام صافية في الماكروز (بدون وحدات).
+- أرقام الماكروز بدون وحدات.
 - ingredients عناصر قصيرة (كمية + مكوّن).
-- steps جمل تنفيذية قصيرة.
-- اللغة: العربية فقط.
+- steps خطوات تنفيذية قصيرة وواضحة.
+- اللغة عربية فقط.
 `.trim();
 }
 
@@ -70,135 +80,99 @@ function userPrompt(input) {
     dietType = "متوازن",
     caloriesTarget = 500,
     allergies = [],
-    focus = "",
-  } = input;
-
-  const avoid = allergies?.length ? allergies.join(", ") : "لا شيء";
+    focus = ""
+  } = input || {};
+  const avoid = (Array.isArray(allergies) && allergies.length) ? allergies.join(", ") : "لا شيء";
   const focusLine = focus ? `تركيز خاص: ${focus}.` : "";
-
   return `
 أنشئ وصفة ${mealType} من مطبخ ${cuisine} لنظام ${dietType}.
-الهدف التقريبي للسعرات لكل حصة: ${caloriesTarget}.
+السعرات المستهدفة للحصة: ${caloriesTarget}.
 حساسيات يجب تجنبها: ${avoid}.
 ${focusLine}
-أعد النتيجة JSON فقط حسب المخطط المطلوب وبالعربية.
+أعد النتيجة كـ JSON فقط حسب المخطط المطلوب وبالعربية.
 `.trim();
 }
 
-// ---------- Response parsing ----------
 function extractJsonFromCandidates(jr) {
-  // يدعم v1 و v1beta: parts[].text قد تحتوي JSON مباشرة أو داخل أسوار ```json
   const text =
-    jr?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ||
-    jr?.candidates?.[0]?.content?.parts?.[0]?.text ||
-    "";
-
+    jr?.candidates?.[0]?.content?.parts?.map(p => p?.text || "").join("") ||
+    jr?.candidates?.[0]?.content?.parts?.[0]?.text || "";
   if (!text) return null;
 
-  let s = text.trim();
-  // إزالة أسوار ```json إن وُجدت
-  s = s.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+  let s = String(text).trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+
   const first = s.indexOf("{");
-  const last = s.lastIndexOf("}");
+  const last  = s.lastIndexOf("}");
   if (first === -1 || last === -1) return null;
 
-  const slice = s.slice(first, last + 1);
-  try {
-    return JSON.parse(slice);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(s.slice(first, last + 1)); }
+  catch { return null; }
 }
 
-// ---------- Core call ----------
-async function callGeminiWith(url, input) {
-  // نبني جسم طلب متوافق مع v1 و v1beta
+async function callOnce(model, input, timeoutMs = 28000) {
+  const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+
   const body = {
-    // v1 يدعم systemInstruction، v1beta سيتجاهله بأمان
+    // v1beta يتجاهل responseSchema/MIME لو غير مدعومة – لا تضر
     systemInstruction: { role: "system", parts: [{ text: systemInstruction() }] },
     contents: [{ role: "user", parts: [{ text: userPrompt(input) }] }],
-    generationConfig: {
-      temperature: 0.7,
-      topP: 0.9,
-      maxOutputTokens: 800,
-      // v1 سيدعم responseMimeType/Schema؛ v1beta سيتجاهله دون كسر
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: "OBJECT",
-        properties: {
-          title: { type: "STRING" },
-          servings: { type: "NUMBER" },
-          total_time_min: { type: "NUMBER" },
-          macros: {
-            type: "OBJECT",
-            properties: {
-              protein_g: { type: "NUMBER" },
-              carbs_g: { type: "NUMBER" },
-              fat_g: { type: "NUMBER" },
-              calories: { type: "NUMBER" },
-            },
-            required: ["protein_g", "carbs_g", "fat_g", "calories"],
-          },
-          ingredients: { type: "ARRAY", items: { type: "STRING" } },
-          steps: { type: "ARRAY", items: { type: "STRING" } },
-          lang: { type: "STRING" },
-        },
-        required: ["title", "servings", "total_time_min", "macros", "ingredients", "steps", "lang"],
-      },
-    },
-    safetySettings: [],
+    generationConfig: { temperature: 0.6, topP: 0.9, maxOutputTokens: 800 },
+    safetySettings: []
   };
 
-  const r = await fetch(`${url}?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const abort = new AbortController();
+  const t = setTimeout(() => abort.abort(), Math.max(1000, Math.min(29000, timeoutMs)));
 
-  let jr;
+  let resp, data;
   try {
-    jr = await r.json();
-  } catch {
-    return { ok: false, code: 502, error: "invalid_json_from_gemini" };
+    resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: abort.signal
+    });
+    const text = await resp.text();
+    try { data = JSON.parse(text); } catch { data = null; }
+
+    if (!resp.ok) {
+      const msg = data?.error?.message || `HTTP_${resp.status}`;
+      return { ok:false, error: msg };
+    }
+
+    const json = extractJsonFromCandidates(data);
+    if (!json) return { ok:false, error:"gemini_returned_non_json" };
+
+    const v = validateRecipeSchema(json);
+    if (!v.ok) return { ok:false, error:`schema_validation_failed:${v.error}` };
+
+    return { ok:true, recipe: json };
+  } catch (e) {
+    return { ok:false, error: String(e && e.message || e) };
+  } finally {
+    clearTimeout(t);
   }
-
-  if (!r.ok) {
-    const msg = jr?.error?.message || `gemini_http_${r.status}`;
-    return { ok: false, code: 502, error: msg };
-  }
-
-  const json = extractJsonFromCandidates(jr);
-  if (!json) return { ok: false, code: 422, error: "gemini_returned_non_json" };
-
-  const v = validateRecipeSchema(json);
-  if (!v.ok) return { ok: false, code: 422, error: `schema_validation_failed:${v.error}` };
-
-  return { ok: true, recipe: json };
 }
 
-// ---------- Handler ----------
+// ------------ Handler ------------
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
 
   let input = {};
-  try {
-    input = JSON.parse(event.body || "{}");
-  } catch {
-    return bad(400, "invalid_json_body");
+  try { input = JSON.parse(event.body || "{}"); }
+  catch { return bad(400, "invalid_json_body"); }
+
+  const errors = {};
+  for (const model of MODEL_POOL) {
+    const res = await callOnce(model, input);
+    if (res.ok) return ok({ recipe: res.recipe, model });
+    errors[model] = res.error;
   }
 
-  // نجرب v1 ثم v1beta-latest
-  let lastErr = null;
-  for (const url of ENDPOINTS) {
-    try {
-      const res = await callGeminiWith(url, input);
-      if (res.ok) return ok({ recipe: res.recipe });
-      lastErr = res;
-    } catch (e) {
-      lastErr = { ok: false, code: 500, error: e.message || "internal_error" };
-    }
-  }
-
-  return bad(lastErr?.code || 500, lastErr?.error || "unknown_error", { tried: ENDPOINTS });
+  // لا وصفات افتراضية — تقرير أخطاء واضح بكل موديل تمت تجربته
+  return bad(502, "All models failed for your key/region on v1beta", { errors, tried: MODEL_POOL });
 };

@@ -1,17 +1,17 @@
 {
   "branding": {
-    "site_name_ar": "WasfaOne",
+    "site_name_ar": "وصفة ون",
     "site_name_en": "WasfaOne",
-    "logo_url": "https://dummyimage.com/200x60/ef4444/ffffff&text=WasfaOne"
+    "logo_url": "https://example.com/logo.png"
   },
   "contact": {
-    "phone_display": "00971502061209",
-    "whatsapp_link": "https://wa.me/971502061209",
+    "phone_display": "+971500000000",
+    "whatsapp_link": "https://wa.me/971500000000",
     "email": "info@example.com",
     "social": {
-      "instagram": "https://instagram.com/yourbrand",
-      "tiktok": "https://tiktok.com/@yourbrand",
-      "youtube": "https://youtube.com/@yourbrand"
+      "instagram": "https://instagram.com/wasfaone",
+      "tiktok": "https://tiktok.com/@wasfaone",
+      "youtube": "https://youtube.com/@wasfaone"
     }
   },
   "diet_systems": [
@@ -19,37 +19,23 @@
       "id": "keto",
       "name_ar": "كيتو",
       "name_en": "Keto",
-      "description_ar": "نظام منخفض الكربوهيدرات مرتفع الدهون لتحفيز الكيتوزيس.",
-      "description_en": "Low-carb, high-fat protocol to promote ketosis."
+      "description_ar": "نظام غذائي منخفض الكربوهيدرات.",
+      "description_en": "Low-carb, high-fat diet."
     },
     {
-      "id": "balanced",
-      "name_ar": "متوازن",
-      "name_en": "Balanced",
-      "description_ar": "توازن بروتين/دهون/كربوهيدرات مع سعرات مضبوطة.",
-      "description_en": "Balanced macros with controlled calories."
+      "id": "mediterranean",
+      "name_ar": "المتوسطي",
+      "name_en": "Mediterranean",
+      "description_ar": "نظام يعتمد على الخضار وزيت الزيتون.",
+      "description_en": "Based on vegetables and olive oil."
     }
   ],
   "images": {
-    "hero_primary": "https://images.unsplash.com/photo-1514511547904-0ee15e4278c1",
-    "hero_secondary": "https://images.unsplash.com/photo-1504674900247-0877df9cc836",
-    "features_card_1": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd",
-    "features_card_2": "https://images.unsplash.com/photo-1506354666786-959d6d497f1a",
-    "features_card_3": "https://images.unsplash.com/photo-1512058564366-18510be2db19",
-    "admin_banner": "https://images.unsplash.com/photo-1522071820081-009f0129c71c",
-    "admin_ops": "https://images.unsplash.com/photo-1556157382-97eda2d62296",
-    "app_background": "https://images.unsplash.com/photo-1506354666786-959d6d497f1a",
-    "logo_fallback": "https://dummyimage.com/200x60/ef4444/ffffff&text=WasfaOne"
+    "hero": "https://example.com/hero.jpg",
+    "banner": "https://example.com/banner.jpg"
   },
   "images_meta": {
-    "hero_primary": { "alt_ar": "صورة أطباق شهية", "alt_en": "Delicious dishes hero image" },
-    "hero_secondary": { "alt_ar": "مكونات طازجة", "alt_en": "Fresh ingredients" },
-    "features_card_1": { "alt_ar": "وجبة صحية", "alt_en": "Healthy meal" },
-    "features_card_2": { "alt_ar": "تجهيز وصفة", "alt_en": "Recipe preparation" },
-    "features_card_3": { "alt_ar": "مكونات متوازنة", "alt_en": "Balanced ingredients" },
-    "admin_banner": { "alt_ar": "لوحة تحكم الأدمن", "alt_en": "Admin dashboard banner" },
-    "admin_ops": { "alt_ar": "إدارة العمليات", "alt_en": "Operations management" },
-    "app_background": { "alt_ar": "خلفية الأداة", "alt_en": "Tool background" },
-    "logo_fallback": { "alt_ar": "شعار بديل", "alt_en": "Fallback logo" }
+    "hero": { "alt_ar": "صورة رئيسية", "alt_en": "Hero image" },
+    "banner": { "alt_ar": "صورة بانر", "alt_en": "Banner image" }
   }
 }

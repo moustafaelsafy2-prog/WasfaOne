@@ -116,20 +116,27 @@ async function fetchRecipe() {
         }
         
         const jr = await r.json();
-
-        if (jr.ok && jr.recipe) {
-            if (jr.note) {
-                 showStatus(`تم التوليد بنجاح (ملاحظة: ${jr.note})`, false);
-            }
-            return jr.recipe;
+        
+        // *************************************************************
+        // التعديل: إذا استلمنا jr.note، سنعتبر أنه خطأ AI/Fallback
+        // ولكن سنعيد الوصفة دائمًا (jr.recipe) ليتم عرضها كافتراضية.
+        // *************************************************************
+        if (jr.recipe) {
+             if (jr.note) {
+                 // عرض رسالة الخطأ الدقيقة من الدالة الخلفية
+                 showStatus(jr.note, true);
+             }
+             return jr.recipe;
         } else {
-            const errorNote = jr.note || jr.error || "خطأ غير محدد من الخادم الخلفي.";
+            // هذا الخطأ يجب أن يحدث فقط إذا لم يكن هناك وصفة ولا ملاحظة!
+            const errorNote = jr.error || "خطأ غير محدد من الخادم الخلفي.";
             throw new Error(errorNote);
         }
     } catch (error) {
         if (error.message.includes("المفتاح (GEMINI_API_KEY) مفقود")) {
              throw new Error("فشل الذكاء الاصطناعي: المفتاح السري (GEMINI_API_KEY) مفقود أو غير مهيأ في بيئة التشغيل الخلفية.");
         }
+        // عرض الخطأ العام (مثل خطأ الشبكة)
         throw new Error(error.message);
     }
 }
@@ -165,7 +172,6 @@ function setupEventListeners() {
     rawJson = document.getElementById('rawJson');
     
     if (!generateBtn) {
-        // إذا لم يتم العثور على الزر حتى بعد تحميل DOM، فهناك مشكلة في الـ HTML
         console.error("Critical Error: Generate button (ID: generateBtn) not found.");
         return;
     }
@@ -186,8 +192,12 @@ function setupEventListeners() {
         try {
             const recipe = await fetchRecipe();
             renderRecipe(recipe);
-            showStatus("تم توليد الوصفة بنجاح.", false);
+            // إذا لم يكن هناك jr.note، فهذا يعني أن الوصفة حقيقية
+            if (!statusMsg.textContent.includes("فشل") && !statusMsg.textContent.includes("خطأ")) {
+                showStatus("تم توليد الوصفة بنجاح.", false);
+            }
         } catch (error) {
+            // في حالة خطأ شبكة أو خطأ غير متوقع
             showStatus(error.message, true);
         } finally {
             generateBtn.disabled = false;

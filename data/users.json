@@ -22,17 +22,5 @@
     "session_nonce": "1411131d-58f6-4613-ac2c-8a14f67de1e8",
     "lock_reason": null,
     "auth_token": "bcbaa248-2a50-473e-960f-237e68ebf9d8"
-  },
-  {
-    "email": "aa@gmail.com",
-    "password": "123456",
-    "name": "ali",
-    "status": "active",
-    "start_date": "2025-09-29",
-    "end_date": "2025-10-30",
-    "device_fingerprint": null,
-    "session_nonce": null,
-    "lock_reason": null,
-    "auth_token": "a9bb8cf9-7494-451f-9b3d-d52f1b4e68ec"
   }
 ]

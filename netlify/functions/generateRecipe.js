@@ -1,226 +1,200 @@
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مُنشئ الوصفات بالذكاء الاصطناعي</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Cairo:wght@200..1000&display=swap');
-        body{font-family:'Cairo','Inter',sans-serif;background:#f7f7f9;min-height:100vh;overflow-x:hidden}
-        .recipe-card{box-shadow:0 10px 30px rgba(0,0,0,.08);transition:transform .3s;padding-bottom:2rem}
-        .recipe-card:hover{transform:translateY(-2px)}
-        .ingredient-list li{position:relative;padding-right:1.5rem;line-height:1.8;margin-bottom:.75rem;font-size:1rem}
-        .ingredient-list li::before{content:'•';position:absolute;right:0;color:#ef4444;font-weight:bold}
-        .prep-step{counter-increment:step-counter;margin-top:1.5rem;padding-bottom:1rem;border-bottom:1px solid #f3f4f6}
-        .prep-step:last-child{border-bottom:none}
-        .prep-step .step-title{font-size:1.125rem;font-weight:700;color:#1f2937;margin-bottom:.5rem;display:flex;align-items:center}
-        .prep-step .step-title::before{content:counter(step-counter)'. ';color:#ef4444;font-size:1.25rem;font-weight:800;margin-left:.5rem}
-        .loader{border-top-color:#ef4444;animation:spinner 1.5s linear infinite}
-        @keyframes spinner{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-        select,input[type=number],input[type=text]{min-height:48px}
-        @media (max-width:1023px){.recipe-card .grid{display:flex;flex-direction:column}.recipe-card .order-1{order:1}.recipe-card .order-2{order:2}}
-    </style>
-</head>
-<body class="p-4 md:p-8">
-    <div class="max-w-5xl mx-auto container-wrapper">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-extrabold text-red-600 mb-2">مُولِّد الوصفات الذكي</h1>
-            <p class="text-gray-600 text-lg">اختر تفضيلاتك الغذائية ودع الذكاء الاصطناعي يُحضّر لك وجبتك المثالية.</p>
-        </header>
+// Netlify Function: generateRecipe
+// POST: { email, diet, servings, time, macros, ingredients }
+// Auth headers required: x-auth-token, x-session-nonce (must match users.json for email)
+// Deterministic generation via Gemini API (if GEMINI_API_KEY is available). Falls back to template if disabled.
+// Storage per-user cache in data/history/{email_sanitized}.json -> { last, cache: { [hash]: recipe } }
 
-        <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg mb-8">
-            <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 border-gray-100">حدد مواصفات الوجبة والنظام الغذائي</h2>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div>
-                    <label for="mealType" class="block text-sm font-medium text-gray-700 mb-1">نوع الوجبة</label>
-                    <select id="mealType" class="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
-                        <option value="غداء">غداء</option>
-                        <option value="فطور">فطور</option>
-                        <option value="عشاء" selected>عشاء</option>
-                        <option value="وجبة خفيفة">وجبة خفيفة</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="cuisine" class="block text-sm font-medium text-gray-700 mb-1">المطبخ</label>
-                    <select id="cuisine" class="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
-                        <option value="شرق أوسطي" selected>شرق أوسطي</option>
-                        <option value="مطبخ مصري">مطبخ مصري</option>
-                        <option value="مطبخ شامي (لبناني، سوري، أردني، فلسطيني)">مطبخ شامي</option>
-                        <option value="مطبخ خليجي (سعودي، إماراتي، كويتي)">مطبخ خليجي</option>
-                        <option value="مطبخ مغربي/تونسي/جزائري">مطبخ مغربي/تونسي/جزائري</option>
-                        <option value="مطبخ يمني">مطبخ يمني</option>
-                        <option value="إيطالي">إيطالي</option>
-                        <option value="آسيوي">آسيوي (كوري، ياباني، صيني)</option>
-                        <option value="عالمي/مُبتكر">عالمي/مُبتكر</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="dietType" class="block text-sm font-medium text-gray-700 mb-1">النظام الغذائي المتبع</label>
-                    <select id="dietType" class="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
-                        <option value="عادي/متوازن" selected>عادي / متوازن</option>
-                        <option value="نظام د. محمد سعيد">نظام د. محمد سعيد</option>
-                        <option value="كيتو">كيتو</option>
-                        <option value="نباتي (فيجيتاريان)">نباتي (Vegetarian)</option>
-                        <option value="فيجن (نباتي صرف)">فيجن (Vegan)</option>
-                        <option value="قليل الكربوهيدرات">قليل الكربوهيدرات</option>
-                        <option value="خالي من الجلوتين">خالي من الجلوتين</option>
-                        <option value="عالي البروتين">عالي البروتين</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="calorieTarget" class="block text-sm font-medium text-gray-700 mb-1">السعرات الحرارية المطلوبة (لكل حصة)</label>
-                    <input type="number" id="calorieTarget" min="100" max="2000" step="50" placeholder="مثال: 500 سعرة" value="550" class="mt-1 block w-full px-3 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
-                </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                <div>
-                    <label for="commonAllergy" class="block text-sm font-medium text-gray-700 mb-1">الحساسية الغذائية الشائعة</label>
-                    <select id="commonAllergy" class="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
-                        <option value="لا يوجد" selected>لا يوجد</option>
-                        <option value="حساسية القمح/الجلوتين">القمح / الجلوتين</option>
-                        <option value="حساسية الألبان/اللاكتوز">الألبان / اللاكتوز</option>
-                        <option value="حساسية المكسرات">المكسرات</option>
-                        <option value="حساسية البيض">البيض</option>
-                        <option value="حساسية المأكولات البحرية">المأكولات البحرية</option>
-                        <option value="حساسية فول الصويا">فول الصويا</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="customAllergy" class="block text-sm font-medium text-gray-700 mb-1">حساسية أو مكونات أخرى يجب تجنبها (اختياري)</label>
-                    <input type="text" id="customAllergy" placeholder="اكتب المكونات التي لديك حساسية منها" class="mt-1 block w-full px-3 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
-                </div>
-            </div>
-            <div class="mt-6">
-                <label for="focus" class="block text-sm font-medium text-gray-700 mb-1">المكون الرئيسي / التركيز (اختياري)</label>
-                <input type="text" id="focus" placeholder="مثل: دجاج و خضار" class="mt-1 block w-full px-3 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
-            </div>
-            <button id="generateBtn" class="mt-6 w-full flex justify-center items-center py-3 px-4 border border-transparent text-lg font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out shadow-md hover:shadow-lg disabled:bg-red-400">
-                <div id="loadingIndicator" class="hidden w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div>
-                توليد الوصفة الآن
-            </button>
-            <p id="errorMsg" class="mt-3 text-center text-sm text-red-500 hidden"></p>
-        </div>
+const OWNER = process.env.GITHUB_REPO_OWNER;
+const REPO  = process.env.GITHUB_REPO_NAME;
+const REF   = process.env.GITHUB_REF || "main";
+const GH_TOKEN = process.env.GITHUB_TOKEN;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY; // optional
 
-        <div id="recipeOutput" class="recipe-card bg-white p-6 md:p-8 rounded-xl border border-gray-200 hidden">
-            <div class="text-center mb-6">
-                <h2 id="recipeTitle" class="text-3xl font-extrabold text-gray-900 mb-2"></h2>
-                <div class="flex flex-col sm:flex-row justify-center items-center space-y-2 sm:space-y-0 sm:space-x-4 sm:space-x-reverse text-gray-500 text-sm font-medium">
-                    <p class="flex items-center"><span id="timeValue"></span></p>
-                    <p class="flex items-center"><span id="servingsValue"></span></p>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 border-t pt-6 border-gray-100">
-                <div class="lg:col-span-1 order-1">
-                    <div class="bg-white p-4 md:p-6 rounded-xl mb-6 flex flex-col items-center border border-gray-100 shadow-sm">
-                        <h3 class="text-xl font-bold text-red-600 mb-4">القيمة الغذائية (لكل حصة)</h3>
-                        <div class="mb-6 w-36 h-36 flex flex-col items-center justify-center rounded-full bg-red-100 border-4 border-red-500 shadow-md">
-                            <div id="caloriesValue" class="text-3xl font-black text-gray-900"></div>
-                            <div class="text-sm font-medium text-red-600">سعرة حرارية</div>
-                        </div>
-                        <div class="w-full grid grid-cols-3 gap-3 text-center">
-                            <div class="p-2 rounded-lg bg-green-50 border border-green-200"><div id="proteinValue" class="text-xl font-bold text-green-700"></div><div class="text-xs font-medium text-gray-600 mt-1">بروتين</div></div>
-                            <div class="p-2 rounded-lg bg-blue-50 border border-blue-200"><div id="carbsValue" class="text-xl font-bold text-blue-700"></div><div class="text-xs font-medium text-gray-600 mt-1">كربوهيدرات</div></div>
-                            <div class="p-2 rounded-lg bg-yellow-50 border border-yellow-200"><div id="fatsValue" class="text-xl font-bold text-yellow-700"></div><div class="text-xs font-medium text-gray-600 mt-1">دهون</div></div>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-100">المكونات:</h3>
-                        <ul id="ingredientsList" class="ingredient-list pr-4 text-gray-700"></ul>
-                    </div>
-                </div>
-                <div class="lg:col-span-2 order-2">
-                    <h3 class="text-2xl font-extrabold text-gray-900 mb-6 border-b pb-2 border-gray-100">طريقة التحضير:</h3>
-                    <div id="preparationSteps" class="space-y-4"></div>
-                </div>
-            </div>
-        </div>
-    </div>
+const GH_API = "https://api.github.com";
 
-    <script type="module">
-        const mealTypeEl=document.getElementById('mealType');
-        const cuisineEl=document.getElementById('cuisine');
-        const dietTypeEl=document.getElementById('dietType');
-        const calorieTargetEl=document.getElementById('calorieTarget');
-        const commonAllergyEl=document.getElementById('commonAllergy');
-        const customAllergyEl=document.getElementById('customAllergy');
-        const focusEl=document.getElementById('focus');
-        const generateBtn=document.getElementById('generateBtn');
-        const loadingIndicator=document.getElementById('loadingIndicator');
-        const errorMsg=document.getElementById('errorMsg');
-        const recipeOutput=document.getElementById('recipeOutput');
-        const recipeTitle=document.getElementById('recipeTitle');
-        const timeValue=document.getElementById('timeValue');
-        const servingsValue=document.getElementById('servingsValue');
-        const caloriesValue=document.getElementById('caloriesValue');
-        const proteinValue=document.getElementById('proteinValue');
-        const carbsValue=document.getElementById('carbsValue');
-        const fatsValue=document.getElementById('fatsValue');
-        const ingredientsList=document.getElementById('ingredientsList');
-        const preparationSteps=document.getElementById('preparationSteps');
+function sanitizeEmail(email){
+  return (email||"").toLowerCase().replace(/[^a-z0-9]+/g,"_");
+}
+async function ghGetJson(path, allow404=false){
+  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
+    headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
+  });
+  if(allow404 && r.status===404) return { json:null, sha:null, notFound:true };
+  if(!r.ok) throw new Error(`GitHub GET ${path} ${r.status}`);
+  const data = await r.json();
+  const decoded = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
+  return { json: decoded, sha: data.sha };
+}
+async function ghPutJson(path, obj, sha, message){
+  const content = Buffer.from(JSON.stringify(obj, null, 2), 'utf8').toString('base64');
+  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `token ${GH_TOKEN}`,
+      "User-Agent":"WasfaOne",
+      "Content-Type":"application/json"
+    },
+    body: JSON.stringify({ message, content, sha, branch: REF })
+  });
+  if(!r.ok) throw new Error(`GitHub PUT ${path} ${r.status}`);
+  return r.json();
+}
 
-        function renderRecipe(data){
-            recipeTitle.textContent=data.title||'';
-            timeValue.textContent=data.time||'';
-            servingsValue.textContent=data.servings||'';
-            const m=data.macros||{};
-            caloriesValue.textContent=`${m.calories||''}`;
-            proteinValue.textContent=`${m.protein||''} جم`;
-            carbsValue.textContent=`${m.carbs||''} جم`;
-            fatsValue.textContent=`${m.fats||''} جم`;
-            ingredientsList.innerHTML='';
-            (data.ingredients||[]).forEach(ing=>{
-                const li=document.createElement('li');
-                li.innerHTML=`<span class="font-bold text-gray-800">${ing.name}</span> <span class="text-gray-500 text-sm mr-2">(${ing.quantity})</span>`;
-                ingredientsList.appendChild(li);
-            });
-            preparationSteps.innerHTML='';
-            (data.preparation||[]).forEach(step=>{
-                const div=document.createElement('div');
-                div.className='prep-step';
-                div.innerHTML=`<div class="step-title">${step.title}</div><p class="text-gray-600 pr-0 text-base">${step.instruction}</p>`;
-                preparationSteps.appendChild(div);
-            });
-            recipeOutput.classList.remove('hidden');
-            setTimeout(()=>{window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});},100);
-        }
+async function auth(event){
+  const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
+  const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
+  let email = null;
+  try{
+    const body = JSON.parse(event.body||"{}");
+    email = body.email || null;
+  }catch{}
+  if(!token || !nonce || !email) return { ok:false, statusCode: 401, error: "missing_auth" };
 
-        async function generateRecipe(){
-            const payload={
-                mealType:mealTypeEl.value,
-                cuisine:cuisineEl.value,
-                dietType:dietTypeEl.value,
-                calorieTarget:calorieTargetEl.value,
-                commonAllergy:commonAllergyEl.value,
-                customAllergy:customAllergyEl.value.trim(),
-                focus:(focusEl.value||'').trim()||'مُبتكرة وعصرية'
-            };
-            const res=await fetch('/.netlify/functions/generateRecipe',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
-            const text=await res.text();
-            if(!res.ok){ throw new Error(`خادم التوليد أعاد ${res.status}: ${text.slice(0,300)}`); }
-            let json={};
-            try{ json=JSON.parse(text); }catch(e){ throw new Error('استجابة غير صالحة من الخادم: '+text.slice(0,200)); }
-            if(!json.ok||!json.recipe){ throw new Error(json.error||json.message||'invalid_response'); }
-            return json.recipe;
-        }
+  const { json: users } = await ghGetJson("data/users.json");
+  const user = (users||[]).find(u => (u.email||"").toLowerCase() === email.toLowerCase());
+  if(!user) return { ok:false, statusCode:401, error: "no_user" };
+  if(user.auth_token !== token || user.session_nonce !== nonce) return { ok:false, statusCode:401, error: "bad_token" };
+  return { ok:true, email, user };
+}
 
-        generateBtn.addEventListener('click',async()=>{
-            if(!calorieTargetEl.value||parseInt(calorieTargetEl.value)<100||parseInt(calorieTargetEl.value)>2000){
-                errorMsg.textContent='يرجى إدخال قيمة سعرات صحيحة بين 100 و 2000.';
-                errorMsg.classList.remove('hidden');
-                return;
-            }
-            generateBtn.disabled=true;loadingIndicator.classList.remove('hidden');errorMsg.classList.add('hidden');recipeOutput.classList.add('hidden');
-            generateBtn.innerHTML='<div class="w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div> جارٍ التوليد...';
-            try{
-                const recipe=await generateRecipe();
-                renderRecipe(recipe);
-            }catch(err){
-                errorMsg.textContent=err.message;errorMsg.classList.remove('hidden');
-            }finally{
-                generateBtn.disabled=false;loadingIndicator.classList.add('hidden');generateBtn.textContent='توليد الوصفة الآن';
-            }
-        });
-    </script>
-</body>
-</html>
+function stableHash(obj){
+  const s = JSON.stringify(obj, Object.keys(obj).sort());
+  // simple djb2
+  let h = 5381;
+  for(let i=0;i<s.length;i++){ h = ((h<<5)+h) + s.charCodeAt(i); h |= 0; }
+  return (h>>>0).toString(16);
+}
+
+function validateRecipeSchema(rec){
+  // Required deterministic schema
+  const baseKeys = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
+  if(typeof rec !== "object" || rec===null) return { ok:false, error:"not_object" };
+  for(const k of baseKeys){ if(!(k in rec)) return { ok:false, error:`missing_${k}` }; }
+  if(typeof rec.title!=="string") return { ok:false, error:"title_type" };
+  if(typeof rec.servings!=="number") return { ok:false, error:"servings_type" };
+  if(typeof rec.total_time_min!=="number") return { ok:false, error:"time_type" };
+  if(!rec.macros || typeof rec.macros!=="object") return { ok:false, error:"macros_type" };
+  for(const m of ["protein_g","carbs_g","fat_g","calories"]) if(typeof rec.macros[m] !== "number") return { ok:false, error:`macro_${m}` };
+  if(!Array.isArray(rec.ingredients) || rec.ingredients.some(x=>typeof x!=="string")) return { ok:false, error:"ingredients_type" };
+  if(!Array.isArray(rec.steps) || rec.steps.some(x=>typeof x!=="string")) return { ok:false, error:"steps_type" };
+  if(rec.lang!=="ar" && rec.lang!=="en") return { ok:false, error:"lang_invalid" };
+  return { ok:true };
+}
+
+async function callGemini(prompt){
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+  const body = {
+    contents: [{ role:"user", parts:[{ text: prompt }]}],
+    generationConfig: { temperature: 0, topP: 1, topK: 1, maxOutputTokens: 1024 },
+    safetySettings: []
+  };
+  const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) });
+  if(!r.ok) throw new Error(`gemini_http_${r.status}`);
+  const jr = await r.json();
+  const text = (((jr.candidates||[])[0]||{}).content||{}).parts?.map(p=>p.text).join("") || "";
+  return text;
+}
+
+function buildPrompt(input){
+  const { diet, servings, time, macros, ingredients } = input;
+  return `أنت مساعد طاهٍ محترف. أعد وصفة طعام باللغة العربية فقط وبنية JSON STRICT دون أي شرح خارج JSON.
+المتطلبات الحتمية:
+- نفس البنية دائمًا بالمفاتيح التالية فقط: title, servings, total_time_min, macros:{protein_g,carbs_g,fat_g,calories}, ingredients[], steps[], lang
+- القيَم أرقام صحيحة للحصص والوقت والماكروز والسعرات.
+- lang="ar".
+- التزم بالنظام الغذائي: ${diet}. عدد الحصص: ${servings}. الوقت الأقصى: ${time} دقيقة.
+- إن وُجدت مكونات متاحة فاعتمد عليها: ${ingredients||"بدون"}.
+- استهدف الماكروز: ${macros||"بدون"}.
+أعِد JSON فقط بلا شروحات ولا Markdown.`;
+}
+
+function fallbackRecipe(input){
+  // Deterministic fallback when no API key: fixed template reflecting inputs
+  const s = Number(input.servings)||1;
+  const t = Number(input.time)||20;
+  return {
+    title: `وجبة ${input.diet||"متوازنة"} سريعة`,
+    servings: s,
+    total_time_min: t,
+    macros: { protein_g: 30*s, carbs_g: 40*s, fat_g: 20*s, calories: 600*s },
+    ingredients: (input.ingredients? String(input.ingredients).split(/[،,]/).map(x=>x.trim()).filter(Boolean) : ["صدر دجاج","أرز أبيض","بروكلي","زيت زيتون","ملح","فلفل"]),
+    steps: [
+      "تبّل المكونات بالملح والفلفل.",
+      "اطهِ البروتين حتى النضج.",
+      "اسلق الأرز وقدّم مع الخضار.",
+      "قسّم الوجبة إلى حصص متساوية."
+    ],
+    lang: "ar"
+  };
+}
+
+exports.handler = async (event) => {
+  try{
+    if(event.httpMethod === "OPTIONS") return { statusCode: 204 };
+    if(event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ ok:false, error:"method_not_allowed" }) };
+
+    // Basic config checks
+    if(!OWNER || !REPO || !GH_TOKEN){
+      return { statusCode: 500, body: JSON.stringify({ ok:false, error:"config_missing" }) };
+    }
+
+    // Auth
+    const a = await auth(event);
+    if(!a.ok) return { statusCode: a.statusCode, body: JSON.stringify({ ok:false, error: a.error }) };
+
+    // Parse input
+    const body = JSON.parse(event.body||"{}");
+    const input = {
+      email: a.email,
+      diet: String(body.diet||"balanced"),
+      servings: Number(body.servings||1),
+      time: Number(body.time||20),
+      macros: String(body.macros||""),
+      ingredients: String(body.ingredients||"")
+    };
+
+    // Cache key
+    const cacheKey = stableHash({ d:input.diet, s:input.servings, t:input.time, m:input.macros, i:input.ingredients });
+    const emailSan = sanitizeEmail(a.email);
+    const histPath = `data/history/${emailSan}.json`;
+    const { json: curHist, sha } = await ghGetJson(histPath, true);
+    const history = curHist || { last:null, cache:{} };
+
+    if(history.cache && history.cache[cacheKey]){
+      const rec = history.cache[cacheKey];
+      return { statusCode:200, body: JSON.stringify({ ok:true, cached:true, recipe: rec }) };
+    }
+
+    // Generate
+    let recipe = null;
+    if(GEMINI_API_KEY){
+      const prompt = buildPrompt(input);
+      const out = await callGemini(prompt);
+      try{
+        // Try to extract JSON if wrapped
+        const jsonText = out.trim().replace(/^```json\s*/,'').replace(/```$/,'');
+        recipe = JSON.parse(jsonText);
+      }catch{
+        return { statusCode: 502, body: JSON.stringify({ ok:false, error:"ai_parse_failed", raw: out.slice(0,2000) }) };
+      }
+    }else{
+      recipe = fallbackRecipe(input);
+    }
+
+    // Validate schema
+    const v = validateRecipeSchema(recipe);
+    if(!v.ok){
+      return { statusCode: 422, body: JSON.stringify({ ok:false, error:"schema_invalid", detail:v.error }) };
+    }
+
+    // Save to cache + last
+    history.cache = history.cache || {};
+    history.cache[cacheKey] = recipe;
+    history.last = recipe;
+    await ghPutJson(histPath, history, sha || undefined, `generateRecipe:${a.email}:${cacheKey}`);
+
+    return { statusCode:200, body: JSON.stringify({ ok:true, cached:false, recipe: recipe }) };
+  }catch(err){
+    return { statusCode: 500, body: JSON.stringify({ ok:false, error: String(err.message || err) }) };
+  }
+};

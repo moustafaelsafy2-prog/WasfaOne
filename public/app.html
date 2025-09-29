@@ -6,14 +6,15 @@
   <title>مجلة الوصفة الذكية</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Cairo:wght@200..1000&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@200..1000&family=Inter:wght@100..900&display=swap');
     :root{ --ink:#0f172a; --muted:#475569; --brand:#ef4444; --soft:#f7f7f9; --line:#e5e7eb; }
     *{box-sizing:border-box}
     body{font-family:'Cairo','Inter',sans-serif;background:var(--soft);color:var(--ink);min-height:100vh;overflow-x:hidden}
     .wrap{max-width:1080px;margin-inline:auto}
     .card{background:linear-gradient(180deg,#fff,#fafafa);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 20px 40px rgba(0,0,0,.06)}
     .divider{height:1px;background:var(--line);margin:18px 0}
-    .area{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:start}
+    /* Updated grid layout for ingredients and preparation */
+    .area{display:grid;grid-template-columns: .8fr 1.2fr;gap:28px;align-items:start}
     @media (max-width:1024px){ .area{grid-template-columns:1fr} }
 
     /* meta chips */
@@ -21,13 +22,13 @@
     .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font-weight:700}
     .chip svg{width:16px;height:16px;color:var(--brand)}
 
-    /* side panel */
+    /* side panel for ingredients */
     .panel{position:sticky;top:16px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 12px 30px rgba(0,0,0,.04)}
     .panel h3{font-size:1.25rem;font-weight:900;margin-bottom:10px}
     .ingredient-list li{position:relative;padding-right:1.25rem;line-height:1.9;margin-bottom:.4rem}
     .ingredient-list li::before{content:'•';position:absolute;right:0;color:var(--brand);font-weight:900}
 
-    /* steps */
+    /* preparation steps */
     .steps-list{counter-reset:step}
     .step{position:relative;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 18px 18px 66px;box-shadow:0 8px 20px rgba(0,0,0,.04);margin-bottom:14px}
     .step::before{
@@ -38,7 +39,7 @@
     }
     .step p{margin:0;color:var(--muted);line-height:1.95}
 
-    /* traffic light */
+    /* traffic light nutrition */
     .tl-wrap{display:flex;gap:8px;flex-wrap:wrap}
     .tl-pill{flex:1 1 120px;border-radius:14px;padding:10px;border:2px solid #111;color:#111;text-align:center;background:#fff}
     .tl-pill .name{display:block;font-weight:800;font-size:14px}
@@ -183,33 +184,38 @@
         <p id="errorMsg" class="mt-2 text-sm text-red-600 hidden"></p>
       </div>
 
-      <div class="divider"></div>
+      <!-- Result section starts here -->
+      <div id="resultContainer" class="hidden">
+        <div class="divider"></div>
 
-      <!-- عنوان النتائج + ميتاداتا -->
-      <div class="mb-4">
-        <h2 id="recipeTitle" class="text-3xl md:text-4xl font-black leading-snug"></h2>
-        <div class="meta mt-3 text-[var(--muted)]">
-          <span class="chip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span id="timeValue">—</span>
-          </span>
-          <span class="chip">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20v-2A3 3 0 005.356 18.143 3 3 0 005 20h5V20m0 0h10a2 2 0 002-2v-2a3 3 0 00-5.356-1.857M10 20v-2a3 3 0 0110.356 1.857 3 3 0 01-10.356 0zM6 10a3 3 0 11-6 0 3 3 0 016 0zM17 4a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span id="servingsValue">—</span>
-          </span>
+        <!-- Recipe Title + Metadata -->
+        <div class="mb-4">
+          <h2 id="recipeTitle" class="text-3xl md:text-4xl font-black leading-snug"></h2>
+          <div class="meta mt-3 text-[var(--muted)]">
+            <span class="chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span id="timeValue">—</span>
+            </span>
+            <span class="chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20v-2A3 3 0 005.356 18.143 3 3 0 005 20h5V20m0 0h10a2 2 0 002-2v-2a3 3 0 00-5.356-1.857M10 20v-2a3 3 0 0110.356 1.857 3 3 0 01-10.356 0zM6 10a3 3 0 11-6 0 3 3 0 016 0zM17 4a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              <span id="servingsValue">—</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Nutrition Info (Moved Here) -->
+        <div class="mt-6">
+            <h3 class="text-xl font-black mb-3">التغذية بسرعة</h3>
+            <div id="tl-wrap" class="tl-wrap"></div>
         </div>
       </div>
     </div>
 
-    <!-- Content area -->
-    <section class="area mt-8">
+    <!-- Content area: Ingredients and Preparation -->
+    <section id="contentArea" class="area mt-8 hidden">
       <aside class="panel">
         <h3>المكونات</h3>
-        <ul id="ingredientsList" class="ingredient-list mb-6"></ul>
-
-        <!-- التغذية بسرعة (Traffic-Light) -->
-        <h3 class="mt-4">التغذية بسرعة</h3>
-        <div id="tl-wrap" class="tl-wrap"></div>
+        <ul id="ingredientsList" class="ingredient-list"></ul>
       </aside>
 
       <main>
@@ -232,7 +238,8 @@
           banner=$('banner'), toast=$('toast');
 
     // outputs
-    const recipeTitle=$('recipeTitle'), timeValue=$('timeValue'),
+    const resultContainer = $('resultContainer'), contentArea = $('contentArea'),
+          recipeTitle=$('recipeTitle'), timeValue=$('timeValue'),
           servingsValue=$('servingsValue'), ingList=$('ingredientsList'),
           stepsBox=$('preparationSteps'), tlWrap=$('tl-wrap');
 
@@ -260,6 +267,8 @@
 
     function resetView(){
       setBanner("");
+      resultContainer.classList.add('hidden');
+      contentArea.classList.add('hidden');
       recipeTitle.textContent=""; timeValue.textContent="—"; servingsValue.textContent="—";
       ingList.innerHTML=""; stepsBox.innerHTML=""; tlWrap.innerHTML="";
     }
@@ -269,13 +278,13 @@
       const fatC=tlClass(m.fats,10,20), carbC=tlClass(m.carbs,30,60), proC=tlClass(m.protein,15,30);
       tlWrap.innerHTML=[
         {n:"الطاقة",g:`${Math.round(m.calories)} kcal`,c:"tl-med",f:"—"},
-        {n:"دهون",g:`${Math.round(m.fats)}g`,c:fatC,f:fatC==="tl-high"?"HIGH":fatC==="tl-low"?"LOW":"MED"},
-        {n:"كربوهيدرات",g:`${Math.round(m.carbs)}g`,c:carbC,f:carbC==="tl-high"?"HIGH":carbC==="tl-low"?"LOW":"MED"},
-        {n:"بروتين",g:`${Math.round(m.protein)}g`,c:proC,f:proC==="tl-high"?"HIGH":proC==="tl-low"?"LOW":"MED"}
+        {n:"دهون",g:`${Math.round(m.fats)}g`,c:fatC,f:fatC==="tl-high"?"عالي":fatC==="tl-low"?"منخفض":"متوسط"},
+        {n:"كربوهيدرات",g:`${Math.round(m.carbs)}g`,c:carbC,f:carbC==="tl-high"?"عالي":carbC==="tl-low"?"منخفض":"متوسط"},
+        {n:"بروتين",g:`${Math.round(m.protein)}g`,c:proC,f:proC==="tl-high"?"عالي":proC==="tl-low"?"منخفض":"متوسط"}
       ].map(p=>`<div class="tl-pill ${p.c}"><span class="name">${p.n}</span><span class="grams">${p.g}</span><span class="flag">${p.f}</span></div>`).join("");
     }
 
-    // دمج/تقليل عدد الخطوات إلى حد أقصى (افتراضي 6)
+    // Combine/reduce steps to a maximum (default 6)
     function condenseSteps(steps, max=6){
       const clean=(Array.isArray(steps)?steps:[]).map(s=>String(s||"").trim()).filter(Boolean);
       if(clean.length<=max) return clean;
@@ -287,7 +296,7 @@
       return merged.slice(0,max);
     }
 
-    // خريطة مخطط الخادم -> العرض
+    // Map server schema to view
     function map(rec){
       return {
         title: rec.title,
@@ -312,6 +321,9 @@
     }
 
     function render(view, maxSteps, note, warning){
+      resultContainer.classList.remove('hidden');
+      contentArea.classList.remove('hidden');
+
       recipeTitle.textContent=view.title;
       timeValue.textContent=view.time;
       servingsValue.textContent=view.servingsText;
@@ -323,7 +335,7 @@
       if (warning) setBanner("تنبيه: تم توليد الوصفة لكن بعض قيود النظام المختار قد لا تكون مطبّقة بالكامل.", "amber");
       if (note === "repaired_to_meet_dr_moh_rules") setBanner("تم ضبط الوصفة تلقائيًا لتتوافق مع قواعد نظام د. محمد سعيد.", "amber");
 
-      setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),150);
+      setTimeout(()=>window.scrollTo({top: resultContainer.offsetTop - 20, behavior:'smooth'}),150);
     }
 
     async function generate(){
@@ -336,8 +348,9 @@
         const data=await callAPI(payload);
         const view=map(data.recipe);
         render(view, Number(maxStepsInput.value)||6, data.note, data.warning);
-        setStatus(`تم التوليد — الموديل: ${data.model||"غير محدد"}`, true);
-        pushToast(`تم التوليد — الموديل: ${data.model||"غير محدد"}`,"success");
+        // Updated status and toast messages to remove model name
+        setStatus(`تم التوليد بنجاح`, true);
+        pushToast(`تم توليد الوصفة بنجاح`,"success");
       }catch(e){
         setStatus("", true);
         setError(e.message||"فشل التوليد");

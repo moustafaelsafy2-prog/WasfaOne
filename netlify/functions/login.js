@@ -1,7 +1,12 @@
+// Netlify Function: login
+// POST: { email, password, device_fingerprint_hash }
+// Env: GITHUB_TOKEN, GITHUB_REPO_OWNER, GITHUB_REPO_NAME, GITHUB_REF, ADMIN_PASSWORD
+// Updates users.json: set device_fingerprint if empty, enforce single-device, set session_nonce + auth_token
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
 const GH_TOKEN = process.env.GITHUB_TOKEN;
+
 const GH_API = "https://api.github.com";
 
 async function ghGetJson(path){
@@ -29,7 +34,10 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
-function todayISO(){ return new Date().toISOString().slice(0,10); }
+function todayISO(){
+  // Compare by date-only (UTC-safe for simple windows)
+  return new Date().toISOString().slice(0,10);
+}
 function withinWindow(start, end){
   const d = todayISO();
   if(start && d < start) return false;
@@ -37,7 +45,7 @@ function withinWindow(start, end){
   return true;
 }
 
-module.exports.handler = async (event) => {
+export async function handler(event){
   if(event.httpMethod !== "POST"){
     return { statusCode: 405, body: JSON.stringify({ ok:false }) };
   }
@@ -57,25 +65,33 @@ module.exports.handler = async (event) => {
       return { statusCode: 403, body: JSON.stringify({ ok:false, reason:"inactive" }) };
     }
 
+    // Single device logic
     if(!user.device_fingerprint){
       user.device_fingerprint = device_fingerprint_hash || null;
     }else if(user.device_fingerprint !== device_fingerprint_hash){
-      return { statusCode: 403, body: JSON.stringify({ ok:false, reason:"device" }) };
+      return { statusCode: 403, body: JSON.stringify({ ok:false, reason:"device", message:"Account bound to another device." }) };
     }
 
-    const { randomUUID } = require("crypto");
-    const session_nonce = randomUUID();
-    const auth_token = randomUUID();
+    // Create session
+    const session_nonce = crypto.randomUUID();
+    const auth_token = crypto.randomUUID();
     user.session_nonce = session_nonce;
     user.auth_token = auth_token;
 
+    // Commit users.json
     await ghPutJson("data/users.json", users, sha, `login: set session for ${user.email}`);
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ ok:true, name: user.name||"", email: user.email, token: auth_token, session_nonce })
+      body: JSON.stringify({
+        ok: true,
+        name: user.name || "",
+        email: user.email,
+        token: auth_token,
+        session_nonce
+      })
     };
   }catch(err){
     return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
   }
-};
+}

@@ -1,1 +1,24 @@
-<!-- login.html content here -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login | WasfaOne</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body class="flex items-center justify-center h-screen bg-slate-100 dark:bg-slate-900">
+  <div class="bg-white dark:bg-slate-800 p-6 rounded shadow w-full max-w-md">
+    <h1 id="login-title" class="text-2xl font-bold mb-4">تسجيل الدخول</h1>
+    <form id="login-form" class="space-y-4">
+      <input id="email" type="email" placeholder="البريد الإلكتروني" class="w-full p-2 border rounded">
+      <input id="password" type="password" placeholder="كلمة المرور" class="w-full p-2 border rounded">
+      <button type="submit" class="w-full bg-red-500 text-white py-2 rounded hover:scale-105">دخول</button>
+    </form>
+    <p id="login-error" class="text-red-500 mt-2 hidden"></p>
+    <p class="mt-4 text-sm">للاشتراك أو التجديد: 00971502061209 — <a href="https://wa.me/971502061209" target="_blank" class="text-green-500">واتساب</a></p>
+  </div>
+  <script src="assets/app.js"></script>
+</body>
+</html>

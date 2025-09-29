@@ -4,71 +4,72 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>لوحة التحكم — WasfaOne Admin</title>
-  
-  <!-- Tailwind CSS CDN -->
+
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Google Fonts (Inter) -->
+
+  <!-- Google Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 
   <style>
-    body {
-      font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji","Segoe UI Emoji";
-      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
-    }
-    nav.tabs button.active { background-color:#ef4444; color:#fff; box-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05) }
-    section.tab { display:none } section.tab.active { display:block }
-    .hidden { display:none }
+    body{font-family:'Inter',ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Ubuntu,Cantarell,Helvetica Neue,Arial}
+    nav.tabs button.active{background:#ef4444;color:#fff}
+    section.tab{display:none} section.tab.active{display:block}
+    .hidden{display:none}
+    .icon-btn{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
+    .icon-btn:hover{background:#f8fafc}
+    .icon{width:18px;height:18px}
+    .muted{color:#64748b}
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
 
   <!-- Header -->
-  <header class="sticky top-0 bg-white/80 backdrop-blur-md border-b border-slate-200 z-10">
+  <header class="sticky top-0 bg-white/80 backdrop-blur border-b border-slate-200 z-10">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-      <h1 class="text-2xl font-extrabold text-slate-800">لوحة التحكم — WasfaOne</h1>
+      <h1 class="text-2xl font-extrabold">لوحة التحكم — WasfaOne</h1>
       <p class="text-sm text-slate-500 mt-1">أدخل كلمة مرور الأدمن عند الطلب — تُحفظ محليًا (LocalStorage).</p>
       <nav class="tabs mt-4" id="tabs">
-        <div class="flex flex-wrap items-center gap-2">
-          <button data-tab="tab-users" class="active rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">المستخدمون</button>
-          <button data-tab="tab-settings" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">الإعدادات</button>
-          <button data-tab="tab-recipes" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">الوصفات</button>
-          <button data-tab="tab-logs" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">السجلات</button>
+        <div class="flex flex-wrap gap-2">
+          <button data-tab="tab-users" class="active rounded-full py-2 px-4 text-sm font-semibold bg-slate-100">المستخدمون</button>
+          <button data-tab="tab-settings" class="rounded-full py-2 px-4 text-sm font-semibold bg-slate-100">الإعدادات</button>
+          <button data-tab="tab-recipes" class="rounded-full py-2 px-4 text-sm font-semibold bg-slate-100">الوصفات</button>
+          <button data-tab="tab-logs" class="rounded-full py-2 px-4 text-sm font-semibold bg-slate-100">السجلات</button>
         </div>
       </nav>
     </div>
   </header>
 
-  <!-- Main Content -->
+  <!-- Main -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    
-    <!-- ============ Users Tab ============ -->
+
+    <!-- Users -->
     <section id="tab-users" class="tab active">
       <div class="space-y-8">
         <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <h2 class="text-xl font-bold text-slate-800 mb-6">إدارة المستخدمين</h2>
+          <h2 class="text-xl font-bold mb-6">إدارة المستخدمين</h2>
 
-          <!-- Create User Form -->
+          <!-- Create User -->
           <form id="createUserForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-            <div><input required name="name" placeholder="الاسم" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
-            <div><input required name="email" placeholder="البريد الإلكتروني" type="email" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
-            <div><input required name="password" placeholder="كلمة السر" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
+            <div><input required name="name" placeholder="الاسم" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
+            <div><input required name="email" placeholder="البريد الإلكتروني" type="email" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
+            <div><input required name="password" placeholder="كلمة السر" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
             <div>
               <select name="status" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm">
                 <option value="active">فعّال (Active)</option>
                 <option value="suspended">معلّق (Suspended)</option>
               </select>
             </div>
-            <div><label class="block text-sm font-medium text-slate-600 mb-1">تاريخ البداية</label><input name="start_date" type="date" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
-            <div><label class="block text-sm font-medium text-slate-600 mb-1">تاريخ النهاية</label><input name="end_date" type="date" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
+            <div><label class="block text-sm muted mb-1">تاريخ البداية</label><input name="start_date" type="date" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
+            <div><label class="block text-sm muted mb-1">تاريخ النهاية</label><input name="end_date" type="date" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
             <div class="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
               <label class="flex items-center gap-3 text-sm text-slate-600">
                 <input type="checkbox" name="upsert" class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"/>
                 <span>حدِّث المستخدم بدلًا من الإنشاء (إذا كان البريد موجودًا)</span>
               </label>
-              <button class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all" type="submit">
+              <button class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2" type="submit">
                 حفظ المستخدم
               </button>
             </div>
@@ -82,12 +83,12 @@
                 <table class="min-w-full divide-y divide-slate-200">
                   <thead class="bg-slate-50">
                     <tr>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الاسم</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البريد</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الحالة</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البداية</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">النهاية</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">عمليات</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">الاسم</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">البريد</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">الحالة</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">البداية</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">النهاية</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">عمليات</th>
                     </tr>
                   </thead>
                   <tbody id="usersTbody" class="divide-y divide-slate-100 bg-white"></tbody>
@@ -95,92 +96,115 @@
               </div>
             </div>
           </div>
+
         </div>
       </div>
     </section>
 
-    <!-- ============ Settings Tab ============ -->
+    <!-- Settings -->
     <section id="tab-settings" class="tab">
       <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 class="text-xl font-bold text-slate-800">الإعدادات العامة</h2>
-        <p class="text-sm text-slate-500 mt-1">تحرير <code>data/settings.json</code>: الشعار، بيانات التواصل، الأنظمة الغذائية، الصور، والنص البديل.</p>
-        
+        <h2 class="text-xl font-bold">الإعدادات العامة</h2>
+        <p class="text-sm text-slate-500 mt-1">تحرير <code>data/settings.json</code>.</p>
+
         <div class="space-y-8 mt-6">
           <!-- Branding -->
           <div>
-            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">الهوية (Branding)</h3>
+            <h3 class="text-lg font-bold mb-4 border-b border-slate-200 pb-3">الهوية (Branding)</h3>
             <form id="brandingForm" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">الاسم (AR)</label><input name="site_name_ar" class="block w-full rounded-lg border-slate-300" /></div>
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">الاسم (EN)</label><input name="site_name_en" class="block w-full rounded-lg border-slate-300" /></div>
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">رابط الشعار (Logo URL)</label><input name="logo_url" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm muted mb-1">الاسم (AR)</label><input name="site_name_ar" class="block w-full rounded-lg border-slate-300"/></div>
+              <div><label class="block text-sm muted mb-1">الاسم (EN)</label><input name="site_name_en" class="block w-full rounded-lg border-slate-300"/></div>
+              <div><label class="block text-sm muted mb-1">رابط الشعار</label><input name="logo_url" class="block w-full rounded-lg border-slate-300"/></div>
             </form>
           </div>
-          
+
           <!-- Contact -->
           <div>
-            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">التواصل (Contact)</h3>
+            <h3 class="text-lg font-bold mb-4 border-b border-slate-200 pb-3">التواصل (Contact)</h3>
             <form id="contactForm" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">رقم الهاتف المعروض</label><input name="phone_display" class="block w-full rounded-lg border-slate-300" /></div>
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">رابط واتساب</label><input name="whatsapp_link" class="block w-full rounded-lg border-slate-300" /></div>
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">البريد</label><input name="email" type="email" class="block w-full rounded-lg border-slate-300" /></div>
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">Instagram</label><input name="instagram" class="block w-full rounded-lg border-slate-300" /></div>
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">TikTok</label><input name="tiktok" class="block w-full rounded-lg border-slate-300" /></div>
-              <div><label class="block text-sm font-medium text-slate-600 mb-1">YouTube</label><input name="youtube" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm muted mb-1">رقم الهاتف</label><input name="phone_display" class="block w-full rounded-lg border-slate-300"/></div>
+              <div><label class="block text-sm muted mb-1">رابط واتساب</label><input name="whatsapp_link" class="block w-full rounded-lg border-slate-300"/></div>
+              <div><label class="block text-sm muted mb-1">البريد</label><input name="email" type="email" class="block w-full rounded-lg border-slate-300"/></div>
+              <div><label class="block text-sm muted mb-1">Instagram</label><input name="instagram" class="block w-full rounded-lg border-slate-300"/></div>
+              <div><label class="block text-sm muted mb-1">TikTok</label><input name="tiktok" class="block w-full rounded-lg border-slate-300"/></div>
+              <div><label class="block text-sm muted mb-1">YouTube</label><input name="youtube" class="block w-full rounded-lg border-slate-300"/></div>
             </form>
           </div>
-          
-          <!-- Diet systems -->
+
+          <!-- Diets -->
           <div>
-            <h3 class="text-lg font-bold text-slate-800 mb-2 border-b border-slate-200 pb-3">الأنظمة الغذائية</h3>
+            <h3 class="text-lg font-bold mb-2 border-b border-slate-200 pb-3">الأنظمة الغذائية</h3>
             <p class="text-sm text-slate-500 mb-4">أضف/عدّل عناصر القائمة (AR/EN + وصف).</p>
             <div id="dietsList" class="space-y-4"></div>
-            <button id="addDietBtn" class="mt-4 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all">+ إضافة نظام غذائي</button>
+            <button id="addDietBtn" class="mt-2 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">+ إضافة نظام غذائي</button>
           </div>
 
           <!-- Images -->
           <div>
-            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">الصور (URLs)</h3>
+            <h3 class="text-lg font-bold mb-4 border-b border-slate-200 pb-3">الصور (URLs)</h3>
             <div id="imagesList" class="space-y-2"></div>
           </div>
 
-          <!-- Images meta (alts) -->
+          <!-- Alts -->
           <div>
-            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">النصوص البديلة للصور (Alt)</h3>
+            <h3 class="text-lg font-bold mb-4 border-b border-slate-200 pb-3">النصوص البديلة للصور (Alt)</h3>
             <div id="imagesMetaList" class="space-y-2"></div>
           </div>
         </div>
 
         <div class="mt-8 border-t border-slate-200 pt-6">
-          <button id="saveSettingsBtn" class="inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all">حفظ كل الإعدادات</button>
+          <button id="saveSettingsBtn" class="inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">حفظ كل الإعدادات</button>
         </div>
       </div>
     </section>
 
-    <!-- ============ Recipes Tab ============ -->
+    <!-- Recipes -->
     <section id="tab-recipes" class="tab">
       <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 class="text-xl font-bold text-slate-800 mb-2">الوصفات</h2>
-        <p class="text-sm text-slate-500">قسم استعراضي — أدرج/أوصل بوظائفك الخاصة إذا كانت متوفّرة.</p>
+        <h2 class="text-xl font-bold mb-2">الوصفات</h2>
+        <p class="text-sm text-slate-500">قسم استعراضي.</p>
         <div id="recipesEmpty" class="mt-6 text-center py-10 border-2 border-dashed border-slate-200 rounded-lg">
           <p class="text-slate-500">لا توجد عناصر للعرض حاليًا.</p>
         </div>
       </div>
     </section>
 
-    <!-- ============ Logs Tab ============ -->
+    <!-- Logs -->
     <section id="tab-logs" class="tab">
       <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 class="text-xl font-bold text-slate-800 mb-2">السجلات</h2>
-        <p class="text-sm text-slate-500">لعرض سجلات النظام إن توفّرت واجهة API مناسبة.</p>
-        <pre id="logsBox" class="mt-4 whitespace-pre-wrap bg-slate-900 text-slate-200 p-4 rounded-lg text-sm leading-relaxed min-h-[200px]">(لا توجد سجلات)</pre>
+        <h2 class="text-xl font-bold mb-2">السجلات</h2>
+        <pre id="logsBox" class="mt-4 whitespace-pre-wrap bg-slate-900 text-slate-200 p-4 rounded-lg text-sm min-h-[200px]">(لا توجد سجلات)</pre>
       </div>
     </section>
   </main>
 
-  <!-- JAVASCRIPT -->
+  <!-- Global Modal -->
+  <div id="modalRoot" class="hidden fixed inset-0 z-[100]">
+    <div class="absolute inset-0 bg-slate-900/60"></div>
+    <div class="absolute inset-0 flex items-center justify-center p-4">
+      <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+          <h3 id="modalTitle" class="text-lg font-bold"></h3>
+          <button id="modalClose" class="icon-btn" title="إغلاق">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div id="modalBody" class="p-5 max-h-[70vh] overflow-auto"></div>
+        <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-2">
+          <div id="modalHint" class="text-xs text-slate-500"></div>
+          <div class="flex gap-2">
+            <button id="modalCancel" class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50">إلغاء</button>
+            <button id="modalConfirm" class="inline-flex items-center rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-semibold hover:bg-red-700">تأكيد</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
   <script>
   (function(){
-    // ============ Tab switching ============
+    // ===== Tabs =====
     const tabsNav = document.getElementById('tabs');
     const tabButtons = Array.from(tabsNav.querySelectorAll('button'));
     const tabSections = Array.from(document.querySelectorAll('section.tab'));
@@ -188,15 +212,13 @@
       tabButtons.forEach(b=> b.classList.toggle('active', b.dataset.tab===id));
       tabSections.forEach(s=> s.classList.toggle('active', s.id===id));
     }
-    tabsNav.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button[data-tab]');
-      if(!btn) return;
-      activateTab(btn.dataset.tab);
+    tabsNav.addEventListener('click',(e)=>{
+      const btn = e.target.closest('button[data-tab]'); if(!btn) return; activateTab(btn.dataset.tab);
     });
 
-    // ============ Admin Key handling ============
-    const ADMIN_KEY_STORAGE = 'wasfa_admin_key';
-    let ADMIN_KEY = localStorage.getItem(ADMIN_KEY_STORAGE) || '';
+    // ===== Admin key =====
+    const ADMIN_KEY_STORAGE='wasfa_admin_key';
+    let ADMIN_KEY = localStorage.getItem(ADMIN_KEY_STORAGE)||'';
     async function promptAdminKey(){
       if(!ADMIN_KEY){
         ADMIN_KEY = prompt('أدخل كلمة مرور الأدمن:');
@@ -205,31 +227,72 @@
       }
     }
 
-    // ============ Helpers ============
-    function el(tag, attrs={}, children=[]) {
-      const e = document.createElement(tag);
-      Object.entries(attrs).forEach(([k,v])=>{
-        if(k==='class') e.className = v; else if(k==='text') e.textContent=v; else e.setAttribute(k,v);
-      });
-      children.forEach(c=> e.appendChild(c));
-      return e;
-    }
+    // ===== Helpers =====
+    const rowInputClass = "block w-full text-sm bg-white rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 disabled:bg-slate-50 disabled:text-slate-500";
+    const inputClass = "block w-full rounded-md border-slate-300 text-sm";
+    const textareaClass = inputClass + " min-h-[90px]";
+
+    function escapeHtml(s){return (s||'').replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
+    function el(tag, attrs={}, children=[]){const e=document.createElement(tag);Object.entries(attrs).forEach(([k,v])=>{if(k==='class')e.className=v;else if(k==='text')e.textContent=v;else e.setAttribute(k,v)});children.forEach(c=>e.appendChild(c));return e;}
     async function api(path, method='GET', body){
       await promptAdminKey();
-      const res = await fetch('/.netlify/functions/' + path, {
-        method,
-        headers: { 'content-type':'application/json', 'x-admin-key': ADMIN_KEY },
-        body: body? JSON.stringify(body): undefined
-      });
+      const res = await fetch('/.netlify/functions/'+path,{method,headers:{'content-type':'application/json','x-admin-key':ADMIN_KEY},body: body? JSON.stringify(body): undefined});
       if(res.status===401){ localStorage.removeItem(ADMIN_KEY_STORAGE); ADMIN_KEY=''; throw new Error('unauthorized'); }
-      let data = {};
-      try{ data = await res.json(); } catch(_){ /* ignore */ }
+      let data={}; try{ data=await res.json(); }catch(_){}
       if(!res.ok || data.ok===false){ throw new Error(data.error||('request_failed_'+res.status)); }
       return data;
     }
-    function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
 
-    // ============ Users CRUD ============
+    // ===== Modal system =====
+    const modalRoot = document.getElementById('modalRoot');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    const modalHint = document.getElementById('modalHint');
+    const modalConfirm = document.getElementById('modalConfirm');
+    const modalCancel = document.getElementById('modalCancel');
+    const modalClose = document.getElementById('modalClose');
+    let modalCleanup = null, modalConfirmHandler = null;
+
+    function openModal({title, node, hint="", confirmText="تأكيد", onConfirm}){
+      modalTitle.textContent = title;
+      modalBody.innerHTML = ""; modalBody.appendChild(node);
+      modalHint.textContent = hint;
+      modalConfirm.textContent = confirmText;
+      modalConfirmHandler = onConfirm;
+      modalRoot.classList.remove('hidden');
+      setTimeout(()=>modalRoot.querySelector('input,textarea,select,button:not(#modalConfirm):not(#modalCancel)')?.focus(),50);
+      return new Promise((resolve)=>{ modalCleanup = resolve; });
+    }
+    function closeModal(result=false){
+      modalRoot.classList.add('hidden');
+      if(modalCleanup){ modalCleanup(result); modalCleanup=null; }
+      modalConfirmHandler = null;
+    }
+    modalCancel.addEventListener('click', ()=> closeModal(false));
+    modalClose.addEventListener('click',  ()=> closeModal(false));
+    modalRoot.addEventListener('click', (e)=>{ if(e.target===modalRoot) closeModal(false); });
+    modalConfirm.addEventListener('click', async ()=>{
+      if(typeof modalConfirmHandler === 'function'){
+        modalConfirm.disabled = true;
+        try{ const ok = await modalConfirmHandler(); closeModal(ok!==false); }
+        catch(err){ alert('فشلت العملية: '+ err.message); }
+        finally{ modalConfirm.disabled = false; }
+      } else {
+        closeModal(true);
+      }
+    });
+
+    // ===== Icons (inline SVG) =====
+    const icons = {
+      edit:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
+      reset:  '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 8a8 8 0 10-2.9 9.7"/></svg>',
+      trash:  '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M19 7l-1 12a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7m3-3h8m-9 3h10M10 11v6M14 11v6"/></svg>',
+      note:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 4h8a2 2 0 012 2v8l-6 6H8a2 2 0 01-2-2V6a2 2 0 012-2z"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 14v6"/></svg>',
+      key:    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="7" cy="17" r="3" stroke-width="2"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M10 17h10l-3-3 3-3"/></svg>',
+      close:  '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+    };
+
+    // ===== Users =====
     const tbody = document.getElementById('usersTbody');
     let currentUsers = [];
 
@@ -239,192 +302,54 @@
         renderUsers(Array.isArray(users)? users: []);
       }catch(err){ alert('فشل تحميل المستخدمين: '+ err.message); }
     }
-    
-    // Styled classes
-    const rowInputClass = "block w-full text-sm bg-white rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 disabled:bg-slate-50 disabled:text-slate-500";
-    const btnClass = "inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all";
-    const btnPrimaryClass = "inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all";
-    const btnDangerClass = "inline-flex items-center justify-center rounded-md border border-transparent bg-red-800 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all";
-    const btnMutedClass = "inline-flex items-center justify-center rounded-md border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all";
 
-    // NEW: inline password editor (per-row)
-    function buildPasswordEditor(){
-      const wrap = document.createElement('div');
-      wrap.className = "mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg hidden";
-      wrap.innerHTML = `
-        <div class="grid grid-cols-1 sm:grid-cols-[1fr,1fr,auto] gap-2 items-center">
-          <input type="password" placeholder="كلمة السر الجديدة" class="${rowInputClass} js-pass1" />
-          <input type="password" placeholder="تأكيد كلمة السر" class="${rowInputClass} js-pass2" />
-          <button class="${btnPrimaryClass} js-pass-save">حفظ كلمة السر</button>
-        </div>
-        <p class="text-xs text-slate-500 mt-2">لن يتم تغيير أي حقول أخرى. سيُرسل فقط <span class="font-semibold">email + password</span> عبر طلب PUT.</p>
-      `;
-      return wrap;
+    function setNotesViewText(viewEl, text){
+      const t = (text||"").trim();
+      const node = viewEl.querySelector(".js-notes-view-text");
+      node.textContent = t ? t : "— لا توجد ملاحظات —";
+      node.classList.toggle("opacity-60", !t);
+      node.classList.toggle("italic", !t);
     }
 
-    // NEW: inline notes editor (per-row)
-    function buildNotesEditor(initialText){
-      const wrap = document.createElement('div');
-      wrap.className = "mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg hidden";
-      wrap.innerHTML = `
-        <div class="grid grid-cols-1 sm:grid-cols-[1fr,auto] gap-2 items-start">
-          <textarea rows="3" class="${rowInputClass} js-notes-text" placeholder="اكتب ملاحظات داخلية عن هذا المستخدم…"></textarea>
-          <div class="flex gap-2">
-            <button class="${btnPrimaryClass} js-notes-save">حفظ الملاحظات</button>
-            <button class="${btnMutedClass} js-notes-cancel">إلغاء</button>
-          </div>
-        </div>
-        <p class="text-xs text-slate-500 mt-2">يتم حفظ الملاحظات ضمن سجل المستخدم في <code>users.json</code> عبر <span class="font-semibold">PUT adminUsers</span> باستخدام الحقول <span class="font-semibold">email + notes</span>.</p>
-      `;
-      // set initial
-      setTimeout(()=>{ wrap.querySelector('.js-notes-text').value = initialText || ""; }, 0);
-      return wrap;
+    function buildNotesView(initialText){
+      const view = document.createElement('div');
+      view.className = "mt-2 p-3 rounded-lg border text-sm whitespace-pre-wrap bg-amber-50 border-amber-300 text-amber-900";
+      view.innerHTML = `<div class="flex items-start gap-2">
+        <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-200 text-amber-900 text-xs font-bold">م</span>
+        <div class="js-notes-view-text flex-1"></div>
+      </div>`;
+      setTimeout(()=> setNotesViewText(view, initialText), 0);
+      return view;
     }
 
     function rowTemplate(u){
       const tr = document.createElement('tr');
       tr.dataset.email = u.email;
       tr.innerHTML = `
-        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="name" value="${escapeHtml(u.name||'')}" /></td>
-        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="email" value="${escapeHtml(u.email||'')}" disabled /></td>
+        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="name" value="${escapeHtml(u.name||'')}" disabled/></td>
+        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="email" value="${escapeHtml(u.email||'')}" disabled/></td>
         <td class="px-4 py-3 align-middle">
-          <select class="${rowInputClass}" name="status">
-            <option value="active" ${u.status==='active'? 'selected':''}>فعّال</option>
-            <option value="suspended" ${u.status==='suspended'? 'selected':''}>معلّق</option>
-          </select>
+          <input class="${rowInputClass}" name="status" value="${u.status==='active'?'active':'suspended'}" disabled/>
         </td>
-        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="start_date" type="date" value="${u.start_date||''}" /></td>
-        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="end_date" type="date" value="${u.end_date||''}" /></td>
+        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="start_date" type="date" value="${u.start_date||''}" disabled/></td>
+        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="end_date" type="date" value="${u.end_date||''}" disabled/></td>
         <td class="px-4 py-3 align-middle">
           <div class="flex items-center flex-wrap gap-2">
-            <button class="${btnClass} js-edit">تعديل</button>
-            <button class="${btnPrimaryClass} js-save hidden">حفظ</button>
-            <button class="${btnMutedClass} js-cancel hidden">إلغاء</button>
-            <button class="${btnClass} js-reset">إعادة ربط</button>
-            <button class="${btnDangerClass} js-delete">حذف</button>
-            <button class="${btnClass} js-pass-toggle">كلمة السر</button>
-            <button class="${btnClass} js-notes-toggle">ملاحظات</button>
+            <button class="icon-btn js-edit" title="تعديل">${icons.edit}</button>
+            <button class="icon-btn js-reset" title="إعادة ربط">${icons.reset}</button>
+            <button class="icon-btn js-pass"  title="تغيير كلمة السر">${icons.key}</button>
+            <button class="icon-btn js-notes" title="ملاحظات">${icons.note}</button>
+            <button class="icon-btn js-delete" title="حذف">${icons.trash}</button>
           </div>
-          <!-- Editors -->
-          <div class="js-pass-wrap"></div>
-          <div class="js-notes-wrap"></div>
+          <div class="js-notes-view"></div>
         </td>`;
-      toggleRowEdit(tr, false);
+      // mount persistent notes view
+      const notesViewHost = tr.querySelector('.js-notes-view');
+      const notesView = buildNotesView(u.notes || "");
+      notesViewHost.appendChild(notesView);
 
-      // mount editors
-      const passWrapHost = tr.querySelector('.js-pass-wrap');
-      const passEditor = buildPasswordEditor();
-      passWrapHost.appendChild(passEditor);
-
-      const notesWrapHost = tr.querySelector('.js-notes-wrap');
-      const notesEditor = buildNotesEditor(u.notes || "");
-      notesWrapHost.appendChild(notesEditor);
-
-      attachRowHandlers(tr);
-      attachPasswordHandlers(tr, passEditor);
-      attachNotesHandlers(tr, notesEditor);
+      attachRowIconHandlers(tr, notesView);
       return tr;
-    }
-
-    function toggleRowEdit(tr, editing){
-      tr.querySelectorAll('input[name="name"], select[name="status"], input[name="start_date"], input[name="end_date"]').forEach(el=>{
-        el.disabled = !editing;
-      });
-      tr.querySelector('.js-edit').classList.toggle('hidden', editing);
-      tr.querySelector('.js-save').classList.toggle('hidden', !editing);
-      tr.querySelector('.js-cancel').classList.toggle('hidden', !editing);
-    }
-
-    function collectRow(tr){
-      const get = (n)=> tr.querySelector(`[name="${n}"]`)?.value ?? null;
-      return {
-        email: get('email'),
-        name: get('name'),
-        status: tr.querySelector('[name="status"]').value,
-        start_date: get('start_date') || null,
-        end_date: get('end_date') || null
-      };
-    }
-
-    function attachRowHandlers(tr){
-      tr.querySelector('.js-edit').addEventListener('click', ()=> toggleRowEdit(tr, true));
-      tr.querySelector('.js-cancel').addEventListener('click', ()=> { toggleRowEdit(tr, false); loadUsers(); });
-      tr.querySelector('.js-save').addEventListener('click', async ()=>{
-        try{
-          const payload = collectRow(tr);
-          await api('adminUsers','PUT', payload);
-          toggleRowEdit(tr, false);
-          await loadUsers();
-          alert('تم الحفظ');
-        }catch(err){ alert('فشل الحفظ: '+ err.message); }
-      });
-      tr.querySelector('.js-delete').addEventListener('click', async ()=>{
-        if(!confirm('حذف المستخدم؟')) return;
-        try{ await api('adminUsers','DELETE', { email: tr.dataset.email }); tr.remove(); }
-        catch(err){ alert('فشل الحذف: '+ err.message); }
-      });
-      tr.querySelector('.js-reset').addEventListener('click', async ()=>{
-        try{ await api('adminUsers?action=resetDevice','POST', { email: tr.dataset.email }); alert('تمت إعادة ربط الجهاز.'); }
-        catch(err){ alert('فشل العملية: '+ err.message); }
-      });
-    }
-
-    // Password handlers
-    function attachPasswordHandlers(tr, panel){
-      const toggleBtn = tr.querySelector('.js-pass-toggle');
-      const p1 = () => panel.querySelector('.js-pass1');
-      const p2 = () => panel.querySelector('.js-pass2');
-      const saveBtn = () => panel.querySelector('.js-pass-save');
-
-      toggleBtn.addEventListener('click', ()=>{
-        panel.classList.toggle('hidden');
-        if(!panel.classList.contains('hidden')) { p1().focus(); }
-      });
-
-      saveBtn().addEventListener('click', async ()=>{
-        const passA = (p1().value || '').trim();
-        const passB = (p2().value || '').trim();
-        if(!passA || passA.length < 6){ alert('الرجاء إدخال كلمة سر لا تقل عن 6 أحرف.'); return; }
-        if(passA !== passB){ alert('كلمتا السر غير متطابقتين.'); return; }
-        try{
-          const email = tr.dataset.email;
-          await api('adminUsers','PUT', { email, password: passA });
-          p1().value = ''; p2().value = '';
-          panel.classList.add('hidden');
-          alert('تم تحديث كلمة السر بنجاح.');
-        }catch(err){
-          alert('فشل تحديث كلمة السر: ' + err.message);
-        }
-      });
-    }
-
-    // Notes handlers
-    function attachNotesHandlers(tr, panel){
-      const toggleBtn = tr.querySelector('.js-notes-toggle');
-      const txt = () => panel.querySelector('.js-notes-text');
-      const saveBtn = () => panel.querySelector('.js-notes-save');
-      const cancelBtn = () => panel.querySelector('.js-notes-cancel');
-
-      toggleBtn.addEventListener('click', ()=>{
-        panel.classList.toggle('hidden');
-        if(!panel.classList.contains('hidden')) { txt().focus(); }
-      });
-
-      saveBtn().addEventListener('click', async ()=>{
-        const notes = (txt().value || '').trim();
-        try{
-          const email = tr.dataset.email;
-          await api('adminUsers','PUT', { email, notes });
-          panel.classList.add('hidden');
-          alert('تم حفظ الملاحظات.');
-        }catch(err){
-          alert('فشل حفظ الملاحظات: ' + err.message);
-        }
-      });
-
-      cancelBtn().addEventListener('click', ()=>{
-        panel.classList.add('hidden');
-      });
     }
 
     function renderUsers(list){
@@ -433,11 +358,154 @@
       currentUsers.forEach(u => tbody.appendChild(rowTemplate(u)));
     }
 
-    // Create new user
+    // === Icon handlers -> open modals ===
+    function attachRowIconHandlers(tr, notesView){
+      const email = tr.dataset.email;
+
+      // Edit modal
+      tr.querySelector('.js-edit').addEventListener('click', async ()=>{
+        const name = tr.querySelector('[name="name"]').value;
+        const status = tr.querySelector('[name="status"]').value;
+        const start_date = tr.querySelector('[name="start_date"]').value;
+        const end_date = tr.querySelector('[name="end_date"]').value;
+
+        const form = el('div',{class:'space-y-3'},[
+          el('div',{},[
+            el('label',{class:'block text-sm muted mb-1',text:'الاسم'}), el('input',{class:inputClass,name:'_name',value:name})
+          ]),
+          el('div',{},[
+            el('label',{class:'block text-sm muted mb-1',text:'الحالة'}), (()=>{
+              const sel=el('select',{class:inputClass,name:'_status'});
+              sel.innerHTML = `<option value="active">active</option><option value="suspended">suspended</option>`;
+              sel.value = status; return sel;
+            })()
+          ]),
+          el('div', {class:"grid grid-cols-1 sm:grid-cols-2 gap-3"}, [
+            (()=>{
+              const w=el('div'); w.appendChild(el('label',{class:'block text-sm muted mb-1',text:'تاريخ البداية'}));
+              w.appendChild(el('input',{class:inputClass,type:'date',name:'_start',value:start_date||''}));
+              return w;
+            })(),
+            (()=>{
+              const w=el('div'); w.appendChild(el('label',{class:'block text-sm muted mb-1',text:'تاريخ النهاية'}));
+              w.appendChild(el('input',{class:inputClass,type:'date',name:'_end',value:end_date||''}));
+              return w;
+            })()
+          ])
+        ]);
+
+        openModal({
+          title:"تعديل بيانات المستخدم",
+          node:form,
+          hint:"لن يتم تعديل البريد. ستتم الكتابة على الاسم/الحالة/التواريخ فقط.",
+          confirmText:"حفظ التعديلات",
+          onConfirm: async ()=>{
+            const payload = {
+              email,
+              name: form.querySelector('[name="_name"]').value.trim(),
+              status: form.querySelector('[name="_status"]').value,
+              start_date: form.querySelector('[name="_start"]').value || null,
+              end_date: form.querySelector('[name="_end"]').value || null
+            };
+            await api('adminUsers','PUT', payload);
+            await loadUsers();
+          }
+        });
+      });
+
+      // Reset device modal
+      tr.querySelector('.js-reset').addEventListener('click', ()=>{
+        const body = el('div',{class:'space-y-2'},[
+          el('p',{class:'text-sm'},[document.createTextNode('سيتم مسح ربط الجهاز والجلسة للمستخدم:'), el('code',{class:'mx-1 text-red-600'},[document.createTextNode(email)])]),
+          el('p',{class:'text-xs muted'},[document.createTextNode('يُستخدم هذا عند مواجهة خطأ 423 أو تغيير كلمة السر.')])
+        ]);
+        openModal({
+          title:"إعادة ربط الجهاز",
+          node: body,
+          hint:"إجراء لا يمكن التراجع عنه للمستخدم الحالي.",
+          confirmText:"تنفيذ إعادة الربط",
+          onConfirm: async ()=>{ await api('adminUsers?action=resetDevice','POST',{ email }); }
+        });
+      });
+
+      // Password modal
+      tr.querySelector('.js-pass').addEventListener('click', ()=>{
+        const frm = el('div',{class:'space-y-3'},[
+          (()=>{
+            const w=el('div'); w.appendChild(el('label',{class:'block text-sm muted mb-1',text:'كلمة السر الجديدة'}));
+            w.appendChild(el('input',{class:inputClass,type:'password',name:'_p1',placeholder:'******'}));
+            return w;
+          })(),
+          (()=>{
+            const w=el('div'); w.appendChild(el('label',{class:'block text-sm muted mb-1',text:'تأكيد كلمة السر'}));
+            w.appendChild(el('input',{class:inputClass,type:'password',name:'_p2',placeholder:'******'}));
+            return w;
+          })(),
+          el('p',{class:'text-xs muted'},[document.createTextNode('سيتم إرسال email + password فقط عبر PUT.')])
+        ]);
+        openModal({
+          title:"تغيير كلمة السر",
+          node:frm,
+          confirmText:"حفظ كلمة السر",
+          onConfirm: async ()=>{
+            const p1 = frm.querySelector('[name="_p1"]').value.trim();
+            const p2 = frm.querySelector('[name="_p2"]').value.trim();
+            if(!p1 || p1.length<6) throw new Error("أدخل كلمة سر لا تقل عن 6 أحرف.");
+            if(p1!==p2) throw new Error("كلمتا السر غير متطابقتين.");
+            await api('adminUsers','PUT',{ email, password: p1 });
+            // اقتراح: إعادة ربط مباشرة بعد تغيير الباسورد (اختياري). يمكن تفعيل السطر التالي:
+            // await api('adminUsers?action=resetDevice','POST',{ email });
+          }
+        });
+      });
+
+      // Notes modal
+      tr.querySelector('.js-notes').addEventListener('click', ()=>{
+        const currentText = notesView.querySelector('.js-notes-view-text')?.textContent || '';
+        const frm = el('div',{class:'space-y-3'},[
+          el('label',{class:'block text-sm muted',text:'ملاحظات داخلية'}),
+          el('textarea',{class:textareaClass,name:'_notes',placeholder:'اكتب ملاحظات عن هذا المستخدم…'},[]),
+          el('p',{class:'text-xs text-amber-700'},[document.createTextNode('ستبقى الملاحظات مرئية في الصندوق الكهرماني أسفل المستخدم.')])
+        ]);
+        setTimeout(()=>{ const t=frm.querySelector('[name="_notes"]'); t.value = (currentText==="— لا توجد ملاحظات —") ? "" : currentText; t.focus(); },0);
+
+        openModal({
+          title:"تعديل الملاحظات",
+          node:frm,
+          confirmText:"حفظ الملاحظات",
+          onConfirm: async ()=>{
+            const notes = frm.querySelector('[name="_notes"]').value.trim();
+            await api('adminUsers','PUT',{ email, notes });
+            setNotesViewText(notesView, notes);
+          }
+        });
+      });
+
+      // Delete modal
+      tr.querySelector('.js-delete').addEventListener('click', ()=>{
+        const body = el('div',{class:'space-y-2'},[
+          el('p',{class:'text-sm'},[document.createTextNode('هل تريد حذف المستخدم نهائيًا؟')]),
+          el('p',{class:'text-xs text-red-700'},[document.createTextNode('تحذير: لا يمكن التراجع عن هذا الإجراء.')]),
+          el('div',{class:'text-xs bg-slate-50 border border-slate-200 p-2 rounded'},[
+            document.createTextNode('البريد: '), el('code',{},[document.createTextNode(email)])
+          ])
+        ]);
+        openModal({
+          title:"حذف المستخدم",
+          node:body,
+          confirmText:"نعم، احذف",
+          onConfirm: async ()=>{
+            await api('adminUsers','DELETE',{ email });
+            tr.remove();
+          }
+        });
+      });
+    }
+
+    // Create User (unchanged)
     document.getElementById('createUserForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
-      const form = e.currentTarget;
-      const fd = new FormData(form);
+      const fd = new FormData(e.currentTarget);
       const email = (fd.get('email')||'').toString().trim().toLowerCase();
       const body = {
         name: (fd.get('name')||'').toString().trim(),
@@ -446,147 +514,128 @@
         status: (fd.get('status')||'active').toString(),
         start_date: fd.get('start_date')||null,
         end_date: fd.get('end_date')||null,
-        device_fingerprint: null,
-        session_nonce: null,
-        lock_reason: null
+        device_fingerprint: null, session_nonce: null, lock_reason: null
       };
-      const upsert = fd.get('upsert') === 'on';
-      const exists = currentUsers.some(u => (u.email||'').toLowerCase() === email);
-      try{
-        if(exists && !upsert){
-          alert('هذا البريد موجود مسبقًا. ضع علامة "حدّث المستخدم بدلًا من الإنشاء" أو غيّر البريد.');
-          return;
-        }
-        if(exists && upsert){
-          await api('adminUsers','PUT', body);
-        } else {
-          await api('adminUsers','POST', body);
-        }
-        form.reset();
-        await loadUsers();
-        alert('تم الحفظ');
-      }catch(err){ alert('فشل حفظ المستخدم: '+ err.message); }
+      const exists = currentUsers.some(u => (u.email||'').toLowerCase()===email);
+      const upsert = fd.get('upsert')==='on';
+
+      if(exists && !upsert){ alert('هذا البريد موجود مسبقًا. فعّل خيار التحديث أو غيّر البريد.'); return; }
+
+      if(exists && upsert){
+        await api('adminUsers','PUT', body);
+      } else {
+        await api('adminUsers','POST', body);
+      }
+      e.currentTarget.reset();
+      await loadUsers();
+      alert('تم الحفظ');
     });
 
-    // ===== Settings (unchanged functionality) =====
-    let currentSettings = null;
+    // ===== Settings (same logic) =====
+    let currentSettings=null;
     async function loadSettings(){
       try{
         const { settings } = await api('adminSettings');
-        currentSettings = settings || {};
+        currentSettings = settings||{};
         renderBranding(); renderContact(); renderDiets(); renderImages(); renderImagesMeta();
       }catch(err){ alert('فشل تحميل الإعدادات: '+err.message); }
     }
 
     function renderBranding(){
-      const f = document.getElementById('brandingForm'); const b = currentSettings.branding || {};
-      f.site_name_ar.value = b.site_name_ar || ''; f.site_name_en.value = b.site_name_en || ''; f.logo_url.value = b.logo_url || '';
+      const f = document.getElementById('brandingForm'); const b=currentSettings.branding||{};
+      f.site_name_ar.value=b.site_name_ar||''; f.site_name_en.value=b.site_name_en||''; f.logo_url.value=b.logo_url||'';
     }
     function renderContact(){
-      const f = document.getElementById('contactForm'); const c = currentSettings.contact || {};
-      f.phone_display.value = c.phone_display || ''; f.whatsapp_link.value = c.whatsapp_link || ''; f.email.value = c.email || '';
-      const s = (c.social || {}); f.instagram.value = s.instagram || ''; f.tiktok.value = s.tiktok || ''; f.youtube.value = s.youtube || '';
+      const f=document.getElementById('contactForm'); const c=currentSettings.contact||{}; const s=c.social||{};
+      f.phone_display.value=c.phone_display||''; f.whatsapp_link.value=c.whatsapp_link||''; f.email.value=c.email||'';
+      f.instagram.value=s.instagram||''; f.tiktok.value=s.tiktok||''; f.youtube.value=s.youtube||'';
     }
-    
-    const inputClass = "block w-full rounded-md border-slate-300 text-sm";
-    const labelClass = "block text-xs font-medium text-slate-500 mb-1";
-    const textareaClass = inputClass + " min-h-[80px]";
 
     function dietItemRow(d){
-      const wrap = el('div', { class:'bg-slate-50 border border-slate-200 rounded-lg p-4' });
-      wrap.appendChild(el('div', { class:'grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4' }, [
-        el('div',{},[el('label',{class:labelClass,text:'ID'}), el('input',{class:inputClass,'data-k':'id', value: d.id||''})]),
-        el('div',{},[el('label',{class:labelClass,text:'الاسم (AR)'}), el('input',{class:inputClass,'data-k':'name_ar', value: d.name_ar||''})]),
-        el('div',{},[el('label',{class:labelClass,text:'Name (EN)'}), el('input',{class:inputClass,'data-k':'name_en', value: d.name_en||''})]),
-      ]));
-      wrap.appendChild(el('div', { class:'grid grid-cols-1 sm:grid-cols-2 gap-4' }, [
-        el('div',{},[el('label',{class:labelClass,text:'الوصف (AR)'}), el('textarea',{class:textareaClass,'data-k':'description_ar'},[])]),
-        el('div',{},[el('label',{class:labelClass,text:'Description (EN)'}), el('textarea',{class:textareaClass,'data-k':'description_en'},[])]),
-      ]));
+      const wrap=el('div',{class:'bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3'});
+      const g1=el('div',{class:'grid grid-cols-1 sm:grid-cols-3 gap-4'});
+      g1.appendChild(el('div',{},[el('label',{class:'block text-xs muted mb-1',text:'ID'}), el('input',{class:inputClass,'data-k':'id',value:d.id||''})]));
+      g1.appendChild(el('div',{},[el('label',{class:'block text-xs muted mb-1',text:'الاسم (AR)'}), el('input',{class:inputClass,'data-k':'name_ar',value:d.name_ar||''})]));
+      g1.appendChild(el('div',{},[el('label',{class:'block text-xs muted mb-1',text:'Name (EN)'}), el('input',{class:inputClass,'data-k':'name_en',value:d.name_en||''})]));
+      const g2=el('div',{class:'grid grid-cols-1 sm:grid-cols-2 gap-4'});
+      g2.appendChild(el('div',{},[el('label',{class:'block text-xs muted mb-1',text:'الوصف (AR)'}), el('textarea',{class:textareaClass,'data-k':'description_ar'},[])]));
+      g2.appendChild(el('div',{},[el('label',{class:'block text-xs muted mb-1',text:'Description (EN)'}), el('textarea',{class:textareaClass,'data-k':'description_en'},[])]));
+      wrap.appendChild(g1); wrap.appendChild(g2);
       wrap.querySelector('[data-k="description_ar"]').value = d.description_ar||'';
       wrap.querySelector('[data-k="description_en"]').value = d.description_en||'';
-      const tools = el('div', { class:'mt-4' }, [ el('button',{class:btnDangerClass,text:'حذف'}) ]);
-      tools.querySelector('button').addEventListener('click',()=>{ wrap.remove(); });
+      const tools=el('div',{class:'flex justify-end'},[el('button',{class:'icon-btn',title:'حذف',innerHTML:icons.trash})]);
+      tools.querySelector('button').addEventListener('click',()=> wrap.remove());
       wrap.appendChild(tools);
       return wrap;
     }
-
     function renderDiets(){
-      const host = document.getElementById('dietsList'); host.innerHTML='';
+      const host=document.getElementById('dietsList'); host.innerHTML='';
       (currentSettings.diet_systems||[]).forEach(d=> host.appendChild(dietItemRow(d)));
-      document.getElementById('addDietBtn').onclick = ()=>{ host.appendChild(dietItemRow({ id:'', name_ar:'', name_en:'', description_ar:'', description_en:'' })); };
+      document.getElementById('addDietBtn').onclick = ()=> host.appendChild(dietItemRow({}));
     }
 
     function imagesRow(k,v){
-      const row = el('div', { class:'grid grid-cols-1 sm:grid-cols-[1fr,2fr,auto] gap-2 items-center' }, [
-        el('input',{class:inputClass,'data-k':'key', value:k, placeholder: 'key (e.g., hero_bg)'}),
-        el('input',{class:inputClass,'data-k':'val', value:v, placeholder: 'https://example.com/image.jpg'}),
-        el('button',{class:btnDangerClass,text:'حذف'})
+      const row=el('div',{class:'grid grid-cols-1 sm:grid-cols-[1fr,2fr,auto] gap-2 items-center'},[
+        el('input',{class:inputClass,'data-k':'key',value:k||'',placeholder:'key (e.g., hero)'}),
+        el('input',{class:inputClass,'data-k':'val',value:v||'',placeholder:'https://...jpg'}),
+        el('button',{class:'icon-btn',title:'حذف',innerHTML:icons.trash})
       ]);
       row.querySelector('button').addEventListener('click',()=> row.remove());
       return row;
     }
     function renderImages(){
-      const host = document.getElementById('imagesList'); host.innerHTML='';
-      const imgs = currentSettings.images || {};
-      Object.keys(imgs).forEach(k=> host.appendChild(imagesRow(k, imgs[k])));
-      const add = el('button',{class:btnClass + ' mt-2',text:'+ إضافة صورة'});
-      add.addEventListener('click',()=> host.insertBefore(imagesRow('', ''), add));
+      const host=document.getElementById('imagesList'); host.innerHTML='';
+      const imgs=currentSettings.images||{};
+      Object.keys(imgs).forEach(k=> host.appendChild(imagesRow(k,imgs[k])));
+      const add=el('button',{class:'mt-2 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium',text:'+ إضافة صورة'});
+      add.addEventListener('click',()=> host.insertBefore(imagesRow('',''), add));
       host.appendChild(add);
     }
 
-    function metaRow(k, ar, en){
-      return el('div', { class:'grid grid-cols-1 sm:grid-cols-3 gap-2 items-center' }, [
-        el('input',{class:inputClass,'data-k':'key', value:k, placeholder: 'Image key (from above)'}),
-        el('input',{class:inputClass,'data-k':'ar', value:ar||'', placeholder:'النص البديل بالعربية'}),
-        el('input',{class:inputClass,'data-k':'en', value:en||'', placeholder:'Alt text in English'})
+    function metaRow(k,ar,en){
+      return el('div',{class:'grid grid-cols-1 sm:grid-cols-3 gap-2 items-center'},[
+        el('input',{class:inputClass,'data-k':'key',value:k||'',placeholder:'Image key'}),
+        el('input',{class:inputClass,'data-k':'ar',value:ar||'',placeholder:'Alt AR'}),
+        el('input',{class:inputClass,'data-k':'en',value:en||'',placeholder:'Alt EN'})
       ]);
     }
     function renderImagesMeta(){
-      const host = document.getElementById('imagesMetaList'); host.innerHTML='';
-      const meta = currentSettings.images_meta || {};
+      const host=document.getElementById('imagesMetaList'); host.innerHTML='';
+      const meta=currentSettings.images_meta||{};
       Object.keys(meta).forEach(k=> host.appendChild(metaRow(k, meta[k]?.alt_ar, meta[k]?.alt_en)));
-      const add = el('button',{class:btnClass + ' mt-2',text:'+ إضافة نص بديل'});
-      add.addEventListener('click',()=> host.insertBefore(metaRow('', '', ''), add));
+      const add=el('button',{class:'mt-2 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium',text:'+ إضافة نص بديل'});
+      add.addEventListener('click',()=> host.insertBefore(metaRow('','',''), add));
       host.appendChild(add);
     }
 
     function collectSettings(){
-      const b = document.getElementById('brandingForm');
-      const branding = { site_name_ar: b.site_name_ar.value.trim(), site_name_en: b.site_name_en.value.trim(), logo_url: b.logo_url.value.trim() };
-      const cf = document.getElementById('contactForm');
-      const contact = { phone_display: cf.phone_display.value.trim(), whatsapp_link: cf.whatsapp_link.value.trim(), email: cf.email.value.trim(),
-        social: { instagram: cf.instagram.value.trim(), tiktok: cf.tiktok.value.trim(), youtube: cf.youtube.value.trim() } };
-      const dietsHost = document.getElementById('dietsList');
-      const diet_systems = Array.from(dietsHost.querySelectorAll('.bg-slate-50')).map(card=>{
-        const get = (sel)=> card.querySelector(`[data-k="${sel}"]`).value.trim();
+      const b=document.getElementById('brandingForm');
+      const branding={ site_name_ar:b.site_name_ar.value.trim(), site_name_en:b.site_name_en.value.trim(), logo_url:b.logo_url.value.trim() };
+      const cf=document.getElementById('contactForm');
+      const contact={ phone_display:cf.phone_display.value.trim(), whatsapp_link:cf.whatsapp_link.value.trim(), email:cf.email.value.trim(),
+        social:{ instagram:cf.instagram.value.trim(), tiktok:cf.tiktok.value.trim(), youtube:cf.youtube.value.trim() } };
+      const diet_systems=Array.from(document.querySelectorAll('#dietsList .bg-slate-50')).map(card=>{
+        const get=(sel)=> card.querySelector(`[data-k="${sel}"]`).value.trim();
         return { id:get('id'), name_ar:get('name_ar'), name_en:get('name_en'), description_ar:get('description_ar'), description_en:get('description_en') };
       }).filter(d=> d.id);
-      const images = {};
-      document.querySelectorAll('#imagesList .grid').forEach(row => {
-        const k = row.querySelector('[data-k="key"]')?.value.trim();
-        const v = row.querySelector('[data-k="val"]')?.value.trim();
-        if(k && v) images[k] = v;
+      const images={}; document.querySelectorAll('#imagesList .grid').forEach(row=>{
+        const k=row.querySelector('[data-k="key"]')?.value.trim(); const v=row.querySelector('[data-k="val"]')?.value.trim(); if(k&&v) images[k]=v;
       });
-      const images_meta = {};
-      document.querySelectorAll('#imagesMetaList .grid').forEach(row => {
-        const k = row.querySelector('[data-k="key"]')?.value.trim();
-        const ar = row.querySelector('[data-k="ar"]')?.value.trim();
-        const en = row.querySelector('[data-k="en"]')?.value.trim();
-        if(k) images_meta[k] = { alt_ar: ar, alt_en: en };
+      const images_meta={}; document.querySelectorAll('#imagesMetaList .grid').forEach(row=>{
+        const k=row.querySelector('[data-k="key"]')?.value.trim(); const ar=row.querySelector('[data-k="ar"]')?.value.trim(); const en=row.querySelector('[data-k="en"]')?.value.trim();
+        if(k) images_meta[k]={ alt_ar:ar, alt_en:en };
       });
       return { branding, contact, diet_systems, images, images_meta };
     }
 
     document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
-      try{
-        const payload = collectSettings();
-        await api('adminSettings','PUT', payload);
-        await loadSettings();
-        alert('تم حفظ الإعدادات');
-      }catch(err){ alert('فشل حفظ الإعدادات: '+ err.message); }
+      const payload = collectSettings();
+      await api('adminSettings','PUT', payload);
+      await loadSettings();
+      alert('تم حفظ الإعدادات');
     });
 
+    // boot
     document.addEventListener('DOMContentLoaded', ()=>{ loadUsers(); loadSettings(); });
   })();
   </script>

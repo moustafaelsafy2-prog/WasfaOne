@@ -262,6 +262,25 @@
       return wrap;
     }
 
+    // NEW: inline notes editor (per-row)
+    function buildNotesEditor(initialText){
+      const wrap = document.createElement('div');
+      wrap.className = "mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg hidden";
+      wrap.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr,auto] gap-2 items-start">
+          <textarea rows="3" class="${rowInputClass} js-notes-text" placeholder="اكتب ملاحظات داخلية عن هذا المستخدم…"></textarea>
+          <div class="flex gap-2">
+            <button class="${btnPrimaryClass} js-notes-save">حفظ الملاحظات</button>
+            <button class="${btnMutedClass} js-notes-cancel">إلغاء</button>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">يتم حفظ الملاحظات ضمن سجل المستخدم في <code>users.json</code> عبر <span class="font-semibold">PUT adminUsers</span> باستخدام الحقول <span class="font-semibold">email + notes</span>.</p>
+      `;
+      // set initial
+      setTimeout(()=>{ wrap.querySelector('.js-notes-text').value = initialText || ""; }, 0);
+      return wrap;
+    }
+
     function rowTemplate(u){
       const tr = document.createElement('tr');
       tr.dataset.email = u.email;
@@ -284,19 +303,26 @@
             <button class="${btnClass} js-reset">إعادة ربط</button>
             <button class="${btnDangerClass} js-delete">حذف</button>
             <button class="${btnClass} js-pass-toggle">كلمة السر</button>
+            <button class="${btnClass} js-notes-toggle">ملاحظات</button>
           </div>
-          <!-- Password editor -->
+          <!-- Editors -->
           <div class="js-pass-wrap"></div>
+          <div class="js-notes-wrap"></div>
         </td>`;
       toggleRowEdit(tr, false);
 
-      // mount password editor container
+      // mount editors
       const passWrapHost = tr.querySelector('.js-pass-wrap');
       const passEditor = buildPasswordEditor();
       passWrapHost.appendChild(passEditor);
 
+      const notesWrapHost = tr.querySelector('.js-notes-wrap');
+      const notesEditor = buildNotesEditor(u.notes || "");
+      notesWrapHost.appendChild(notesEditor);
+
       attachRowHandlers(tr);
       attachPasswordHandlers(tr, passEditor);
+      attachNotesHandlers(tr, notesEditor);
       return tr;
     }
 
@@ -343,10 +369,9 @@
       });
     }
 
-    // NEW: handlers for password edit
-    function attachPasswordHandlers(tr, editor){
+    // Password handlers
+    function attachPasswordHandlers(tr, panel){
       const toggleBtn = tr.querySelector('.js-pass-toggle');
-      const panel = editor;
       const p1 = () => panel.querySelector('.js-pass1');
       const p2 = () => panel.querySelector('.js-pass2');
       const saveBtn = () => panel.querySelector('.js-pass-save');
@@ -370,6 +395,35 @@
         }catch(err){
           alert('فشل تحديث كلمة السر: ' + err.message);
         }
+      });
+    }
+
+    // Notes handlers
+    function attachNotesHandlers(tr, panel){
+      const toggleBtn = tr.querySelector('.js-notes-toggle');
+      const txt = () => panel.querySelector('.js-notes-text');
+      const saveBtn = () => panel.querySelector('.js-notes-save');
+      const cancelBtn = () => panel.querySelector('.js-notes-cancel');
+
+      toggleBtn.addEventListener('click', ()=>{
+        panel.classList.toggle('hidden');
+        if(!panel.classList.contains('hidden')) { txt().focus(); }
+      });
+
+      saveBtn().addEventListener('click', async ()=>{
+        const notes = (txt().value || '').trim();
+        try{
+          const email = tr.dataset.email;
+          await api('adminUsers','PUT', { email, notes });
+          panel.classList.add('hidden');
+          alert('تم حفظ الملاحظات.');
+        }catch(err){
+          alert('فشل حفظ الملاحظات: ' + err.message);
+        }
+      });
+
+      cancelBtn().addEventListener('click', ()=>{
+        panel.classList.add('hidden');
       });
     }
 

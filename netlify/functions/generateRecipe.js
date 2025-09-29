@@ -44,7 +44,7 @@ async function auth(event){
   const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
   let email = null;
   try{ const body = JSON.parse(event.body||"{}"); email = body.email || null; }catch{}
-  // يمكن أن يفشل التحقق إذا لم يكن هناك إيميل أو توكن، ولكن سنسمح بدخول محدود إذا كان المفتاح مفقودًا (لأغراض التطوير)
+  
   if(!token || !nonce || !email) {
       if(!GEMINI_API_KEY) {
            console.warn("Auth missing but skipping strict check because GEMINI_API_KEY is also missing. Returning temporary user.");
@@ -132,18 +132,21 @@ async function callGeminiOnce(url, body){
               body: JSON.stringify(body) 
           });
           
+          const jr = await r.json();
+
           if(!r.ok) {
+              const errorMessage = jr.error?.message || `HTTP Error ${r.status}`;
               // إذا كان الخطأ 429 (معدل محدود)، انتظر وحاول مرة أخرى
               if (r.status === 429 && i < maxRetries - 1) {
                   const delay = Math.pow(2, i) * 1000 + Math.random()*1000;
                   await new Promise(r => setTimeout(r, delay));
                   continue;
               }
-              return { ok:false, code:r.status, text:null };
+              // إرجاع كود الخطأ ورسالة الخطأ من API
+              return { ok:false, code:r.status, text:null, error: errorMessage };
           }
-          const jr = await r.json();
-          // الاستجابة في حالة JSON/Structued generation لا تحتوي على حقل parts[0].text
-          // إذا كان النموذج عاد بنجاح، فسنحاول استخراج النص أو التحذير منه
+          
+          // الاستجابة في حالة JSON/Structued generation
           const text = (((jr.candidates||[])[0]||{}).content||{}).parts?.map(p=>p.text).join("") || "";
           return { ok:true, code:200, text };
 
@@ -160,7 +163,30 @@ async function callGeminiOnce(url, body){
 }
 
 async function callGemini(prompt){
-  if(!GEMINI_API_KEY) return { ok:false, reason:"no_key" };
+  if(!GEMINI_API_KEY) return { ok:false, reason:"no_key", code: 401 };
+
+  const schema = {
+      type: "OBJECT",
+      properties: {
+          title: { type: "STRING" },
+          servings: { type: "NUMBER" },
+          total_time_min: { type: "NUMBER" },
+          macros: {
+              type: "OBJECT",
+              properties: {
+                  protein_g: { type: "NUMBER" },
+                  carbs_g: { type: "NUMBER" },
+                  fat_g: { type: "NUMBER" },
+                  calories: { type: "NUMBER" }
+              },
+              required: ["protein_g", "carbs_g", "fat_g", "calories"]
+          },
+          ingredients: { type: "ARRAY", items: { type: "STRING" } },
+          steps: { type: "ARRAY", items: { type: "STRING" } },
+          lang: { type: "STRING" }
+      },
+      required: ["title", "servings", "total_time_min", "macros", "ingredients", "steps", "lang"]
+  };
 
   const body = {
     contents: [{ role:"user", parts:[{ text: prompt }]}],
@@ -169,30 +195,8 @@ async function callGemini(prompt){
         topP: 1, 
         topK: 1, 
         maxOutputTokens: 2048,
-        // *** هذا هو التعديل الحاسم: طلب JSON صارم ***
         responseMimeType: "application/json",
-        responseSchema: {
-            type: "OBJECT",
-            properties: {
-                title: { type: "STRING" },
-                servings: { type: "NUMBER" },
-                total_time_min: { type: "NUMBER" },
-                macros: {
-                    type: "OBJECT",
-                    properties: {
-                        protein_g: { type: "NUMBER" },
-                        carbs_g: { type: "NUMBER" },
-                        fat_g: { type: "NUMBER" },
-                        calories: { type: "NUMBER" }
-                    },
-                    required: ["protein_g", "carbs_g", "fat_g", "calories"]
-                },
-                ingredients: { type: "ARRAY", items: { type: "STRING" } },
-                steps: { type: "ARRAY", items: { type: "STRING" } },
-                lang: { type: "STRING" }
-            },
-            required: ["title", "servings", "total_time_min", "macros", "ingredients", "steps", "lang"]
-        }
+        responseSchema: schema
     },
     safetySettings: []
   };
@@ -200,28 +204,16 @@ async function callGemini(prompt){
   const modelName = "gemini-2.5-flash-preview-05-20";
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   
-  let res = await callGeminiOnce(apiUrl, body);
+  // استدعاء Gemini
+  let aiRes = await callGeminiOnce(apiUrl, body);
 
-  // إذا نجح الاستدعاء، فإن النص سيمثل JSON الصارم، لذا سنقوم باستخراجه بشكل مختلف
-  if (res.ok) {
-      const result = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-      }).then(r => r.json());
-      
-      const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (jsonText) {
-          res.text = jsonText; // نضع النص المستخرج في حقل النص للتحليل لاحقًا
-      } else {
-          // يمكن أن يكون هذا خطأ في البنية إذا لم يكن هناك نص
-          res.ok = false;
-          res.code = 500;
-          res.error = "AI response was empty or malformed (Structured JSON mode).";
-      }
+  if (!aiRes.ok) {
+      // إرجاع النتيجة الفاشلة مباشرة إذا لم ينجح الاستدعاء
+      return aiRes; 
   }
-
-  return res;
+  
+  // إذا نجح الاستدعاء، نستخدم النص المستخرج من callGeminiOnce
+  return aiRes;
 }
 
 function tryParseJsonFromText(t){
@@ -236,20 +228,46 @@ function tryParseJsonFromText(t){
     return null; 
   }
 }
-// ... بقية الكود دون تغيير
-// ...
+
+function fallbackRecipe(input){
+  const s = Number(input.servings)||1;
+  const t = 30; // 30 دقيقة كقيمة افتراضية
+  
+  // يمكن استخدام حقل ingredients القادم من الواجهة كقيود/مكونات
+  const constraints = (input.ingredients? String(input.ingredients).split(/[،,]/).map(x=>x.trim()).filter(Boolean) : []);
+  const baseIng = constraints.length? constraints : ["صدر دجاج (200 جرام)","أرز أبيض مطبوخ (150 جرام)","بروكلي (100 جرام)","زيت زيتون (1 ملعقة صغيرة)","ملح","فلفل"];
+  
+  // محاولة استخلاص السعرات الحرارية المستهدفة من حقل macros إذا كانت موجودة
+  const targetCaloriesMatch = (input.macros || "").match(/(\d+)\s*سعرة/);
+  const targetCalories = targetCaloriesMatch ? Number(targetCaloriesMatch[1]) : 600;
+
+  return {
+    title: `وجبة ${input.diet||"متوازنة"} سريعة`,
+    servings: s,
+    total_time_min: t,
+    // تقديرات الماكروز بناءً على السعرات المستهدفة
+    macros: { protein_g: Math.round(targetCalories*0.35/4/s), carbs_g: Math.round(targetCalories*0.35/4/s), fat_g: Math.round(targetCalories*0.3/9/s), calories: targetCalories },
+    ingredients: baseIng,
+    steps: [
+      "قم بتتبيل المكونات الرئيسية (مثل الدجاج) بالملح والفلفل.",
+      "اشوِ البروتين أو اطهِه حتى النضج التام.",
+      "سخّن الأرز والخضار وقدم الوجبة كاملة.",
+      "قسّم الوجبة إلى حصص متساوية (${s} حصص)."
+    ],
+    lang: "ar"
+  };
+}
 
 exports.handler = async (event) => {
   try{
     if(event.httpMethod === "OPTIONS") return { statusCode: 204 };
     if(event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ ok:false, error:"method_not_allowed" }) };
     if(!OWNER || !REPO || !GH_TOKEN) {
-        // إذا كانت متغيرات بيئة GitHub مفقودة، يجب أن يتم إيقاف الخدمة
-        // ولكن للتشخيص، يمكننا الاستمرار مع رسالة تحذير
+        // إذا كانت متغيرات بيئة GitHub مفقودة
         console.error("GitHub Config Missing!");
     }
 
-    // Auth (سيتم قبوله مؤقتًا حتى لو كان مفقودًا إذا كان GEMINI_API_KEY مفقودًا)
+    // Auth
     const a = await auth(event);
     if(!a.ok && GEMINI_API_KEY) return { statusCode: a.statusCode, body: JSON.stringify({ ok:false, error:a.error }) };
 
@@ -257,14 +275,15 @@ exports.handler = async (event) => {
     const body = JSON.parse(event.body||"{}");
     const input = {
       email: a.email,
-      // تم تحديث الأسماء لتطابق app.js الجديد
-      diet: String(body.diet||"عادي/متوازن"), // dietType
-      servings: Number(body.servings||1), // ثابتة 1 في app.js الجديد
-      time: Number(body.time||30), // ثابتة 30 في app.js الجديد
-      macros: String(body.macros||"500 سعرة حرارية"), // calorieTarget
-      ingredients: String(body.ingredients||"وصفة متوازنة") // القيود المجمعة
+      diet: String(body.diet||"عادي/متوازن"), 
+      servings: Number(body.servings||1), 
+      time: Number(body.time||30), 
+      macros: String(body.macros||"500 سعرة حرارية"), 
+      ingredients: String(body.ingredients||"وصفة متوازنة") 
     };
     
+    let aiReason = null; // لتخزين سبب فشل AI
+
     // *************** التحقق من المفتاح ***************
     if (!GEMINI_API_KEY) {
         const msg = "تعذر توليد الوصفة: المفتاح (GEMINI_API_KEY) مفقود في إعدادات البيئة (Backend).";
@@ -298,6 +317,8 @@ exports.handler = async (event) => {
     
     if(!aiRes.ok){
         console.error("Gemini API call failed:", aiRes.code, aiRes.error || "Unknown Error");
+        // تسجيل سبب فشل AI
+        aiReason = aiRes.error || `خطأ HTTP غير محدد (كود: ${aiRes.code})`;
     }
 
     if(aiRes.ok){
@@ -306,8 +327,8 @@ exports.handler = async (event) => {
     }
 
     if(!recipe){
-      // إرجاع رسالة فشل واضحة إذا كان الاستدعاء فشل ولم يتمكن من التحليل
-      const msg = `فشل توليد الوصفة بالذكاء الاصطناعي (كود الخطأ: ${aiRes.code||'N/A'}). يتم عرض وصفة افتراضية.`;
+      // إذا فشل الاستدعاء أو التحليل، أعد سبب الخطأ الدقيق إلى الواجهة
+      const msg = `فشل توليد الوصفة بالذكاء الاصطناعي. السبب: ${aiReason || 'فشل في تحليل استجابة AI.'} يتم عرض وصفة افتراضية.`;
       recipe = fallbackRecipe(input);
       // لا يتم حفظ الوصفة الافتراضية هنا لتجنب تكرارها
       return { statusCode: 200, body: JSON.stringify({ ok:true, cached:false, recipe, note: msg }) };

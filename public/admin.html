@@ -1,111 +1,319 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>لوحة الأدمن • WasfaOne</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة التحكم — WasfaOne Admin</title>
+  <style>
+    :root { --primary:#ef4444; --muted:#6b7280; --border:#e5e7eb; }
+    *{box-sizing:border-box}
+    body{font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji","Segoe UI Emoji"; margin:0; color:#0f172a; background:#fff;}
+    header{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--border);z-index:10}
+    .container{max-width:1100px;margin:0 auto;padding:1rem}
+    .title{font-weight:800;font-size:1.35rem}
+    nav.tabs{display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.75rem}
+    nav.tabs button{padding:.5rem .9rem;border-radius:999px;border:1px solid var(--border);background:#fff;color:#111827;cursor:pointer}
+    nav.tabs button.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+    section.tab{display:none}
+    section.tab.active{display:block}
+
+    /* cards / layout */
+    .card{border:1px solid var(--border);border-radius:14px;padding:1rem}
+    .grid{display:grid;gap:1rem}
+    .grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+
+    /* inputs */
+    .input{border:1px solid var(--border);border-radius:12px;padding:.6rem .8rem;width:100%}
+    .select{border:1px solid var(--border);border-radius:12px;padding:.55rem .65rem;background:#fff;width:100%}
+    .btn{border:1px solid var(--border);border-radius:12px;padding:.5rem .9rem;background:#fff;cursor:pointer}
+    .btn-primary{background:var(--primary);color:#fff;border-color:var(--primary)}
+    .btn-danger{background:#991b1b;color:#fff;border-color:#991b1b}
+    .btn-muted{color:#111827;background:#f3f4f6}
+    .row-input{width:100%;border:1px solid var(--border);border-radius:8px;padding:.35rem .5rem}
+
+    table{width:100%;border-collapse:separate;border-spacing:0}
+    thead th{font-weight:700;font-size:.9rem;color:#111827;padding:.6rem;border-bottom:1px solid var(--border);text-align:right}
+    tbody td{padding:.5rem;border-bottom:1px solid #f3f4f6;vertical-align:middle}
+
+    .hint{color:var(--muted);font-size:.85rem}
+    .mt{margin-top:1rem}
+    .mb{margin-bottom:1rem}
+    .hidden{display:none}
+  </style>
 </head>
-<body class="font-ar bg-slate-50 text-slate-900">
-  <header class="max-w-6xl mx-auto flex items-center justify-between py-4">
-    <div class="flex items-center gap-3">
-      <img id="admin-logo" class="h-8" alt="Logo">
-      <div id="admin-site-name" class="font-bold text-xl">WasfaOne</div>
+<body>
+  <header>
+    <div class="container">
+      <div class="title">لوحة التحكم — WasfaOne</div>
+      <div class="hint">أدخل كلمة مرور الأدمن عند الطلب — تُحفظ محليًا (LocalStorage).</div>
+      <nav class="tabs" id="tabs">
+        <button data-tab="tab-users" class="active">المستخدمون</button>
+        <button data-tab="tab-settings">الإعدادات</button>
+        <button data-tab="tab-recipes">الوصفات</button>
+        <button data-tab="tab-logs">السجلات</button>
+      </nav>
     </div>
-    <nav class="flex items-center gap-3">
-      <a id="admin-home-link" href="index.html" class="underline">الرئيسية</a>
-      <button id="lang-toggle" class="px-2 py-1 rounded bg-slate-200">EN</button>
-    </nav>
   </header>
 
-  <main class="max-w-6xl mx-auto p-4">
-    <!-- Gate -->
-    <section id="admin-gate" class="card bg-white rounded-2xl p-6 shadow">
-      <h1 id="admin-gate-title" class="text-2xl font-bold mb-2">لوحة التحكم</h1>
-      <p id="admin-gate-sub" class="mb-4 text-slate-600">أدخل كلمة مرور الأدمن…</p>
-      <div class="flex gap-2">
-        <input id="admin-key-input" class="inp flex-1 border rounded px-3 py-2" placeholder="ADMIN_PASSWORD">
-        <button id="admin-key-save" class="btn bg-red-500 text-white rounded px-4">دخول</button>
+  <main class="container">
+    <!-- ============ تبويب إدارة المستخدمين ============ -->
+    <section id="tab-users" class="tab active">
+      <div class="grid">
+        <div class="card">
+          <h2 class="mb" style="font-size:1.15rem;font-weight:800">إدارة المستخدمين</h2>
+
+          <!-- إنشاء مستخدم جديد -->
+          <form id="createUserForm" class="grid grid-3">
+            <div><input required name="name" placeholder="الاسم" class="input" /></div>
+            <div><input required name="email" placeholder="البريد" type="email" class="input" /></div>
+            <div><input required name="password" placeholder="كلمة السر" class="input" /></div>
+            <div>
+              <select name="status" class="select">
+                <option value="active">active</option>
+                <option value="suspended">suspended</option>
+              </select>
+            </div>
+            <div><label class="hint">تاريخ البداية</label><input name="start_date" type="date" class="input" /></div>
+            <div><label class="hint">تاريخ النهاية</label><input name="end_date" type="date" class="input" /></div>
+            <div><button class="btn btn-primary" type="submit">حفظ المستخدم الجديد</button></div>
+          </form>
+
+          <!-- جدول المستخدمين -->
+          <div class="mt">
+            <div class="hint mb">قائمة المستخدمين الحالية</div>
+            <div class="card" style="padding:0">
+              <div style="overflow-x:auto">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>الاسم</th>
+                      <th>البريد</th>
+                      <th>الحالة</th>
+                      <th>البداية</th>
+                      <th>النهاية</th>
+                      <th>عمليات</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersTbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div id="admin-gate-error" class="text-red-600 mt-2 hidden"></div>
     </section>
 
-    <!-- Panels -->
-    <section id="admin-panels" class="hidden mt-6">
-      <div class="flex gap-2 mb-4">
-        <button class="tab-btn active" data-tab="users">المستخدمون</button>
-        <button class="tab-btn" data-tab="settings">Settings</button>
-        <button class="tab-btn" data-tab="images">Images</button>
-      </div>
-
-      <!-- Users -->
-      <div id="tab-users" class="tab-pane">
-        <h2 id="users-title" class="text-xl font-bold mb-3">المستخدمون</h2>
-        <div class="mb-3">
-          <button id="btn-add-user" class="btn bg-green-500 text-white px-3 py-1 rounded">إضافة</button>
-        </div>
-        <div class="overflow-auto bg-white rounded-2xl shadow">
-          <table class="min-w-full text-sm">
-            <thead class="bg-slate-100">
-              <tr>
-                <th class="th">Email</th>
-                <th class="th">Name</th>
-                <th class="th">Password</th>
-                <th class="th">Status</th>
-                <th class="th">Start</th>
-                <th class="th">End</th>
-                <th class="th">Device</th>
-                <th class="th">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="users-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Settings -->
-      <div id="tab-settings" class="tab-pane hidden">
-        <h2 id="settings-title" class="text-xl font-bold mb-3">Settings</h2>
-        <form id="settings-form" class="space-y-3">
-          <div class="grid md:grid-cols-3 gap-3">
-            <input id="site_name_ar" class="inp border rounded px-3 py-2" placeholder="site_name_ar">
-            <input id="site_name_en" class="inp border rounded px-3 py-2" placeholder="site_name_en">
-            <input id="logo_url" class="inp border rounded px-3 py-2" placeholder="logo_url (http/https)">
-            <input id="phone_display" class="inp border rounded px-3 py-2" placeholder="phone_display">
-            <input id="whatsapp_link" class="inp border rounded px-3 py-2" placeholder="whatsapp_link (http/https)">
-            <input id="email_contact" class="inp border rounded px-3 py-2" placeholder="email">
-          </div>
-
-          <div>
-            <div class="flex items-center justify-between mb-2">
-              <div class="font-semibold">Diet systems</div>
-              <button id="btn-add-diet" type="button" class="btn bg-slate-200 rounded px-3">Add diet</button>
+    <!-- ============ تبويب الإعدادات (نموذج مبسّط) ============ -->
+    <section id="tab-settings" class="tab">
+      <div class="grid">
+        <div class="card">
+          <h2 class="mb" style="font-size:1.15rem;font-weight:800">الإعدادات العامة</h2>
+          <p class="hint mb">حقول مرجعية — اربطها بوظيفة السيرفر لديك إن وجدت.</p>
+          <form id="settingsForm" class="grid grid-2">
+            <div>
+              <label class="hint">رسالة واجهة الدخول</label>
+              <input name="login_banner" class="input" placeholder="Welcome message" />
             </div>
-            <div id="diet-list-editor" class="space-y-2"></div>
-          </div>
-
-          <button id="btn-save-settings" class="btn bg-red-500 text-white rounded px-4" type="submit">Save</button>
-          <div id="settings-status" class="mt-2 text-sm"></div>
-        </form>
+            <div>
+              <label class="hint">واتساب الدعم</label>
+              <input name="support_whatsapp" class="input" placeholder="e.g. +9715xxxxxxxx" />
+            </div>
+            <div>
+              <label class="hint">قفل جهاز واحد</label>
+              <select name="device_lock" class="select">
+                <option value="on">تشغيل</option>
+                <option value="off">إيقاف</option>
+              </select>
+            </div>
+            <div><button type="submit" class="btn btn-primary">حفظ الإعدادات</button></div>
+          </form>
+        </div>
       </div>
+    </section>
 
-      <!-- Images -->
-      <div id="tab-images" class="tab-pane hidden">
-        <h2 id="images-title" class="text-xl font-bold mb-3">Images</h2>
-        <form id="images-form" class="space-y-3">
-          <div id="images-grid" class="grid md:grid-cols-2 gap-3"></div>
-          <button id="btn-save-images" class="btn bg-red-500 text-white rounded px-4" type="submit">Save</button>
-          <div id="images-status" class="mt-2 text-sm"></div>
-        </form>
+    <!-- ============ تبويب الوصفات (عرض مرجعي) ============ -->
+    <section id="tab-recipes" class="tab">
+      <div class="grid">
+        <div class="card">
+          <h2 class="mb" style="font-size:1.15rem;font-weight:800">الوصفات</h2>
+          <p class="hint">قسم استعراضي — أدرج/أوصل بوظائفك الخاصة إذا كانت متوفّرة.</p>
+          <div id="recipesEmpty" class="hint">لا توجد عناصر للعرض حاليًا.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ تبويب السجلات (قراءة فقط) ============ -->
+    <section id="tab-logs" class="tab">
+      <div class="grid">
+        <div class="card">
+          <h2 class="mb" style="font-size:1.15rem;font-weight:800">السجلات</h2>
+          <p class="hint">لعرض سجلات النظام إن توفّرت واجهة API مناسبة.</p>
+          <pre id="logsBox" style="white-space:pre-wrap; background:#0b1020; color:#e5e7eb; padding:1rem; border-radius:12px; min-height:120px">(لا توجد سجلات)</pre>
+        </div>
       </div>
     </section>
   </main>
 
-  <footer class="max-w-6xl mx-auto p-4 text-sm text-slate-500">
-    <a href="privacy.html" class="underline">سياسة الخصوصية</a> · <span>WasfaOne</span>
-  </footer>
+  <script>
+  (function(){
+    // ============ Tab switching ============
+    const tabsNav = document.getElementById('tabs');
+    const tabButtons = Array.from(tabsNav.querySelectorAll('button'));
+    const tabSections = Array.from(document.querySelectorAll('section.tab'));
+    function activateTab(id){
+      tabButtons.forEach(b=> b.classList.toggle('active', b.dataset.tab===id));
+      tabSections.forEach(s=> s.classList.toggle('active', s.id===id));
+    }
+    tabsNav.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-tab]');
+      if(!btn) return;
+      activateTab(btn.dataset.tab);
+    });
 
-  <script src="assets/app.js"></script>
-  <script> initAdminPage(); </script>
+    // ============ Admin Key handling ============
+    const ADMIN_KEY_STORAGE = 'wasfa_admin_key';
+    let ADMIN_KEY = localStorage.getItem(ADMIN_KEY_STORAGE) || '';
+    async function promptAdminKey(){
+      if(!ADMIN_KEY){
+        ADMIN_KEY = prompt('أدخل كلمة مرور الأدمن:');
+        if(!ADMIN_KEY) throw new Error('admin_key_required');
+        localStorage.setItem(ADMIN_KEY_STORAGE, ADMIN_KEY);
+      }
+    }
+
+    // ============ Helpers ============
+    async function api(path, method='GET', body){
+      await promptAdminKey();
+      const res = await fetch('/.netlify/functions/' + path, {
+        method,
+        headers: { 'content-type':'application/json', 'x-admin-key': ADMIN_KEY },
+        body: body? JSON.stringify(body): undefined
+      });
+      if(res.status===401){ localStorage.removeItem(ADMIN_KEY_STORAGE); ADMIN_KEY=''; throw new Error('unauthorized'); }
+      let data = {};
+      try{ data = await res.json(); } catch(_){ /* ignore */ }
+      if(!res.ok || data.ok===false){ throw new Error(data.error||('request_failed_'+res.status)); }
+      return data;
+    }
+    function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+
+    // ============ Users CRUD ============
+    const tbody = document.getElementById('usersTbody');
+
+    async function loadUsers(){
+      try{
+        const { users } = await api('adminUsers');
+        renderUsers(Array.isArray(users)? users: []);
+      }catch(err){ alert('فشل تحميل المستخدمين: '+ err.message); }
+    }
+
+    function rowTemplate(u){
+      const tr = document.createElement('tr');
+      tr.dataset.email = u.email;
+      tr.innerHTML = `
+        <td><input class="row-input" name="name" value="${escapeHtml(u.name||'')}" /></td>
+        <td><input class="row-input" name="email" value="${escapeHtml(u.email||'')}" disabled /></td>
+        <td>
+          <select class="row-input" name="status">
+            <option value="active" ${u.status==='active'? 'selected':''}>active</option>
+            <option value="suspended" ${u.status==='suspended'? 'selected':''}>suspended</option>
+          </select>
+        </td>
+        <td><input class="row-input" name="start_date" type="date" value="${u.start_date||''}" /></td>
+        <td><input class="row-input" name="end_date" type="date" value="${u.end_date||''}" /></td>
+        <td style="display:flex; gap:.4rem; flex-wrap:wrap">
+          <button class="btn js-edit">تعديل</button>
+          <button class="btn btn-primary js-save hidden">حفظ</button>
+          <button class="btn btn-muted js-cancel hidden">إلغاء</button>
+          <button class="btn js-reset">إعادة ربط</button>
+          <button class="btn btn-danger js-delete">حذف</button>
+        </td>`;
+      toggleRowEdit(tr, false);
+      attachRowHandlers(tr);
+      return tr;
+    }
+
+    function toggleRowEdit(tr, editing){
+      tr.querySelectorAll('input[name="name"], select[name="status"], input[name="start_date"], input[name="end_date"]').forEach(el=>{
+        el.disabled = !editing;
+      });
+      tr.querySelector('.js-edit').classList.toggle('hidden', editing);
+      tr.querySelector('.js-save').classList.toggle('hidden', !editing);
+      tr.querySelector('.js-cancel').classList.toggle('hidden', !editing);
+    }
+
+    function collectRow(tr){
+      const get = (n)=> tr.querySelector(`[name="${n}"]`)?.value ?? null;
+      return {
+        email: get('email'),
+        name: get('name'),
+        status: tr.querySelector('[name="status"]').value,
+        start_date: get('start_date') || null,
+        end_date: get('end_date') || null
+      };
+    }
+
+    function attachRowHandlers(tr){
+      tr.querySelector('.js-edit').addEventListener('click', ()=> toggleRowEdit(tr, true));
+      tr.querySelector('.js-cancel').addEventListener('click', ()=> { toggleRowEdit(tr, false); loadUsers(); });
+      tr.querySelector('.js-save').addEventListener('click', async ()=>{
+        try{
+          const payload = collectRow(tr);
+          await api('adminUsers','PUT', payload);
+          toggleRowEdit(tr, false);
+          await loadUsers();
+          alert('تم الحفظ');
+        }catch(err){ alert('فشل الحفظ: '+ err.message); }
+      });
+      tr.querySelector('.js-delete').addEventListener('click', async ()=>{
+        if(!confirm('حذف المستخدم؟')) return;
+        try{ await api('adminUsers','DELETE', { email: tr.dataset.email }); tr.remove(); }
+        catch(err){ alert('فشل الحذف: '+ err.message); }
+      });
+      tr.querySelector('.js-reset').addEventListener('click', async ()=>{
+        try{ await api('adminUsers?action=resetDevice','POST', { email: tr.dataset.email }); alert('تمت إعادة ربط الجهاز.'); }
+        catch(err){ alert('فشل العملية: '+ err.message); }
+      });
+    }
+
+    function renderUsers(list){
+      tbody.innerHTML = '';
+      list.forEach(u => tbody.appendChild(rowTemplate(u)));
+    }
+
+    // Create new user
+    document.getElementById('createUserForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget);
+      const body = {
+        name: (fd.get('name')||'').toString().trim(),
+        email: (fd.get('email')||'').toString().trim().toLowerCase(),
+        password: (fd.get('password')||'').toString(),
+        status: (fd.get('status')||'active').toString(),
+        start_date: fd.get('start_date')||null,
+        end_date: fd.get('end_date')||null,
+        device_fingerprint: null,
+        session_nonce: null,
+        lock_reason: null
+      };
+      try{
+        await api('adminUsers','POST', body);
+        e.currentTarget.reset();
+        await loadUsers();
+        alert('تم حفظ المستخدم الجديد');
+      }catch(err){ alert('فشل إنشاء المستخدم: '+ err.message); }
+    });
+
+    // Settings (placeholder submit only)
+    document.getElementById('settingsForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      alert('تم حفظ الإعدادات محليًا (ربط API الفعلي غير مفعّل في هذه النسخة).');
+    });
+
+    // initial
+    document.addEventListener('DOMContentLoaded', loadUsers);
+  })();
+  </script>
 </body>
 </html>

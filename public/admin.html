@@ -285,7 +285,8 @@
     // Create new user
     document.getElementById('createUserForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
-      const fd = new FormData(e.currentTarget);
+      const form = e.currentTarget; // احفظ المرجع قبل await لتجنب Null بعد الانتظار
+      const fd = new FormData(form);
       const body = {
         name: (fd.get('name')||'').toString().trim(),
         email: (fd.get('email')||'').toString().trim().toLowerCase(),
@@ -299,7 +300,7 @@
       };
       try{
         await api('adminUsers','POST', body);
-        e.currentTarget.reset();
+        form.reset(); // كانت e.currentTarget.reset() تسبب Cannot read properties of null بعد await
         await loadUsers();
         alert('تم حفظ المستخدم الجديد');
       }catch(err){ alert('فشل إنشاء المستخدم: '+ err.message); }

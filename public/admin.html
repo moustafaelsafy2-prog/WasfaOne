@@ -8,35 +8,93 @@
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Google Font -->
+  <!-- Google Font (Inter) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Feather Icons for potential future use, though we embed SVGs in JS -->
+  <script src="https://unpkg.com/feather-icons"></script>
 
   <style>
-    body{font-family:'Inter',ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Ubuntu,Cantarell,Helvetica Neue,Arial}
-    nav.tabs button.active{background:#ef4444;color:#fff}
-    section.tab{display:none} section.tab.active{display:block}
-    .hidden{display:none}
-    .icon-btn{width:36px;height:36px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e5e7eb;border-radius:10px;background:#fff}
-    .icon-btn:hover{background:#f8fafc}
-    .icon{width:18px;height:18px}
-    .muted{color:#64748b}
+    body {
+        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+    /* Tab Navigation Styling */
+    nav.tabs button {
+        position: relative;
+        transition: color 0.3s ease;
+    }
+    nav.tabs button.active {
+        color: #ef4444; /* red-500 */
+    }
+    nav.tabs button.active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        right: 0;
+        width: 100%;
+        height: 2px;
+        background-color: #ef4444; /* red-500 */
+        border-radius: 9999px;
+    }
+    section.tab { display: none }
+    section.tab.active { display: block }
+    .hidden { display: none }
+    
+    /* Custom Icon Button Style */
+    .icon-btn {
+        width: 40px;
+        height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px; /* full circle */
+        background-color: #f8fafc; /* slate-50 */
+        color: #64748b; /* slate-500 */
+        border: 1px solid #e2e8f0; /* slate-200 */
+        transition: all 0.2s ease-in-out;
+    }
+    .icon-btn:hover {
+        background-color: #f1f5f9; /* slate-100 */
+        color: #1e293b; /* slate-800 */
+        transform: scale(1.05);
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    }
+    .icon-btn.danger:hover {
+        background-color: #fee2e2; /* red-100 */
+        color: #b91c1c; /* red-700 */
+        border-color: #fecaca; /* red-200 */
+    }
+    .icon {
+        width: 20px;
+        height: 20px;
+    }
+    .muted {
+        color: #64748b; /* slate-500 */
+    }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-900">
+<body class="bg-slate-100 text-slate-800">
 
   <!-- Header -->
-  <header class="sticky top-0 bg-white/80 backdrop-blur border-b border-slate-200 z-10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-      <h1 class="text-2xl font-extrabold">لوحة التحكم — WasfaOne</h1>
-      <p class="text-sm text-slate-500 mt-1">أدخل كلمة مرور الأدمن عند الطلب — تُحفظ محليًا (LocalStorage).</p>
-      <nav class="tabs mt-4" id="tabs">
-        <div class="flex flex-wrap gap-2">
-          <button data-tab="tab-users" class="active rounded-full py-2 px-4 text-sm font-semibold bg-slate-100">المستخدمون</button>
-          <button data-tab="tab-settings" class="rounded-full py-2 px-4 text-sm font-semibold bg-slate-100">الإعدادات</button>
-          <button data-tab="tab-recipes" class="rounded-full py-2 px-4 text-sm font-semibold bg-slate-100">الوصفات</button>
-          <button data-tab="tab-logs" class="rounded-full py-2 px-4 text-sm font-semibold bg-slate-100">السجلات</button>
+  <header class="sticky top-0 bg-white/90 backdrop-blur-lg border-b border-slate-200 z-10 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="py-5">
+        <h1 class="text-2xl font-extrabold text-slate-900 flex items-center gap-3">
+          <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.5A4.5 4.5 0 0 0 18 5.5c0 1.5-1.5 2.5-3 2.5s-3-1-3-2.5A4.5 4.5 0 0 0 7.5 9.5c0 4.5 3 12.5 6 12.5 1.25 0 2.5-1.06 4-1.06Z"/><path d="M12 20.94c-1.5 0-2.75 1.06-4 1.06-3 0-6-8-6-12.5A4.5 4.5 0 0 1 6 5.5c0 1.5 1.5 2.5 3 2.5s3-1 3-2.5A4.5 4.5 0 0 1 16.5 9.5c0 4.5-3 12.5-6 12.5-1.25 0-2.5-1.06-4-1.06Z"/></svg>
+          <span>لوحة تحكم WasfaOne</span>
+        </h1>
+        <p class="text-sm text-slate-500 mt-1">أدخل كلمة مرور الأدمن عند الطلب — تُحفظ محليًا (LocalStorage).</p>
+      </div>
+      <nav class="tabs" id="tabs">
+        <div class="flex flex-wrap gap-6 border-b border-slate-200">
+          <button data-tab="tab-users" class="active py-3 px-1 text-sm font-semibold text-slate-500 hover:text-red-500">المستخدمون</button>
+          <button data-tab="tab-settings" class="py-3 px-1 text-sm font-semibold text-slate-500 hover:text-red-500">الإعدادات</button>
+          <button data-tab="tab-recipes" class="py-3 px-1 text-sm font-semibold text-slate-500 hover:text-red-500">الوصفات</button>
+          <button data-tab="tab-logs" class="py-3 px-1 text-sm font-semibold text-slate-500 hover:text-red-500">السجلات</button>
         </div>
       </nav>
     </div>
@@ -48,12 +106,12 @@
     <!-- Users -->
     <section id="tab-users" class="tab active">
       <div class="space-y-8">
-        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-          <h2 class="text-xl font-bold mb-6">إدارة المستخدمين</h2>
+        <div class="bg-white border border-slate-200 rounded-2xl shadow-lg p-6 sm:p-8">
+          <h2 class="text-xl font-bold text-slate-900 mb-6">إدارة المستخدمين</h2>
 
           <!-- Create User -->
           <form id="createUserForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-            <div><input required name="name" placeholder="الاسم" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
+            <div><input required name="name" placeholder="الاسم الكامل" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
             <div><input required name="email" placeholder="البريد الإلكتروني" type="email" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
             <div><input required name="password" placeholder="كلمة السر" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
             <div>
@@ -69,26 +127,27 @@
                 <input type="checkbox" name="upsert" class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"/>
                 <span>حدِّث المستخدم بدلًا من الإنشاء (إذا كان البريد موجودًا)</span>
               </label>
-              <button class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2" type="submit">
-                حفظ المستخدم
+              <button class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 hover:scale-105" type="submit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+                <span>حفظ المستخدم</span>
               </button>
             </div>
           </form>
 
           <!-- Users Table -->
-          <div class="mt-10">
-            <p class="text-sm text-slate-500 mb-4">قائمة المستخدمين الحالية</p>
+          <div class="mt-12">
+            <h3 class="text-lg font-semibold text-slate-800 mb-4">قائمة المستخدمين</h3>
             <div class="overflow-hidden border border-slate-200 rounded-lg">
               <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-slate-200">
                   <thead class="bg-slate-50">
                     <tr>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">الاسم</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">البريد</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">الحالة</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">البداية</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">النهاية</th>
-                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500">عمليات</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الاسم</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البريد</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الحالة</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البداية</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">النهاية</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">عمليات</th>
                     </tr>
                   </thead>
                   <tbody id="usersTbody" class="divide-y divide-slate-100 bg-white"></tbody>
@@ -103,8 +162,8 @@
 
     <!-- Settings -->
     <section id="tab-settings" class="tab">
-      <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 class="text-xl font-bold">الإعدادات العامة</h2>
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-lg p-6 sm:p-8">
+        <h2 class="text-xl font-bold text-slate-900">الإعدادات العامة</h2>
         <p class="text-sm text-slate-500 mt-1">تحرير <code>data/settings.json</code>.</p>
 
         <div class="space-y-8 mt-6">
@@ -136,7 +195,7 @@
             <h3 class="text-lg font-bold mb-2 border-b border-slate-200 pb-3">الأنظمة الغذائية</h3>
             <p class="text-sm text-slate-500 mb-4">أضف/عدّل عناصر القائمة (AR/EN + وصف).</p>
             <div id="dietsList" class="space-y-4"></div>
-            <button id="addDietBtn" class="mt-2 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200">+ إضافة نظام غذائي</button>
+            <button id="addDietBtn" class="mt-4 inline-flex items-center gap-2 rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors">+ إضافة نظام غذائي</button>
           </div>
 
           <!-- Images -->
@@ -153,48 +212,52 @@
         </div>
 
         <div class="mt-8 border-t border-slate-200 pt-6">
-          <button id="saveSettingsBtn" class="inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">حفظ كل الإعدادات</button>
+          <button id="saveSettingsBtn" class="inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 hover:scale-105">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+            <span>حفظ كل الإعدادات</span>
+          </button>
         </div>
       </div>
     </section>
 
     <!-- Recipes -->
     <section id="tab-recipes" class="tab">
-      <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 class="text-xl font-bold mb-2">الوصفات</h2>
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-lg p-6 sm:p-8">
+        <h2 class="text-xl font-bold text-slate-900 mb-2">الوصفات</h2>
         <p class="text-sm text-slate-500">قسم استعراضي.</p>
-        <div id="recipesEmpty" class="mt-6 text-center py-10 border-2 border-dashed border-slate-200 rounded-lg">
-          <p class="text-slate-500">لا توجد عناصر للعرض حاليًا.</p>
+        <div id="recipesEmpty" class="mt-6 text-center py-16 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50">
+           <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="mx-auto text-slate-400 mb-4"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
+          <p class="text-slate-500 font-medium">لا توجد عناصر للعرض حاليًا.</p>
         </div>
       </div>
     </section>
 
     <!-- Logs -->
     <section id="tab-logs" class="tab">
-      <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-        <h2 class="text-xl font-bold mb-2">السجلات</h2>
-        <pre id="logsBox" class="mt-4 whitespace-pre-wrap bg-slate-900 text-slate-200 p-4 rounded-lg text-sm min-h-[200px]">(لا توجد سجلات)</pre>
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-lg p-6 sm:p-8">
+        <h2 class="text-xl font-bold text-slate-900 mb-2">السجلات</h2>
+        <pre id="logsBox" class="mt-4 whitespace-pre-wrap bg-slate-900 text-slate-200 p-4 rounded-lg text-sm min-h-[200px] font-mono">(لا توجد سجلات)</pre>
       </div>
     </section>
   </main>
 
   <!-- Global Modal -->
   <div id="modalRoot" class="hidden fixed inset-0 z-[100]">
-    <div class="absolute inset-0 bg-slate-900/60"></div>
+    <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"></div>
     <div class="absolute inset-0 flex items-center justify-center p-4">
-      <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden">
+      <div class="w-full max-w-xl bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all">
         <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-          <h3 id="modalTitle" class="text-lg font-bold"></h3>
+          <h3 id="modalTitle" class="text-lg font-bold text-slate-900"></h3>
           <button id="modalClose" class="icon-btn" title="إغلاق">
             <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
         <div id="modalBody" class="p-5 max-h-[70vh] overflow-auto"></div>
-        <div class="px-5 py-4 border-t border-slate-200 flex items-center justify-between gap-2">
+        <div class="px-5 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
           <div id="modalHint" class="text-xs text-slate-500"></div>
           <div class="flex gap-2">
-            <button id="modalCancel" class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50">إلغاء</button>
-            <button id="modalConfirm" class="inline-flex items-center rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-semibold hover:bg-red-700">تأكيد</button>
+            <button id="modalCancel" class="inline-flex items-center rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold hover:bg-slate-50 transition-colors">إلغاء</button>
+            <button id="modalConfirm" class="inline-flex items-center rounded-lg bg-red-600 text-white px-4 py-2 text-sm font-semibold hover:bg-red-700 transition-colors">تأكيد</button>
           </div>
         </div>
       </div>
@@ -228,7 +291,7 @@
     }
 
     // ===== Helpers =====
-    const rowInputClass = "block w-full text-sm bg-white rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 disabled:bg-slate-50 disabled:text-slate-500";
+    const rowInputClass = "block w-full text-sm bg-white rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed";
     const inputClass = "block w-full rounded-md border-slate-300 text-sm";
     const textareaClass = inputClass + " min-h-[90px]";
 
@@ -270,7 +333,7 @@
     }
     modalCancel.addEventListener('click', ()=> closeModal(false));
     modalClose.addEventListener('click',  ()=> closeModal(false));
-    modalRoot.addEventListener('click', (e)=>{ if(e.target===modalRoot) closeModal(false); });
+    modalRoot.addEventListener('click', (e)=>{ if(e.target===modalRoot.firstElementChild) closeModal(false); }); // Close on backdrop click
     modalConfirm.addEventListener('click', async ()=>{
       if(typeof modalConfirmHandler === 'function'){
         modalConfirm.disabled = true;
@@ -282,14 +345,14 @@
       }
     });
 
-    // ===== Icons (inline SVG) =====
+    // ===== Icons (Heroicons v2) =====
     const icons = {
-      edit:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M12 20h9"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M16.5 3.5a2.121 2.121 0 113 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
-      reset:  '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M20 8a8 8 0 10-2.9 9.7"/></svg>',
-      trash:  '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M19 7l-1 12a2 2 0 01-2 2H8a2 2 0 01-2-2L5 7m3-3h8m-9 3h10M10 11v6M14 11v6"/></svg>',
-      note:   '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M8 4h8a2 2 0 012 2v8l-6 6H8a2 2 0 01-2-2V6a2 2 0 012-2z"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M14 14v6"/></svg>',
-      key:    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="7" cy="17" r="3" stroke-width="2"/><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M10 17h10l-3-3 3-3"/></svg>',
-      close:  '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+      edit:   '<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>',
+      reset:  '<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0011.664 0l3.181-3.183m-11.664 0l4.663-4.663m-4.663 0l-3.181 3.183a8.25 8.25 0 000 11.664l3.181 3.183" /></svg>',
+      trash:  '<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.134-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.067-2.09 1.02-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>',
+      note:   '<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L8.582 17.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125l-8.932 8.931" /></svg>',
+      key:    '<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" /></svg>',
+      close:  '<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>'
     };
 
     // ===== Users =====
@@ -313,10 +376,12 @@
 
     function buildNotesView(initialText){
       const view = document.createElement('div');
-      view.className = "mt-2 p-3 rounded-lg border text-sm whitespace-pre-wrap bg-amber-50 border-amber-300 text-amber-900";
-      view.innerHTML = `<div class="flex items-start gap-2">
-        <span class="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-200 text-amber-900 text-xs font-bold">م</span>
-        <div class="js-notes-view-text flex-1"></div>
+      view.className = "mt-2 p-3 rounded-lg border text-sm whitespace-pre-wrap bg-amber-50 border-amber-200 text-amber-900";
+      view.innerHTML = `<div class="flex items-start gap-3">
+        <div class="flex-shrink-0 w-6 h-6 rounded-full bg-amber-200 flex items-center justify-center">
+            ${icons.note}
+        </div>
+        <div class="js-notes-view-text flex-1 pt-0.5"></div>
       </div>`;
       setTimeout(()=> setNotesViewText(view, initialText), 0);
       return view;
@@ -325,25 +390,31 @@
     function rowTemplate(u){
       const tr = document.createElement('tr');
       tr.dataset.email = u.email;
+      tr.className = "hover:bg-slate-50 transition-colors";
       tr.innerHTML = `
-        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="name" value="${escapeHtml(u.name||'')}" disabled/></td>
-        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="email" value="${escapeHtml(u.email||'')}" disabled/></td>
-        <td class="px-4 py-3 align-middle">
-          <input class="${rowInputClass}" name="status" value="${u.status==='active'?'active':'suspended'}" disabled/>
+        <td class="px-4 py-3 align-top whitespace-nowrap"><div class="font-medium text-slate-800">${escapeHtml(u.name||'')}</div><div class="text-xs text-slate-500">${escapeHtml(u.email||'')}</div></td>
+        <td class="px-4 py-3 align-top text-sm text-slate-600">${escapeHtml(u.email||'')}</td>
+        <td class="px-4 py-3 align-top">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${u.status==='active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">
+            ${u.status==='active'?'فعّال':'معلّق'}
+          </span>
         </td>
-        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="start_date" type="date" value="${u.start_date||''}" disabled/></td>
-        <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="end_date" type="date" value="${u.end_date||''}" disabled/></td>
-        <td class="px-4 py-3 align-middle">
+        <td class="px-4 py-3 align-top text-sm text-slate-600">${u.start_date||'—'}</td>
+        <td class="px-4 py-3 align-top text-sm text-slate-600">${u.end_date||'—'}</td>
+        <td class="px-4 py-3 align-top">
           <div class="flex items-center flex-wrap gap-2">
             <button class="icon-btn js-edit" title="تعديل">${icons.edit}</button>
             <button class="icon-btn js-reset" title="إعادة ربط">${icons.reset}</button>
             <button class="icon-btn js-pass"  title="تغيير كلمة السر">${icons.key}</button>
             <button class="icon-btn js-notes" title="ملاحظات">${icons.note}</button>
-            <button class="icon-btn js-delete" title="حذف">${icons.trash}</button>
+            <button class="icon-btn danger js-delete" title="حذف">${icons.trash}</button>
           </div>
           <div class="js-notes-view"></div>
         </td>`;
-      // mount persistent notes view
+
+      // Hide duplicated email column on smaller screens if desired
+      tr.children[1].classList.add('hidden', 'lg:table-cell');
+
       const notesViewHost = tr.querySelector('.js-notes-view');
       const notesView = buildNotesView(u.notes || "");
       notesViewHost.appendChild(notesView);
@@ -358,37 +429,35 @@
       currentUsers.forEach(u => tbody.appendChild(rowTemplate(u)));
     }
 
-    // === Icon handlers -> open modals ===
+    // === Icon handlers -> open modals (logic is unchanged) ===
     function attachRowIconHandlers(tr, notesView){
       const email = tr.dataset.email;
 
       // Edit modal
       tr.querySelector('.js-edit').addEventListener('click', async ()=>{
-        const name = tr.querySelector('[name="name"]').value;
-        const status = tr.querySelector('[name="status"]').value;
-        const start_date = tr.querySelector('[name="start_date"]').value;
-        const end_date = tr.querySelector('[name="end_date"]').value;
+        const user = currentUsers.find(u => u.email === email);
+        if (!user) return;
 
         const form = el('div',{class:'space-y-3'},[
           el('div',{},[
-            el('label',{class:'block text-sm muted mb-1',text:'الاسم'}), el('input',{class:inputClass,name:'_name',value:name})
+            el('label',{class:'block text-sm muted mb-1',text:'الاسم'}), el('input',{class:inputClass,name:'_name',value:user.name || ''})
           ]),
           el('div',{},[
             el('label',{class:'block text-sm muted mb-1',text:'الحالة'}), (()=>{
               const sel=el('select',{class:inputClass,name:'_status'});
-              sel.innerHTML = `<option value="active">active</option><option value="suspended">suspended</option>`;
-              sel.value = status; return sel;
+              sel.innerHTML = `<option value="active">فعّال (Active)</option><option value="suspended">معلّق (Suspended)</option>`;
+              sel.value = user.status; return sel;
             })()
           ]),
           el('div', {class:"grid grid-cols-1 sm:grid-cols-2 gap-3"}, [
             (()=>{
               const w=el('div'); w.appendChild(el('label',{class:'block text-sm muted mb-1',text:'تاريخ البداية'}));
-              w.appendChild(el('input',{class:inputClass,type:'date',name:'_start',value:start_date||''}));
+              w.appendChild(el('input',{class:inputClass,type:'date',name:'_start',value:user.start_date||''}));
               return w;
             })(),
             (()=>{
               const w=el('div'); w.appendChild(el('label',{class:'block text-sm muted mb-1',text:'تاريخ النهاية'}));
-              w.appendChild(el('input',{class:inputClass,type:'date',name:'_end',value:end_date||''}));
+              w.appendChild(el('input',{class:inputClass,type:'date',name:'_end',value:user.end_date||''}));
               return w;
             })()
           ])
@@ -416,7 +485,7 @@
       // Reset device modal
       tr.querySelector('.js-reset').addEventListener('click', ()=>{
         const body = el('div',{class:'space-y-2'},[
-          el('p',{class:'text-sm'},[document.createTextNode('سيتم مسح ربط الجهاز والجلسة للمستخدم:'), el('code',{class:'mx-1 text-red-600'},[document.createTextNode(email)])]),
+          el('p',{class:'text-sm'},[document.createTextNode('سيتم مسح ربط الجهاز والجلسة للمستخدم:'), el('code',{class:'mx-1 text-red-600 font-mono'},[document.createTextNode(email)])]),
           el('p',{class:'text-xs muted'},[document.createTextNode('يُستخدم هذا عند مواجهة خطأ 423 أو تغيير كلمة السر.')])
         ]);
         openModal({
@@ -453,8 +522,6 @@
             if(!p1 || p1.length<6) throw new Error("أدخل كلمة سر لا تقل عن 6 أحرف.");
             if(p1!==p2) throw new Error("كلمتا السر غير متطابقتين.");
             await api('adminUsers','PUT',{ email, password: p1 });
-            // اقتراح: إعادة ربط مباشرة بعد تغيير الباسورد (اختياري). يمكن تفعيل السطر التالي:
-            // await api('adminUsers?action=resetDevice','POST',{ email });
           }
         });
       });
@@ -487,7 +554,7 @@
           el('p',{class:'text-sm'},[document.createTextNode('هل تريد حذف المستخدم نهائيًا؟')]),
           el('p',{class:'text-xs text-red-700'},[document.createTextNode('تحذير: لا يمكن التراجع عن هذا الإجراء.')]),
           el('div',{class:'text-xs bg-slate-50 border border-slate-200 p-2 rounded'},[
-            document.createTextNode('البريد: '), el('code',{},[document.createTextNode(email)])
+            document.createTextNode('البريد: '), el('code',{class:'font-mono'},[document.createTextNode(email)])
           ])
         ]);
         openModal({
@@ -502,7 +569,7 @@
       });
     }
 
-    // Create User (unchanged)
+    // Create User (logic is unchanged)
     document.getElementById('createUserForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
       const fd = new FormData(e.currentTarget);
@@ -531,7 +598,7 @@
       alert('تم الحفظ');
     });
 
-    // ===== Settings (same logic) =====
+    // ===== Settings (logic is unchanged) =====
     let currentSettings=null;
     async function loadSettings(){
       try{
@@ -563,7 +630,7 @@
       wrap.appendChild(g1); wrap.appendChild(g2);
       wrap.querySelector('[data-k="description_ar"]').value = d.description_ar||'';
       wrap.querySelector('[data-k="description_en"]').value = d.description_en||'';
-      const tools=el('div',{class:'flex justify-end'},[el('button',{class:'icon-btn',title:'حذف',innerHTML:icons.trash})]);
+      const tools=el('div',{class:'flex justify-end pt-2'},[el('button',{class:'icon-btn danger',title:'حذف',innerHTML:icons.trash})]);
       tools.querySelector('button').addEventListener('click',()=> wrap.remove());
       wrap.appendChild(tools);
       return wrap;
@@ -578,7 +645,7 @@
       const row=el('div',{class:'grid grid-cols-1 sm:grid-cols-[1fr,2fr,auto] gap-2 items-center'},[
         el('input',{class:inputClass,'data-k':'key',value:k||'',placeholder:'key (e.g., hero)'}),
         el('input',{class:inputClass,'data-k':'val',value:v||'',placeholder:'https://...jpg'}),
-        el('button',{class:'icon-btn',title:'حذف',innerHTML:icons.trash})
+        el('button',{class:'icon-btn danger',title:'حذف',innerHTML:icons.trash})
       ]);
       row.querySelector('button').addEventListener('click',()=> row.remove());
       return row;
@@ -587,7 +654,7 @@
       const host=document.getElementById('imagesList'); host.innerHTML='';
       const imgs=currentSettings.images||{};
       Object.keys(imgs).forEach(k=> host.appendChild(imagesRow(k,imgs[k])));
-      const add=el('button',{class:'mt-2 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium',text:'+ إضافة صورة'});
+      const add=el('button',{class:'mt-2 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors',text:'+ إضافة صورة'});
       add.addEventListener('click',()=> host.insertBefore(imagesRow('',''), add));
       host.appendChild(add);
     }
@@ -603,7 +670,7 @@
       const host=document.getElementById('imagesMetaList'); host.innerHTML='';
       const meta=currentSettings.images_meta||{};
       Object.keys(meta).forEach(k=> host.appendChild(metaRow(k, meta[k]?.alt_ar, meta[k]?.alt_en)));
-      const add=el('button',{class:'mt-2 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium',text:'+ إضافة نص بديل'});
+      const add=el('button',{class:'mt-2 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition-colors',text:'+ إضافة نص بديل'});
       add.addEventListener('click',()=> host.insertBefore(metaRow('','',''), add));
       host.appendChild(add);
     }

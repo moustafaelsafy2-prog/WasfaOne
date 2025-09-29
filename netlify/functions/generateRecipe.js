@@ -1,69 +1,52 @@
-// Netlify Function: generateRecipe (No fallbacks, strict errors)
-// Executes Gemini call and returns a STRICT recipe schema or explicit error.
-// Author: Fix build/runtime issues and remove any dummy/fallback responses.
+// Netlify Function: generateRecipe (no fallbacks, version-smart, strict schema)
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const MODEL_NAME = "gemini-1.5-flash"; // ثابت ومتاح للإنتاج
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent`;
 
-// ---------- Helpers ----------
-function bad(status, message, extra = {}) {
-  return {
-    statusCode: status,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ok: false, error: message, ...extra }),
-  };
-}
-function ok(payload) {
-  return {
-    statusCode: 200,
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ok: true, ...payload }),
-  };
-}
+// نحاول مسارين متوافقين: v1 أولاً ثم v1beta-latest
+const MODEL_PRIMARY = "gemini-1.5-flash";
+const MODEL_FALLBACK = "gemini-1.5-flash-latest";
+const ENDPOINTS = [
+  `https://generativelanguage.googleapis.com/v1/models/${MODEL_PRIMARY}:generateContent`,
+  `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_FALLBACK}:generateContent`,
+];
 
-// Strict schema validator
+// ---------- Utilities ----------
+const jsonRes = (statusCode, obj) => ({
+  statusCode,
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(obj),
+});
+const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
+const ok = (payload) => jsonRes(200, { ok: true, ...payload });
+
+// ---------- Schema validation ----------
 function validateRecipeSchema(rec) {
   const must = ["title", "servings", "total_time_min", "macros", "ingredients", "steps", "lang"];
   if (!rec || typeof rec !== "object") return { ok: false, error: "recipe_not_object" };
   for (const k of must) if (!(k in rec)) return { ok: false, error: `missing_${k}` };
 
   if (typeof rec.title !== "string" || !rec.title.trim()) return { ok: false, error: "title_type" };
-  if (typeof rec.servings !== "number" || !Number.isFinite(rec.servings)) return { ok: false, error: "servings_type" };
-  if (typeof rec.total_time_min !== "number" || !Number.isFinite(rec.total_time_min)) return { ok: false, error: "total_time_min_type" };
+  if (!Number.isFinite(rec.servings)) return { ok: false, error: "servings_type" };
+  if (!Number.isFinite(rec.total_time_min)) return { ok: false, error: "total_time_min_type" };
 
   const m = rec.macros;
   if (!m || typeof m !== "object") return { ok: false, error: "macros_type" };
   for (const key of ["protein_g", "carbs_g", "fat_g", "calories"]) {
-    if (typeof m[key] !== "number" || !Number.isFinite(m[key])) return { ok: false, error: `macro_${key}_type` };
+    if (!Number.isFinite(m[key])) return { ok: false, error: `macro_${key}_type` };
   }
-
-  if (!Array.isArray(rec.ingredients) || rec.ingredients.some(x => typeof x !== "string")) {
+  if (!Array.isArray(rec.ingredients) || rec.ingredients.some((x) => typeof x !== "string"))
     return { ok: false, error: "ingredients_type" };
-  }
-  if (!Array.isArray(rec.steps) || rec.steps.some(x => typeof x !== "string")) {
+  if (!Array.isArray(rec.steps) || rec.steps.some((x) => typeof x !== "string"))
     return { ok: false, error: "steps_type" };
-  }
   if (rec.lang !== "ar") return { ok: false, error: "lang_must_be_ar" };
 
   return { ok: true };
 }
 
-// Extract JSON from Gemini text (handles ```json fences)
-function extractJson(text) {
-  if (!text) return null;
-  let s = text.trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
-  const first = s.indexOf("{");
-  const last = s.lastIndexOf("}");
-  if (first !== -1 && last !== -1) s = s.slice(first, last + 1);
-  try { return JSON.parse(s); } catch { return null; }
-}
-
 // ---------- Prompt builders ----------
 function systemInstruction() {
   return `
-أنت شيف محترف. أعد وصفة عربية مختصرة ودقيقة فقط كـ JSON وفق المخطط أدناه دون أي نص إضافي.
-
+أنت شيف محترف. أعد الناتج كـ JSON فقط وفق المخطط التالي، دون أي نص خارجه:
 {
   "title": string,
   "servings": number,
@@ -73,11 +56,10 @@ function systemInstruction() {
   "steps": string[],
   "lang": "ar"
 }
-
 - أرقام صافية في الماكروز (بدون وحدات).
-- المكونات: عناصر نصية قصيرة (كمية + مكوّن).
-- الخطوات: جمل تنفيذية قصيرة.
-- لا تُرجِع أي شرح خارج JSON.
+- ingredients عناصر قصيرة (كمية + مكوّن).
+- steps جمل تنفيذية قصيرة.
+- اللغة: العربية فقط.
 `.trim();
 }
 
@@ -91,7 +73,7 @@ function userPrompt(input) {
     focus = "",
   } = input;
 
-  const avoid = allergies && allergies.length ? allergies.join(", ") : "لا شيء";
+  const avoid = allergies?.length ? allergies.join(", ") : "لا شيء";
   const focusLine = focus ? `تركيز خاص: ${focus}.` : "";
 
   return `
@@ -99,20 +81,47 @@ function userPrompt(input) {
 الهدف التقريبي للسعرات لكل حصة: ${caloriesTarget}.
 حساسيات يجب تجنبها: ${avoid}.
 ${focusLine}
-أعد النتيجة بالضبط كـ JSON حسب المخطط المطلوب وباللغة العربية فقط.
+أعد النتيجة JSON فقط حسب المخطط المطلوب وبالعربية.
 `.trim();
 }
 
-// ---------- Gemini call ----------
-async function callGemini(input) {
-  const requestBody = {
-    // Use systemInstruction per Gemini API
+// ---------- Response parsing ----------
+function extractJsonFromCandidates(jr) {
+  // يدعم v1 و v1beta: parts[].text قد تحتوي JSON مباشرة أو داخل أسوار ```json
+  const text =
+    jr?.candidates?.[0]?.content?.parts?.map((p) => p.text).join("") ||
+    jr?.candidates?.[0]?.content?.parts?.[0]?.text ||
+    "";
+
+  if (!text) return null;
+
+  let s = text.trim();
+  // إزالة أسوار ```json إن وُجدت
+  s = s.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+  const first = s.indexOf("{");
+  const last = s.lastIndexOf("}");
+  if (first === -1 || last === -1) return null;
+
+  const slice = s.slice(first, last + 1);
+  try {
+    return JSON.parse(slice);
+  } catch {
+    return null;
+  }
+}
+
+// ---------- Core call ----------
+async function callGeminiWith(url, input) {
+  // نبني جسم طلب متوافق مع v1 و v1beta
+  const body = {
+    // v1 يدعم systemInstruction، v1beta سيتجاهله بأمان
     systemInstruction: { role: "system", parts: [{ text: systemInstruction() }] },
     contents: [{ role: "user", parts: [{ text: userPrompt(input) }] }],
     generationConfig: {
       temperature: 0.7,
       topP: 0.9,
       maxOutputTokens: 800,
+      // v1 سيدعم responseMimeType/Schema؛ v1beta سيتجاهله دون كسر
       responseMimeType: "application/json",
       responseSchema: {
         type: "OBJECT",
@@ -140,35 +149,36 @@ async function callGemini(input) {
     safetySettings: [],
   };
 
-  const url = `${API_URL}?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-  const r = await fetch(url, {
+  const r = await fetch(`${url}?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(requestBody),
+    body: JSON.stringify(body),
   });
 
   let jr;
-  try { jr = await r.json(); } catch { return bad(502, "invalid_response_from_gemini"); }
+  try {
+    jr = await r.json();
+  } catch {
+    return { ok: false, code: 502, error: "invalid_json_from_gemini" };
+  }
 
   if (!r.ok) {
     const msg = jr?.error?.message || `gemini_http_${r.status}`;
-    return bad(502, msg);
+    return { ok: false, code: 502, error: msg };
   }
 
-  const text = jr?.candidates?.[0]?.content?.parts?.map(p => p.text).join("") || "";
-  const json = extractJson(text);
-  if (!json) return bad(422, "gemini_returned_non_json");
+  const json = extractJsonFromCandidates(jr);
+  if (!json) return { ok: false, code: 422, error: "gemini_returned_non_json" };
 
   const v = validateRecipeSchema(json);
-  if (!v.ok) return bad(422, `schema_validation_failed:${v.error}`);
+  if (!v.ok) return { ok: false, code: 422, error: `schema_validation_failed:${v.error}` };
 
-  return ok({ recipe: json });
+  return { ok: true, recipe: json };
 }
 
-// ---------- Netlify handler ----------
+// ---------- Handler ----------
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
-
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
 
   let input = {};
@@ -178,10 +188,17 @@ exports.handler = async (event) => {
     return bad(400, "invalid_json_body");
   }
 
-  try {
-    const res = await callGemini(input);
-    return res;
-  } catch (e) {
-    return bad(500, "internal_error", { detail: e.message || String(e) });
+  // نجرب v1 ثم v1beta-latest
+  let lastErr = null;
+  for (const url of ENDPOINTS) {
+    try {
+      const res = await callGeminiWith(url, input);
+      if (res.ok) return ok({ recipe: res.recipe });
+      lastErr = res;
+    } catch (e) {
+      lastErr = { ok: false, code: 500, error: e.message || "internal_error" };
+    }
   }
+
+  return bad(lastErr?.code || 500, lastErr?.error || "unknown_error", { tried: ENDPOINTS });
 };

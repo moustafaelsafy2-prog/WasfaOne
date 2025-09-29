@@ -5,9 +5,9 @@
     "logo_url": "https://example.com/logo.png"
   },
   "contact": {
-    "phone_display": "+971500000000",
-    "whatsapp_link": "https://wa.me/971500000000",
-    "email": "info@example.com",
+    "phone_display": "+971502061209",
+    "whatsapp_link": "https://wa.me/971502061209",
+    "email": "moustafa.elsafy@hotmail.com",
     "social": {
       "instagram": "https://instagram.com/wasfaone",
       "tiktok": "https://tiktok.com/@wasfaone",
@@ -35,7 +35,13 @@
     "banner": "https://example.com/banner.jpg"
   },
   "images_meta": {
-    "hero": { "alt_ar": "صورة رئيسية", "alt_en": "Hero image" },
-    "banner": { "alt_ar": "صورة بانر", "alt_en": "Banner image" }
+    "hero": {
+      "alt_ar": "صورة رئيسية",
+      "alt_en": "Hero image"
+    },
+    "banner": {
+      "alt_ar": "صورة بانر",
+      "alt_en": "Banner image"
+    }
   }
 }

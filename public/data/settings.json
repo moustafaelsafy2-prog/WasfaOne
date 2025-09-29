@@ -1,0 +1,43 @@
+{
+  "branding": {
+    "site_name_ar": "وصفة ون",
+    "site_name_en": "WasfaOne",
+    "logo_url": "https://via.placeholder.com/150x50?text=WasfaOne"
+  },
+  "contact": {
+    "phone_display": "00971502061209",
+    "whatsapp_link": "https://wa.me/971502061209",
+    "email_contact": "support@wasfaone.com"
+  },
+  "diets": [
+    {
+      "id": "balanced",
+      "name_ar": "نظام متوازن",
+      "name_en": "Balanced Diet"
+    },
+    {
+      "id": "keto",
+      "name_ar": "نظام كيتو",
+      "name_en": "Keto Diet"
+    },
+    {
+      "id": "vegan",
+      "name_ar": "نظام نباتي",
+      "name_en": "Vegan Diet"
+    }
+  ],
+  "images": {
+    "hero_ar": "https://via.placeholder.com/600x300?text=صورة+رئيسية",
+    "hero_en": "https://via.placeholder.com/600x300?text=Hero+Image",
+    "login": "https://via.placeholder.com/600x300?text=Login+Page",
+    "app": "https://via.placeholder.com/600x300?text=App+Page",
+    "admin": "https://via.placeholder.com/600x300?text=Admin+Panel"
+  },
+  "alts": {
+    "hero_ar": "صورة رئيسية للموقع",
+    "hero_en": "Main hero image",
+    "login": "Login page image",
+    "app": "Application page image",
+    "admin": "Admin panel image"
+  }
+}

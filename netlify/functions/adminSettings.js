@@ -1,3 +1,6 @@
+// Netlify Function: adminSettings (GET/PUT settings.json)
+// Header: x-admin-key === ADMIN_PASSWORD
+// Validates image/contact URLs are http/https
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
@@ -6,7 +9,9 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 const GH_API = "https://api.github.com";
 
 function forbidden(){ return { statusCode: 401, body: JSON.stringify({ ok:false, error:"unauthorized" })}; }
-function isHttpUrl(u){ try{ const x=new URL(u); return x.protocol==="http:"||x.protocol==="https:"; }catch{ return false; } }
+function isHttpUrl(u){
+  try{ const x=new URL(u); return x.protocol==="http:"||x.protocol==="https:"; }catch{ return false; }
+}
 
 async function ghGetJson(path){
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
@@ -28,7 +33,7 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
-module.exports.handler = async (event) => {
+export async function handler(event){
   if((event.headers["x-admin-key"] || event.headers["X-Admin-Key"]) !== ADMIN_PASSWORD){
     return forbidden();
   }
@@ -43,6 +48,7 @@ module.exports.handler = async (event) => {
       const input = body.settings;
       if(!input) return { statusCode: 400, body: JSON.stringify({ ok:false }) };
 
+      // Validate URLs: branding.logo, contact.whatsapp, any images values
       const candidates = [
         input?.branding?.logo_url,
         input?.contact?.whatsapp_link,
@@ -62,4 +68,4 @@ module.exports.handler = async (event) => {
   }catch(err){
     return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
   }
-};
+}

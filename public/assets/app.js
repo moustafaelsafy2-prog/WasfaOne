@@ -1,4 +1,4 @@
-/* WasfaOne Frontend — Single-file vanilla JS */
+/* WasfaOne Frontend — app.js (diagnostics enabled) */
 
 const I18N = {
   ar: {
@@ -7,7 +7,8 @@ const I18N = {
     needLogin: "الرجاء تسجيل الدخول",
     invalid: "مدخلات غير صالحة",
     copied: "تم النسخ",
-    friendlyErr: "تعذر توليد الوصفة حاليًا، يرجى المحاولة لاحقًا أو التواصل عبر 00971502061209."
+    friendlyErr: "تعذر توليد الوصفة حاليًا.",
+    details: "التفاصيل"
   },
   en: {
     toggle: "ع",
@@ -15,7 +16,8 @@ const I18N = {
     needLogin: "Please login",
     invalid: "Invalid input",
     copied: "Copied",
-    friendlyErr: "Unable to generate a recipe right now. Please try again later or contact us at 00971502061209."
+    friendlyErr: "Unable to generate a recipe right now.",
+    details: "Details"
   }
 };
 
@@ -24,7 +26,7 @@ function qs(sel, root=document){ return root.querySelector(sel); }
 function setHtml(id, h){ const el = byId(id); if(el) el.innerHTML = h; }
 function show(el){ if(typeof el==="string") el = byId(el); if(el) el.classList.remove("hidden"); }
 function hide(el){ if(typeof el==="string") el = byId(el); if(el) el.classList.add("hidden"); }
-function safeJSON(o){ return JSON.stringify(o, null, 2); }
+function safeJSON(o){ try{ return JSON.stringify(o, null, 2); }catch{return String(o)} }
 function getLang(){ return localStorage.getItem("lang") || "ar"; }
 function applyLangToDocument(lang){ document.documentElement.lang = lang; document.documentElement.dir = (lang==="ar"?"rtl":"ltr"); }
 function bindLangToggle(refresher){
@@ -39,12 +41,28 @@ function bindLangToggle(refresher){
   };
   el.textContent = I18N[getLang()].toggle;
 }
-function alertBox(text){
+function alertBox(text, details){
   const el = byId("app-alert"); if(!el) return;
-  el.textContent = text || "";
-  if(text) show(el); else hide(el);
+  if(!text){ el.textContent = ""; hide(el); return; }
+  if(details){
+    el.innerHTML = `
+      <div>${text}</div>
+      <details class="mt-2">
+        <summary class="cursor-pointer underline">${I18N[getLang()].details}</summary>
+        <pre class="mt-2 whitespace-pre-wrap text-xs bg-gray-50 border rounded p-2">${typeof details==="string"? details : safeJSON(details)}</pre>
+      </details>`;
+  }else{
+    el.textContent = text;
+  }
+  show(el);
 }
-async function loadSettings(){ const r = await fetch("/data/settings.json", { cache:"no-store" }); if(!r.ok) throw new Error("settings_failed"); return r.json(); }
+
+async function loadSettings(){
+  const r = await fetch("/data/settings.json", { cache: "no-store" });
+  if(!r.ok) throw new Error("settings_failed");
+  return r.json();
+}
+
 function requireAuthOrRedirect(){
   const token = localStorage.getItem("auth_token");
   const nonce = localStorage.getItem("session_nonce");
@@ -56,9 +74,14 @@ async function initAppPage(){
   if(!requireAuthOrRedirect()) return;
   const lang = getLang(); applyLangToDocument(lang);
   bindLangToggle(initAppPage);
-  const T = I18N[lang];
+  const t = I18N[lang];
 
-  // إعداد الحقول
+  try{ const settings = await loadSettings(); const logo = byId("app-logo"); if(logo && settings?.branding?.logo_url){ logo.src = settings.branding.logo_url; } }catch{}
+
+  const name = localStorage.getItem("user_name") || (lang==="ar"?"مستخدم":"User");
+  if(byId("user-name")) byId("user-name").textContent = name;
+  if(byId("btn-logout")) byId("btn-logout").onclick = () => { localStorage.clear(); window.location.href = "/login.html"; };
+
   const dietSel = byId("diet");
   const servings = byId("servings");
   const time = byId("time");
@@ -67,16 +90,17 @@ async function initAppPage(){
   const btnGen = byId("btn-generate");
   const btnCopy = byId("btn-copy-json");
   const btnLast = byId("btn-load-last");
+  const recipeBox = byId("recipe-box");
+  const langToggle = byId("lang-toggle");
+  if(langToggle) langToggle.textContent = t.toggle;
 
-  // تعبئة الأنظمة من settings
   try{
     const settings = await loadSettings();
     if(dietSel){
       dietSel.innerHTML = "";
-      (settings?.diets || settings?.diet_systems || []).forEach(d => {
+      (settings?.diets||[]).forEach(d => {
         const opt = document.createElement("option");
-        opt.value = d.id || d.value || "balanced";
-        opt.textContent = (lang==="ar"? (d.name_ar||d.label_ar||"") : (d.name_en||d.label_en||""));
+        opt.value = d.id; opt.textContent = (lang==="ar"? d.name_ar : d.name_en);
         dietSel.appendChild(opt);
       });
     }
@@ -100,7 +124,7 @@ async function initAppPage(){
 
   async function loadLast(){
     try{
-      alertBox(T.loading);
+      alertBox(t.loading);
       const email = localStorage.getItem("user_email");
       const r = await fetch(`/.netlify/functions/userState?email=${encodeURIComponent(email)}`, {
         headers: { "x-auth-token": localStorage.getItem("auth_token")||"", "x-session-nonce": localStorage.getItem("session_nonce")||"" }
@@ -108,18 +132,18 @@ async function initAppPage(){
       const jr = await r.json();
       alertBox("");
       if(jr?.ok && jr?.last) renderRecipe(jr.last);
-    }catch{ alertBox(""); }
+    }catch(e){ alertBox(""); }
   }
   if(btnLast) btnLast.onclick = loadLast;
 
   if(btnCopy) btnCopy.onclick = () => {
     const pre = qs("#recipe-box pre");
-    if(pre){ navigator.clipboard.writeText(pre.textContent||""); alertBox(T.copied); setTimeout(()=>alertBox(""), 1200); }
+    if(pre){ navigator.clipboard.writeText(pre.textContent||""); alertBox(t.copied); setTimeout(()=>alertBox(""), 1200); }
   };
 
   if(btnGen) btnGen.onclick = async () => {
     try{
-      alertBox(T.loading);
+      alertBox(t.loading);
       const payload = {
         email: localStorage.getItem("user_email"),
         diet: dietSel?.value || "balanced",
@@ -128,7 +152,7 @@ async function initAppPage(){
         macros: macros?.value || "",
         ingredients: ing?.value || ""
       };
-      if(!payload.email){ alertBox(T.needLogin); return; }
+      if(!payload.email){ alertBox(t.needLogin); return; }
 
       const r = await fetch("/.netlify/functions/generateRecipe", {
         method: "POST",
@@ -139,25 +163,23 @@ async function initAppPage(){
         },
         body: JSON.stringify(payload)
       });
+
       const jr = await r.json();
       alertBox("");
 
-      // الخادم المُحدَّث يُعيد دائمًا recipe حتى عند فشل Gemini
-      if(jr?.ok && jr?.recipe){ renderRecipe(jr.recipe); }
-      else{
-        // الاحتياط: لو كان خادم قديم يرجع gemini_* أو ai_parse_failed
-        if(jr?.error && (String(jr.error).startsWith("gemini_") || jr.error==="ai_parse_failed")){
-          alertBox(T.friendlyErr);
-        }else{
-          alertBox(jr?.error || T.invalid);
-        }
+      if(jr?.ok && jr?.recipe){
+        renderRecipe(jr.recipe);
+      }else{
+        // NEW: show clear diagnostics from server
+        const msg = jr?.error || t.friendlyErr;
+        const diag = jr?.error_detail || jr?.diagnostics || jr;
+        alertBox(msg, diag);
       }
-    }catch{
-      alertBox(T.friendlyErr);
+    }catch(e){
+      alertBox(t.friendlyErr, String(e?.message||e));
     }
   };
 
-  // تحميل آخر وصفة تلقائيًا
   loadLast();
 }
 

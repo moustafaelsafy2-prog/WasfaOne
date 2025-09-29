@@ -2,301 +2,155 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>مجلة الوصفة الذكية</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Cairo:wght@200..1000&display=swap');
-    :root {
-      --ink: #0f172a;
-      --muted: #475569;
-      --brand: #ef4444;
-      --soft: #f7f7f9;
-      --line: #e5e7eb;
-    }
-    * {
-      box-sizing: border-box;
-    }
-    body {
-      font-family: 'Cairo', 'Inter', sans-serif;
-      background-color: var(--soft);
-      color: var(--ink);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
-    .cover {
-      background: linear-gradient(180deg, #fff, #fafafa);
-      border: 1px solid var(--line);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, .06);
-    }
-    .divider {
-      height: 1px;
-      background: var(--line);
-      margin: 18px 0;
-    }
-    /* chips */
-    .meta {
-      display: flex;
-      gap: 14px;
-      flex-wrap: wrap;
-    }
-    .chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 14px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: #fff;
-      font-weight: 700;
-      font-size: 0.875rem;
-    }
-    .chip svg {
-      width: 18px;
-      height: 18px;
-      color: var(--brand);
-    }
+    :root{ --ink:#0f172a; --muted:#475569; --brand:#ef4444; --soft:#f7f7f9; --line:#e5e7eb; }
+    *{box-sizing:border-box}
+    body{font-family:'Cairo','Inter',sans-serif;background:var(--soft);color:var(--ink);min-height:100vh;overflow-x:hidden}
+    .wrap{max-width:1080px;margin-inline:auto}
+    .card{background:linear-gradient(180deg,#fff,#fafafa);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 20px 40px rgba(0,0,0,.06)}
+    .divider{height:1px;background:var(--line);margin:18px 0}
+    .area{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:start}
+    @media (max-width:1024px){ .area{grid-template-columns:1fr} }
+
+    /* meta chips */
+    .meta{display:flex;gap:14px;flex-wrap:wrap}
+    .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font-weight:700}
+    .chip svg{width:16px;height:16px;color:var(--brand)}
+
     /* side panel */
-    .panel {
-      position: sticky;
-      top: 2rem;
-      background: #fff;
-      border: 1px solid var(--line);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, .04);
-    }
-    .panel h3 {
-      font-size: 1.25rem;
-      font-weight: 900;
-      margin-bottom: 10px;
-    }
-    .ingredient-list li {
-      position: relative;
-      padding-right: 1.25rem;
-      line-height: 1.9;
-      margin-bottom: .4rem;
-    }
-    .ingredient-list li::before {
-      content: '•';
-      position: absolute;
-      right: 0;
-      color: var(--brand);
-      font-weight: 900;
-    }
+    .panel{position:sticky;top:16px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 12px 30px rgba(0,0,0,.04)}
+    .panel h3{font-size:1.25rem;font-weight:900;margin-bottom:10px}
+    .ingredient-list li{position:relative;padding-right:1.25rem;line-height:1.9;margin-bottom:.4rem}
+    .ingredient-list li::before{content:'•';position:absolute;right:0;color:var(--brand);font-weight:900}
+
     /* steps */
-    .steps-list {
-      counter-reset: step;
+    .steps-list{counter-reset:step}
+    .step{position:relative;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 18px 18px 66px;box-shadow:0 8px 20px rgba(0,0,0,.04);margin-bottom:14px}
+    .step::before{
+      counter-increment:step; content:"خطوة " counter(step);
+      position:absolute; right:16px; top:16px; min-width:56px; height:32px; border-radius:999px;
+      display:inline-grid; place-items:center; padding:0 10px;
+      color:#fff; background:var(--brand); font-weight:900; box-shadow:0 2px 6px rgba(239,68,68,.35)
     }
-    .step {
-      position: relative;
-      background: #fff;
-      border: 1px solid var(--line);
-      padding: 18px 18px 18px 66px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, .04);
-      margin-bottom: 14px;
-      border-radius: 16px;
-    }
-    .step::before {
-      counter-increment: step;
-      content: "خطوة " counter(step);
-      position: absolute;
-      right: 16px;
-      top: 16px;
-      min-width: 56px;
-      height: 32px;
-      border-radius: 999px;
-      display: inline-grid;
-      place-items: center;
-      padding: 0 10px;
-      color: #fff;
-      background: var(--brand);
-      font-weight: 900;
-      font-size: 0.875rem;
-      box-shadow: 0 2px 6px rgba(239, 68, 68, .35)
-    }
-    .step p {
-      margin: 0;
-      color: var(--muted);
-      line-height: 1.95;
-    }
+    .step p{margin:0;color:var(--muted);line-height:1.95}
+
     /* traffic light */
-    .tl-wrap {
-      display: grid;
-      gap: 8px;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    }
-    .tl-pill {
-      border-radius: 14px;
-      padding: 12px 10px;
-      border: 2px solid #111;
-      color: #111;
-      text-align: center;
-      background: #fff;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-    }
-    .tl-pill .name {
-      display: block;
-      font-weight: 800;
-      font-size: 14px;
-    }
-    .tl-pill .grams {
-      display: block;
-      font-weight: 900;
-      font-size: 18px;
-    }
-    .tl-pill .flag {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      font-weight: 800;
-      font-size: 12px;
-      background: #fff;
-    }
-    .tl-low {
-      background: #e7f7e7;
-      border-color: #0f5132;
-    }
-    .tl-med {
-      background: #fff7e6;
-      border-color: #b45309;
-    }
-    .tl-high {
-      background: #ffecec;
-      border-color: #b91c1c;
-    }
-    /* toast + loader */
-    .toast {
-      position: fixed;
-      inset-inline-start: 1rem;
-      inset-block-start: 1rem;
-      z-index: 50;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-    .toast-item {
-      background: #111827;
-      color: #fff;
-      padding: 10px 14px;
-      border-radius: 12px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, .25);
-      opacity: 1;
-      transform: translateY(0);
-      transition: opacity 0.4s ease, transform 0.4s ease;
-    }
-    .toast-item.success {
-      background: #065f46;
-    }
-    .toast-item.error {
-      background: #991b1b;
-    }
-    .toast-item.info {
-      background: #111827;
-    }
-    .loader {
-      border-top-color: var(--brand);
-      animation: spin 1.2s linear infinite;
-      border: 2px dashed;
-      width: 20px;
-      height: 20px;
-      border-radius: 999px;
-    }
-    @keyframes spin {
-      0% {
-        transform: rotate(0)
-      }
-      100% {
-        transform: rotate(360deg)
-      }
-    }
-    select,
-    input[type="number"],
-    input[type="text"] {
-      min-height: 48px;
-      border-radius: 0.75rem;
-      border-color: var(--line);
-    }
-    select:focus,
-    input:focus {
-        border-color: var(--brand);
-        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
-        outline: none;
-    }
+    .tl-wrap{display:flex;gap:8px;flex-wrap:wrap}
+    .tl-pill{flex:1 1 120px;border-radius:14px;padding:10px;border:2px solid #111;color:#111;text-align:center;background:#fff}
+    .tl-pill .name{display:block;font-weight:800;font-size:14px}
+    .tl-pill .grams{display:block;font-weight:900;font-size:18px;margin-top:4px}
+    .tl-pill .flag{display:inline-block;margin-top:6px;padding:2px 8px;border-radius:999px;font-weight:800;font-size:12px;background:#fff}
+    .tl-low{background:#e7f7e7;border-color:#0f5132}
+    .tl-med{background:#fff7e6;border-color:#b45309}
+    .tl-high{background:#ffecec;border-color:#b91c1c}
+
+    /* toast + loader + banners */
+    .toast{position:fixed;inset-inline-start:16px;inset-block-start:16px;z-index:50}
+    .toast-item{background:#111827;color:#fff;padding:10px 14px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
+    .toast-item.success{background:#065f46}.toast-item.error{background:#991b1b}.toast-item.info{background:#111827}
+    .loader{border-top-color:var(--brand);animation:spin 1.2s linear infinite;border:2px dashed;width:20px;height:20px;border-radius:999px}
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    .banner{border:1px dashed #b45309;background:#fff7e6;color:#92400e}
+    .banner.red{border-color:#b91c1c;background:#ffecec;color:#7f1d1d}
+    select,input[type="number"],input[type="text"]{min-height:48px}
   </style>
 </head>
-<body class="p-4 sm:p-6 lg:p-8">
+<body class="p-4 md:p-8">
   <!-- Toast -->
   <div id="toast" class="toast"></div>
 
-  <div class="max-w-6xl mx-auto">
+  <div class="wrap">
     <!-- Header + Form -->
-    <div class="cover mb-8 rounded-2xl p-6 md:p-8">
-      <h1 class="font-black text-4xl md:text-5xl text-center">مجلة الوصفة الذكية</h1>
-      <p class="text-center text-[var(--muted)] mt-2 mb-4 max-w-2xl mx-auto">تنسيق مجلة مع إشارات ضوئية للتغذية — بدون صور.</p>
+    <div class="card mb-8">
+      <h1 class="text-4xl md:text-5xl font-black text-center">مجلة الوصفة الذكية</h1>
+      <p class="text-center text-[var(--muted)] mt-2 mb-4">تنسيق مجلة — إشارات ضوئية للتغذية فقط — بدون صور.</p>
 
       <div class="divider"></div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">نوع الوجبة</label>
-          <select id="mealType" class="w-full p-3">
-            <option>غداء</option>
-            <option>فطور</option>
-            <option selected>عشاء</option>
-            <option>وجبة خفيفة</option>
+          <select id="mealType" class="w-full border rounded-md p-3">
+            <option>غداء</option><option>فطور</option><option selected>عشاء</option><option>وجبة خفيفة</option>
           </select>
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">المطبخ</label>
-          <select id="cuisine" class="w-full p-3">
+          <select id="cuisine" class="w-full border rounded-md p-3">
+            <!-- الشرق الأوسط وشمال أفريقيا -->
             <option selected>شرق أوسطي</option>
             <option>مطبخ مصري</option>
             <option>مطبخ شامي</option>
             <option>مطبخ خليجي</option>
             <option>مغربي/تونسي/جزائري</option>
             <option>يمني</option>
+            <!-- المتوسط وأوروبا -->
             <option>تركي</option>
             <option>يوناني</option>
             <option>إيطالي</option>
             <option>إسباني</option>
             <option>فرنسي</option>
+            <option>ألماني/نمساوي</option>
             <option>متوسطي (Mediterranean)</option>
+            <!-- آسيا -->
+            <option>فارسي/إيراني</option>
             <option>هندي</option>
+            <option>باكستاني</option>
+            <option>أفغاني</option>
             <option>صيني</option>
             <option>ياباني</option>
+            <option>كوري</option>
             <option>تايلندي</option>
+            <option>فيتنامي</option>
+            <option>فلبيني</option>
+            <!-- الأمريكتان وأخرى -->
             <option>مكسيكي</option>
+            <option>بيروفي/لاتيني</option>
             <option>أمريكي</option>
+            <option>بحري/مأكولات بحرية</option>
+            <option>أفريقي/إثيوبي</option>
             <option>عالمي/مبتكر</option>
           </select>
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">النظام الغذائي</label>
-          <select id="dietType" class="w-full p-3">
+          <select id="dietType" class="w-full border rounded-md p-3">
             <option selected>عادي/متوازن</option>
+            <option>نظام د. محمد سعيد</option>
             <option>كيتو</option>
             <option>متوسطي (Mediterranean)</option>
+            <option>باليو (Paleo)</option>
+            <option>Whole30</option>
+            <option>DASH (قلب صحي)</option>
             <option>منخفض الكربوهيدرات</option>
             <option>منخفض الدهون</option>
+            <option>منخفض الصوديوم</option>
+            <option>منخفض المؤشر الجلايسيمي (سكري)</option>
             <option>نباتي (Vegetarian)</option>
             <option>فيجن (Vegan)</option>
+            <option>بسكاتاريان (نباتي مع أسماك)</option>
             <option>خالي من الجلوتين</option>
+            <option>خالي من اللاكتوز</option>
             <option>عالي البروتين</option>
+            <option>عالي الألياف</option>
+            <option>رياضي/زيادة كتلة عضلية</option>
+            <option>حلال</option>
           </select>
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">سعرات الحصة</label>
-          <input id="calorieTarget" type="number" min="100" max="2000" step="50" value="550" class="w-full p-3" placeholder="مثال: 500">
+          <input id="calorieTarget" type="number" min="100" max="2000" step="50" value="550" class="w-full border rounded-md p-3" placeholder="مثال: 500">
         </div>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">حساسية شائعة</label>
-          <select id="commonAllergy" class="w-full p-3">
+          <select id="commonAllergy" class="w-full border rounded-md p-3">
             <option value="">لا يوجد</option>
             <option>حساسية القمح/الجلوتين</option>
             <option>حساسية الألبان/اللاكتوز</option>
@@ -308,282 +162,198 @@
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">حساسيات أخرى (اختياري)</label>
-          <input id="customAllergy" type="text" class="w-full p-3" placeholder="الثوم، الفول السوداني …">
+          <input id="customAllergy" type="text" class="w-full border rounded-md p-3" placeholder="الثوم، الفول السوداني …">
         </div>
       </div>
 
       <div class="mt-4 flex items-center gap-4">
         <div class="flex items-center gap-2">
-          <input id="maxSteps" type="number" min="3" max="8" value="6" class="w-16 p-2 text-center">
+          <input id="maxSteps" type="number" min="3" max="8" value="6" class="w-16 border rounded-md p-2">
           <span class="text-sm text-[var(--muted)]">حد أقصى للخطوات</span>
         </div>
       </div>
 
+      <div id="banner" class="hidden mt-4 p-3 rounded-xl banner text-sm"></div>
+
       <div class="text-center my-6">
-        <button id="generateBtn" class="inline-flex items-center justify-center gap-3 px-8 py-3 rounded-xl bg-[var(--brand)] text-white font-bold shadow-lg shadow-red-500/20 hover:brightness-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-          <span id="btnText">توليد الوصفة الآن</span>
-          <span id="loadingIndicator" class="hidden loader"></span>
+        <button id="generateBtn" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-[var(--brand)] text-white font-bold shadow hover:brightness-95 disabled:opacity-50">
+          <span>توليد الوصفة الآن</span><span id="loadingIndicator" class="hidden loader"></span>
         </button>
         <p id="statusMsg" class="mt-2 text-sm text-blue-600 hidden"></p>
         <p id="errorMsg" class="mt-2 text-sm text-red-600 hidden"></p>
       </div>
 
-      <div id="resultsContainer" class="hidden">
-        <div class="divider"></div>
-        <!-- عنوان النتائج + ميتاداتا -->
-        <div class="mb-4">
-          <h2 id="recipeTitle" class="text-3xl md:text-4xl font-black leading-tight"></h2>
-          <div class="meta my-4 text-[var(--muted)]">
-            <span class="chip">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-              <span id="timeValue">—</span>
-            </span>
-            <span class="chip">
-             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-              <span id="servingsValue">—</span>
-            </span>
-          </div>
-           <!-- التغذية بسرعة (Traffic-Light) -->
-          <div class="mt-6">
-             <h3 class="text-xl font-black mb-3">التغذية بسرعة</h3>
-             <div id="tl-wrap" class="tl-wrap"></div>
-          </div>
+      <div class="divider"></div>
+
+      <!-- عنوان النتائج + ميتاداتا -->
+      <div class="mb-4">
+        <h2 id="recipeTitle" class="text-3xl md:text-4xl font-black leading-snug"></h2>
+        <div class="meta mt-3 text-[var(--muted)]">
+          <span class="chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span id="timeValue">—</span>
+          </span>
+          <span class="chip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20v-2A3 3 0 005.356 18.143 3 3 0 005 20h5V20m0 0h10a2 2 0 002-2v-2a3 3 0 00-5.356-1.857M10 20v-2a3 3 0 0110.356 1.857 3 3 0 01-10.356 0zM6 10a3 3 0 11-6 0 3 3 0 016 0zM17 4a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span id="servingsValue">—</span>
+          </span>
         </div>
       </div>
     </div>
 
     <!-- Content area -->
-    <section id="contentArea" class="grid grid-cols-1 lg:grid-cols-[minmax(0,_0.9fr)_minmax(0,_1.1fr)] gap-8 mt-8 hidden">
-      <aside class="panel rounded-2xl p-6">
-        <h3 class="text-2xl font-black">المكونات</h3>
-        <ul id="ingredientsList" class="ingredient-list mt-4"></ul>
+    <section class="area mt-8">
+      <aside class="panel">
+        <h3>المكونات</h3>
+        <ul id="ingredientsList" class="ingredient-list mb-6"></ul>
+
+        <!-- التغذية بسرعة (Traffic-Light) -->
+        <h3 class="mt-4">التغذية بسرعة</h3>
+        <div id="tl-wrap" class="tl-wrap"></div>
       </aside>
 
       <main>
-        <h3 class="text-2xl font-black mb-4">طريقة التحضير</h3>
+        <h3 class="text-2xl font-black mb-3">طريقة التحضير</h3>
         <div id="preparationSteps" class="steps-list"></div>
       </main>
     </section>
   </div>
 
   <script>
-    const API_ENDPOINT = "/.netlify/functions/generateRecipe"; // This would be a real endpoint
-    const $ = id => document.getElementById(id);
+    const API_ENDPOINT="/.netlify/functions/generateRecipe";
+    const $=id=>document.getElementById(id);
 
-    // Inputs
-    const mealType = $('mealType'), cuisine = $('cuisine'), dietType = $('dietType'),
-        calorieTarget = $('calorieTarget'), commonAllergy = $('commonAllergy'),
-        customAllergy = $('customAllergy'), maxStepsInput = $('maxSteps'),
-        btn = $('generateBtn'), btnText = $('btnText'), spin = $('loadingIndicator'),
-        statusMsg = $('statusMsg'), errMsg = $('errorMsg'), toast = $('toast');
+    // inputs
+    const mealType=$('mealType'), cuisine=$('cuisine'), dietType=$('dietType'),
+          calorieTarget=$('calorieTarget'), commonAllergy=$('commonAllergy'),
+          customAllergy=$('customAllergy'), maxStepsInput=$('maxSteps'),
+          btn=$('generateBtn'), spin=$('loadingIndicator'),
+          statusMsg=$('statusMsg'), errMsg=$('errorMsg'),
+          banner=$('banner'), toast=$('toast');
 
-    // Outputs
-    const resultsContainer = $('resultsContainer'), contentArea = $('contentArea'),
-        recipeTitle = $('recipeTitle'), timeValue = $('timeValue'),
-        servingsValue = $('servingsValue'), ingList = $('ingredientsList'),
-        stepsBox = $('preparationSteps'), tlWrap = $('tl-wrap');
-    
-    /* ===== Toast Notifications ===== */
-    function pushToast(text, type = "info", ms = 3500) {
-      const d = document.createElement('div');
-      d.className = `toast-item ${type}`;
-      d.textContent = text;
-      toast.appendChild(d);
-      setTimeout(() => {
-        d.style.opacity = '0';
-        d.style.transform = 'translateY(-4px)';
-      }, ms - 400);
-      setTimeout(() => d.remove(), ms);
+    // outputs
+    const recipeTitle=$('recipeTitle'), timeValue=$('timeValue'),
+          servingsValue=$('servingsValue'), ingList=$('ingredientsList'),
+          stepsBox=$('preparationSteps'), tlWrap=$('tl-wrap');
+
+    /* ===== Toast ===== */
+    function pushToast(text,type="info",ms=3500){
+      const d=document.createElement('div');
+      d.className=`toast-item ${type}`; d.textContent=text; toast.appendChild(d);
+      setTimeout(()=>{ d.style.opacity='0'; d.style.transform='translateY(-4px)'; }, ms-400);
+      setTimeout(()=>d.remove(), ms);
     }
 
-    function setStatus(text = "", isGood = true) {
-      statusMsg.textContent = text;
+    function setStatus(text="", good=true){
+      statusMsg.textContent=text;
       statusMsg.classList.toggle('hidden', !text);
-      statusMsg.classList.toggle('text-blue-600', isGood);
-      statusMsg.classList.toggle('text-red-600', !isGood);
+      statusMsg.classList.toggle('text-blue-600', good);
+      statusMsg.classList.toggle('text-red-600', !good);
     }
-    function setError(text = "") {
-      errMsg.textContent = text;
-      errMsg.classList.toggle('hidden', !text);
-    }
-
-    function resetView() {
-      resultsContainer.classList.add('hidden');
-      contentArea.classList.add('hidden');
-      recipeTitle.textContent = "";
-      timeValue.textContent = "—";
-      servingsValue.textContent = "—";
-      ingList.innerHTML = "";
-      stepsBox.innerHTML = "";
-      tlWrap.innerHTML = "";
+    function setError(text=""){ errMsg.textContent=text; errMsg.classList.toggle('hidden', !text) }
+    function setBanner(text="", tone="amber"){
+      if(!text){ banner.classList.add('hidden'); banner.textContent=""; return; }
+      banner.textContent=text;
+      banner.classList.remove('hidden','red');
+      if(tone==="red") banner.classList.add('red');
     }
 
-    function tlClass(value, low, high) {
-      return value <= low ? "tl-low" : value >= high ? "tl-high" : "tl-med";
-    }
-    function renderTL(macros) {
-        const { calories, fats, carbs, protein } = macros;
-        const fatClass = tlClass(fats, 10, 20);
-        const carbClass = tlClass(carbs, 30, 60);
-        const proClass = tlClass(protein, 15, 30);
-        
-        const data = [
-            { n: "الطاقة", g: `${Math.round(calories)} kcal`, c: "tl-med", f: "—" },
-            { n: "دهون", g: `${Math.round(fats)}g`, c: fatClass, f: fatClass.replace('tl-', '').toUpperCase() },
-            { n: "كربوهيدرات", g: `${Math.round(carbs)}g`, c: carbClass, f: carbClass.replace('tl-', '').toUpperCase() },
-            { n: "بروتين", g: `${Math.round(protein)}g`, c: proClass, f: proClass.replace('tl-', '').toUpperCase() }
-        ];
-
-        tlWrap.innerHTML = data.map(p => `
-            <div class="tl-pill ${p.c}">
-                <span class="name">${p.n}</span>
-                <span class="grams">${p.g}</span>
-                ${p.f !== '—' ? `<span class="flag">${p.f === 'LOW' ? 'منخفض' : p.f === 'MED' ? 'متوسط' : 'مرتفع'}</span>` : ''}
-            </div>`).join("");
-    }
-    
-    function condenseSteps(steps, max = 6) {
-        const clean = (Array.isArray(steps) ? steps : []).map(s => String(s || "").trim()).filter(Boolean);
-        if (clean.length <= max) return clean;
-        const chunkSize = Math.ceil(clean.length / max);
-        const merged = [];
-        for (let i = 0; i < clean.length; i += chunkSize) {
-            merged.push(clean.slice(i, i + chunkSize).join(" ثم "));
-        }
-        return merged.slice(0, max);
+    function resetView(){
+      setBanner("");
+      recipeTitle.textContent=""; timeValue.textContent="—"; servingsValue.textContent="—";
+      ingList.innerHTML=""; stepsBox.innerHTML=""; tlWrap.innerHTML="";
     }
 
-    function mapServerToView(recipe) {
+    function tlClass(v,low,high){ return v<=low?"tl-low":v>=high?"tl-high":"tl-med"; }
+    function renderTL(m){
+      const fatC=tlClass(m.fats,10,20), carbC=tlClass(m.carbs,30,60), proC=tlClass(m.protein,15,30);
+      tlWrap.innerHTML=[
+        {n:"الطاقة",g:`${Math.round(m.calories)} kcal`,c:"tl-med",f:"—"},
+        {n:"دهون",g:`${Math.round(m.fats)}g`,c:fatC,f:fatC==="tl-high"?"HIGH":fatC==="tl-low"?"LOW":"MED"},
+        {n:"كربوهيدرات",g:`${Math.round(m.carbs)}g`,c:carbC,f:carbC==="tl-high"?"HIGH":carbC==="tl-low"?"LOW":"MED"},
+        {n:"بروتين",g:`${Math.round(m.protein)}g`,c:proC,f:proC==="tl-high"?"HIGH":proC==="tl-low"?"LOW":"MED"}
+      ].map(p=>`<div class="tl-pill ${p.c}"><span class="name">${p.n}</span><span class="grams">${p.g}</span><span class="flag">${p.f}</span></div>`).join("");
+    }
+
+    // دمج/تقليل عدد الخطوات إلى حد أقصى (افتراضي 6)
+    function condenseSteps(steps, max=6){
+      const clean=(Array.isArray(steps)?steps:[]).map(s=>String(s||"").trim()).filter(Boolean);
+      if(clean.length<=max) return clean;
+      const chunkSize=Math.ceil(clean.length/max);
+      const merged=[];
+      for(let i=0;i<clean.length;i+=chunkSize){
+        merged.push(clean.slice(i,i+chunkSize).join(" ثم "));
+      }
+      return merged.slice(0,max);
+    }
+
+    // خريطة مخطط الخادم -> العرض
+    function map(rec){
       return {
-        title: recipe.title,
-        time: `جاهز في ${recipe.total_time_min} دقيقة`,
-        servingsText: `${recipe.servings} حصة`,
+        title: rec.title,
+        time: `جاهز في ${rec.total_time_min} دقيقة`,
+        servingsText: `${rec.servings} حصة`,
         macros: {
-          calories: +recipe.macros.calories || 0,
-          protein: +recipe.macros.protein_g || 0,
-          carbs: +recipe.macros.carbs_g || 0,
-          fats: +recipe.macros.fat_g || 0,
+          calories:+rec.macros.calories||0,
+          protein:+rec.macros.protein_g||0,
+          carbs:+rec.macros.carbs_g||0,
+          fats:+rec.macros.fat_g||0,
         },
-        ingredients: (recipe.ingredients || []).map(name => ({ name })),
-        steps: recipe.steps || []
+        ingredients: (rec.ingredients||[]).map(x=>({name:x})),
+        steps: rec.steps||[]
       };
     }
-    
-    // MOCK API call function
-    async function mockApiCall(payload) {
-        console.log("Calling API with payload:", payload);
-        return new Promise((resolve, reject) => {
-            setTimeout(() => {
-                // To test error state, uncomment the next line
-                // return reject(new Error("فشل في الاتصال بالخادم."));
-                resolve({
-                    ok: true,
-                    model: "GPT-4o Mini",
-                    recipe: {
-                        title: "دجاج بالليمون والأعشاب مع الكينوا",
-                        total_time_min: 35,
-                        servings: 2,
-                        macros: {
-                            calories: 545,
-                            protein_g: 45,
-                            carbs_g: 55,
-                            fat_g: 15,
-                        },
-                        ingredients: [
-                            "2 صدر دجاج (حوالي 150 جرام لكل قطعة)",
-                            "1 كوب كينوا غير مطبوخة",
-                            "2 كوب مرق دجاج أو ماء",
-                            "1 ليمونة كبيرة (عصير وقشر)",
-                            "2 فص ثوم مفروم",
-                            "1 ملعقة كبيرة زيت زيتون",
-                            "1 ملعقة صغيرة أعشاب مجففة (زعتر، روزماري)",
-                            "ملح وفلفل أسود حسب الرغبة",
-                            "بقدونس طازج مفروم للزينة"
-                        ],
-                        steps: [
-                            "اغسل الكينوا جيداً. في قدر متوسط، أضف الكينوا ومرق الدجاج. دعها تغلي ثم خفف النار وغطِ القدر واتركها لمدة 15 دقيقة أو حتى تمتص كل السائل.",
-                            "أثناء طهي الكينوا، تبّل صدور الدجاج بالملح، الفلفل، الثوم المفروم، والأعشاب المجففة.",
-                            "سخّن زيت الزيتون في مقلاة على نار متوسطة إلى عالية. أضف صدور الدجاج واطهها لمدة 6-8 دقائق على كل جانب حتى تنضج تمامًا وتصبح ذهبية اللون.",
-                            "في الدقائق الأخيرة من طهي الدجاج، أضف عصير وقشر الليمون إلى المقلاة واتركه يتكاثف قليلاً ليغطي الدجاج.",
-                            "قدم الدجاج ساخناً فوق الكينوا المطبوخة.",
-                            "زين الطبق بالبقدونس الطازج المفروم قبل التقديم."
-                        ]
-                    }
-                });
-            }, 1500);
-        });
+
+    async function callAPI(payload){
+      const r=await fetch(API_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok||!data.ok) throw new Error(data?.error||`تعذر الاتصال (${r.status})`);
+      return data;
     }
 
-    function render(view, maxSteps) {
-      recipeTitle.textContent = view.title;
-      timeValue.textContent = view.time;
-      servingsValue.textContent = view.servingsText;
-      ingList.innerHTML = view.ingredients.map(i => `<li>${i.name}</li>`).join("");
-      const compactSteps = condenseSteps(view.steps, maxSteps);
-      stepsBox.innerHTML = compactSteps.map(s => `<div class="step"><p>${s}</p></div>`).join("");
+    function render(view, maxSteps, note, warning){
+      recipeTitle.textContent=view.title;
+      timeValue.textContent=view.time;
+      servingsValue.textContent=view.servingsText;
+      ingList.innerHTML=view.ingredients.map(i=>`<li>${i.name}</li>`).join("");
+      const compact=condenseSteps(view.steps, maxSteps);
+      stepsBox.innerHTML=compact.map(s=>`<div class="step"><p>${s}</p></div>`).join("");
       renderTL(view.macros);
-      
-      resultsContainer.classList.remove('hidden');
-      contentArea.classList.remove('hidden');
-      
-      setTimeout(() => {
-        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 150);
+
+      if (warning) setBanner("تنبيه: تم توليد الوصفة لكن بعض قيود النظام المختار قد لا تكون مطبّقة بالكامل.", "amber");
+      if (note === "repaired_to_meet_dr_moh_rules") setBanner("تم ضبط الوصفة تلقائيًا لتتوافق مع قواعد نظام د. محمد سعيد.", "amber");
+
+      setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),150);
     }
 
-    async function generate() {
-      setError("");
-      setStatus("جارٍ التوليد …", true);
-      btn.disabled = true;
-      spin.classList.remove('hidden');
-      btnText.textContent = "لحظات من فضلك...";
-      pushToast("جارٍ توليد الوصفة…", "info");
-
-      try {
-        const allergies = [];
-        if (commonAllergy.value) allergies.push(commonAllergy.value);
-        if (customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
-        
-        const payload = {
-          mealType: mealType.value,
-          cuisine: cuisine.value,
-          dietType: dietType.value,
-          caloriesTarget: Number(calorieTarget.value) || 500,
-          allergies,
-          lang: "ar"
-        };
-        
-        // Using the mock API call for demonstration
-        const data = await mockApiCall(payload);
-        
-        const view = mapServerToView(data.recipe);
-        render(view, Number(maxStepsInput.value) || 6);
-        setStatus(`تم التوليد — الموديل: ${data.model || "غير محدد"}`, true);
-        pushToast(`تم التوليد بنجاح!`, "success");
-
-      } catch (e) {
+    async function generate(){
+      setError(""); setStatus("جارٍ التوليد …", true);
+      btn.disabled=true; spin.classList.remove('hidden'); pushToast("جارٍ توليد الوصفة…","info");
+      try{
+        const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
+        if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
+        const payload={ mealType:mealType.value, cuisine:cuisine.value, dietType:dietType.value, caloriesTarget:Number(calorieTarget.value)||500, allergies, lang:"ar" };
+        const data=await callAPI(payload);
+        const view=map(data.recipe);
+        render(view, Number(maxStepsInput.value)||6, data.note, data.warning);
+        setStatus(`تم التوليد — الموديل: ${data.model||"غير محدد"}`, true);
+        pushToast(`تم التوليد — الموديل: ${data.model||"غير محدد"}`,"success");
+      }catch(e){
         setStatus("", true);
-        setError(e.message || "فشل التوليد");
-        pushToast(e.message || "فشل التوليد", "error", 5000);
-        resetView();
-      } finally {
-        btn.disabled = false;
-        spin.classList.add('hidden');
-        btnText.textContent = "توليد الوصفة الآن";
+        setError(e.message||"فشل التوليد");
+        pushToast(e.message||"فشل التوليد","error",5000);
+      }finally{
+        btn.disabled=false; spin.classList.add('hidden');
       }
     }
 
-    // Init
-    btn.addEventListener('click', () => {
-      const v = +calorieTarget.value || 0;
-      if (v < 100 || v > 2000) {
-        setError("الرجاء إدخال سعرات حرارية بين 100 و 2000");
-        return;
-      }
-      resetView();
-      generate();
+    // init
+    resetView();
+    btn.addEventListener('click', ()=>{
+      const v=+calorieTarget.value||0;
+      if(v<100||v>2000){ setError("أدخل سعرات بين 100 و 2000"); return; }
+      resetView(); generate();
     });
   </script>
 </body>
 </html>
-

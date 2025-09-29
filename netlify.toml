@@ -1,5 +1,4 @@
-[build]
-  publish = "public"
-
+# netlify.toml
 [functions]
   directory = "netlify/functions"
+  node_bundler = "esbuild"

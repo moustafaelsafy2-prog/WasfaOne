@@ -1,167 +1,172 @@
-// Netlify Function: generateRecipe
-// POST: { lang, email, diet, servings, time, macros, ingredients }
-// Requires headers: x-auth-token, x-session-nonce (validated vs users.json)
-// Deterministic: temperature:0, topP:1, topK:1, maxOutputTokens:1024
-// Caching: compute Hash over full input → if exists in data/history/{email}.json return verbatim
-// Schema validation enforced before response
-const OWNER   = process.env.GITHUB_REPO_OWNER;
-const REPO    = process.env.GITHUB_REPO_NAME;
-const REF     = process.env.GITHUB_REF || "main";
-const GH_TOKEN= process.env.GITHUB_TOKEN;
+// generateRecipe.js  — Netlify Function (V1) to proxy requests to Gemini
+const GEMINI_API_URL_BASE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GH_API  = "https://api.github.com";
 
-function sanitizeEmail(email){ return (email||"").toLowerCase().replace(/[^a-z0-9]+/g,"_"); }
-
-async function ghGetJson(path, allow404=false){
-  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
-    headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
-  });
-  if(allow404 && r.status===404) return { json:null, sha:null, notFound:true };
-  if(!r.ok) throw new Error(`GitHub GET ${path} ${r.status}`);
-  const data = await r.json();
-  const content = Buffer.from(data.content || "", "base64").toString("utf-8");
-  return { json: JSON.parse(content), sha: data.sha };
-}
-async function ghPutJson(path, json, sha, message){
-  const content = Buffer.from(JSON.stringify(json, null, 2), "utf-8").toString("base64");
-  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
-    method:"PUT",
-    headers:{ Authorization:`token ${GH_TOKEN}`, "User-Agent":"WasfaOne", "Content-Type":"application/json" },
-    body: JSON.stringify({ message, content, sha, branch: REF })
-  });
-  if(!r.ok) throw new Error(`GitHub PUT ${path} ${r.status}`);
-  return r.json();
-}
-
-async function auth(headers, email){
-  const token = headers["x-auth-token"] || headers["X-Auth-Token"];
-  const nonce = headers["x-session-nonce"] || headers["X-Session-Nonce"];
-  if(!token || !nonce) return false;
-  const { json: users } = await ghGetJson("data/users.json");
-  const user = (users||[]).find(u => (u.email||"").toLowerCase() === (email||"").toLowerCase());
-  if(!user) return false;
-  return user.auth_token === token && user.session_nonce === nonce;
-}
-
-async function sha256Hex(text){
-  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  const a = Array.from(new Uint8Array(buf));
-  return a.map(b=>b.toString(16).padStart(2,"0")).join("");
-}
-
-function validateSchema(obj){
-  if(!obj || typeof obj !== "object") return false;
-  const must = ["title","time","servings","macros","ingredients","preparation"];
-  for(const k of must){ if(!(k in obj)) return false; }
-  if(typeof obj.title !== "string") return false;
-  if(typeof obj.time !== "number") return false;
-  if(typeof obj.servings !== "number") return false;
-  const m = obj.macros || {};
-  if(["calories","protein","carbs","fats"].some(k => typeof m[k] !== "number")) return false;
-  if(!Array.isArray(obj.ingredients)) return false;
-  if(!obj.ingredients.every(x => typeof x.name==="string" && typeof x.quantity==="string")) return false;
-  if(!Array.isArray(obj.preparation)) return false;
-  if(!obj.preparation.every(s => typeof s.title==="string" && typeof s.instruction==="string")) return false;
-  return true;
-}
-
-function promptFor(lang, payload){
-  const { diet, servings, time, macros, ingredients } = payload;
-  const schema = `Return ONLY JSON with keys:
-{
-  "title": string,
-  "time": number,
-  "servings": number,
-  "macros": { "calories": number, "protein": number, "carbs": number, "fats": number },
-  "ingredients": [ { "name": string, "quantity": string } ],
-  "preparation": [ { "title": string, "instruction": string } ]
-}`;
-  if(lang === "ar"){
-    return `أنت مولد وصفات حتمي. أعطني وصفة ${diet} لعدد حصص ${servings} خلال ${time} دقيقة، مستهدف الماكروز: ${macros}. مراعاة القيود/المكونات: ${ingredients}. ${schema} فقط بدون أي نص آخر. استخدم العربية الفصحى.`;
-  }else{
-    return `You are a deterministic recipe generator. Create a ${diet} recipe for ${servings} servings in ${time} minutes targeting macros: ${macros}. Consider ingredients/constraints: ${ingredients}. Respond with ${schema} ONLY, no extra text. Language: English.`;
-  }
-}
-
-async function callGemini(prompt){
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-  const body = {
-    contents: [{ role: "user", parts: [{ text: prompt }]}],
-    generationConfig: { temperature: 0, topP: 1, topK: 1, maxOutputTokens: 1024 }
+function resp(status, obj) {
+  return {
+    statusCode: status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+    body: JSON.stringify(obj),
   };
+}
+
+async function callGemini(payload) {
+  const url = GEMINI_API_URL_BASE + encodeURIComponent(GEMINI_API_KEY);
   const r = await fetch(url, {
-    method:"POST",
-    headers: { "Content-Type":"application/json" },
-    body: JSON.stringify(body)
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
   });
-  if(!r.ok) throw new Error("gemini_error_"+r.status);
-  const data = await r.json();
-  const txt = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
-  return txt;
+  return r;
 }
 
-export async function handler(event){
-  if(event.httpMethod !== "POST"){
-    return { statusCode: 405, body: JSON.stringify({ ok:false }) };
+exports.handler = async (event) => {
+  try {
+    if (event.httpMethod === "OPTIONS") return { statusCode: 204 };
+    if (event.httpMethod !== "POST") return resp(405, { ok:false, error: "method_not_allowed" });
+
+    if (!GEMINI_API_KEY) return resp(500, { ok:false, error: "gemini_key_missing" });
+
+    const body = event.body ? JSON.parse(event.body) : null;
+    if (!body) return resp(400, { ok:false, error: "missing_body" });
+
+    // Expecting minimal fields from client: mealType, cuisine, dietType, calorieTarget, commonAllergy, customAllergy, focus
+    const { mealType, cuisine, dietType, calorieTarget, commonAllergy, customAllergy, focus } = body;
+    if (!mealType || !cuisine || !calorieTarget) {
+      return resp(400, { ok:false, error: "missing_fields" });
+    }
+
+    // Build system and user prompts exactly like app.html expects
+    let dietConstraints = "";
+    if (dietType === "نظام د. محمد سعيد") {
+      dietConstraints = `
+        **يجب أن تلتزم بدقة بمتطلبات نظام د. محمد سعيد (نظام كيتوني معدّل):**
+        - خالية تماماً من الكربوهيدرات المرتفعة والسكريات.
+        - خالية تماماً من الجلوتين، اللاكتوز، الليكتين، والبقوليات.
+        - خالية تماماً من الزيوت المهدرجة.
+        - مسموح فقط بالدهون الصحية (مثل زيت الزيتون، الأفوكادو).
+        - مسموح فقط بالأجبان الدسمة من أصل حيواني والزبادي اليوناني.
+      `;
+    } else {
+      dietConstraints = `تناسب النظام الغذائي "${dietType}".`;
+    }
+
+    let allergyConstraint = "";
+    if ((commonAllergy && commonAllergy !== "لا يوجد") || (customAllergy && customAllergy.trim())) {
+      const allergies = [];
+      if (commonAllergy && commonAllergy !== "لا يوجد") allergies.push(commonAllergy);
+      if (customAllergy && customAllergy.trim()) allergies.push(customAllergy.trim());
+      allergyConstraint = `**ويجب أن تكون خالية تمامًا من المكونات التالية (حساسية):** ${allergies.join(' و ')}.`;
+    }
+
+    const systemPrompt = `أنت شيف خبير في التغذية. مهمتك هي إنشاء وصفة طعام كاملة ومفصلة باللغة العربية بناءً على طلب المستخدم. يجب أن تتضمن الوصفة اسم الوجبة، وقت التحضير، عدد الحصص، قائمة المكونات، طريقة التحضير خطوة بخطوة، والماكروز (السعرات الحرارية، البروتين، الكربوهيدرات، الدهون). يجب أن يكون الرد بتنسيق JSON حصراً. **يجب أن تلتزم بدقة بالسعرات الحرارية المطلوبة والقيود الغذائية والحساسيات المذكورة.**`;
+
+    const userQuery = `
+      أريد وصفة لوجبة "${mealType}"، من المطبخ "${cuisine}".
+      ${dietConstraints}
+      **يجب أن تكون السعرات الحرارية للوجبة الواحدة حوالي ${calorieTarget} سعرة حرارية.**
+      ${allergyConstraint}
+      مع التركيز الإضافي على: "${focus || ""}".
+
+      **ملحوظة هامة للمكونات:** يجب أن تكون الكميات في حقل 'quantity' دقيقة، باستخدام **وحدات الميزان (جرام أو مل)**، متبوعة بالقياس المعتاد بين قوسين لسهولة التنفيذ. مثال: '250 جرام (1 كوب)' أو '120 مل (نصف كوب)'.
+    `;
+
+    const payload = {
+      contents: [{ parts: [{ text: userQuery }] }],
+      systemInstruction: { parts: [{ text: systemPrompt }] },
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            title: { type: "STRING" },
+            time: { type: "STRING" },
+            servings: { type: "STRING" },
+            macros: {
+              type: "OBJECT",
+              properties: {
+                calories: { type: "STRING" },
+                protein: { type: "STRING" },
+                carbs: { type: "STRING" },
+                fats: { type: "STRING" }
+              }
+            },
+            ingredients: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  name: { type: "STRING" },
+                  quantity: { type: "STRING" }
+                }
+              }
+            },
+            preparation: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  title: { type: "STRING" },
+                  instruction: { type: "STRING" }
+                }
+              }
+            }
+          },
+          required: ["title","time","servings","macros","ingredients","preparation"]
+        }
+      }
+    };
+
+    // Retry logic (exponential backoff) for transient errors
+    const maxRetries = 3;
+    let lastErr = null;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const res = await callGemini(payload);
+        if (!res.ok) {
+          const status = res.status;
+          const text = await res.text();
+          // Retry only for 429 / 5xx
+          if ((status === 429 || status >= 500) && attempt < maxRetries - 1) {
+            const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+            await new Promise(r => setTimeout(r, delay));
+            continue;
+          }
+          return resp(502, { ok:false, error: "gemini_error", status, body: text.slice(0,200) });
+        }
+        const result = await res.json();
+        // try to extract JSON string from model response
+        const jsonString = result?.candidates?.[0]?.content?.parts?.[0]?.text || result?.candidates?.[0]?.content?.text;
+        if (!jsonString) return resp(502, { ok:false, error: "no_model_output", raw: result });
+        let parsed;
+        try {
+          parsed = JSON.parse(jsonString);
+        } catch (e) {
+          // If model returned object directly
+          if (typeof result.candidates?.[0]?.content === "object") {
+            parsed = result.candidates[0].content;
+          } else {
+            return resp(502, { ok:false, error: "parse_failed", message: e.message, sample: jsonString.slice(0,500) });
+          }
+        }
+        return resp(200, { ok:true, recipe: parsed });
+      } catch (e) {
+        lastErr = e;
+        if (attempt < maxRetries - 1) {
+          const delay = Math.pow(2, attempt) * 1000 + Math.random()*500;
+          await new Promise(r => setTimeout(r, delay));
+          continue;
+        }
+      }
+    }
+
+    return resp(500, { ok:false, error: "exception", message: lastErr?.message || "unknown" });
+
+  } catch (err) {
+    return resp(500, { ok:false, error: "exception", message: err.message });
   }
-  try{
-    const payload = JSON.parse(event.body||"{}");
-    const { lang="ar", email="" } = payload;
-
-    const authed = await auth(event.headers, email);
-    if(!authed) return { statusCode: 401, body: JSON.stringify({ ok:false }) };
-
-    const emailSan = sanitizeEmail(email);
-    const historyPath = `data/history/${emailSan}.json`;
-    const { json: history, sha } = await ghGetJson(historyPath, true);
-    const cur = history || { last:null, cache:{} };
-
-    // Deterministic hash over all fields (including lang)
-    const hashInput = JSON.stringify({
-      lang: payload.lang, diet: payload.diet, servings: payload.servings, time: payload.time,
-      macros: payload.macros, ingredients: payload.ingredients
-    });
-    const key = await sha256Hex(hashInput);
-
-    if(cur.cache && cur.cache[key]){
-      // Return cached verbatim
-      return { statusCode: 200, body: JSON.stringify({ ok:true, recipe: cur.cache[key] }) };
-    }
-
-    // Call Gemini
-    let recipe;
-    try{
-      const text = await callGemini(promptFor(lang, payload));
-      // Ensure the model returned pure JSON
-      const firstBrace = text.indexOf("{");
-      const lastBrace  = text.lastIndexOf("}");
-      const jsonStr = (firstBrace>=0 && lastBrace>=0) ? text.slice(firstBrace, lastBrace+1) : text;
-      recipe = JSON.parse(jsonStr);
-    }catch(err){
-      const msg = lang==="ar"
-        ? "تعذر توليد الوصفة حاليًا، يرجى المحاولة لاحقًا أو التواصل عبر 00971502061209."
-        : "Unable to generate a recipe right now. Please try again later or contact us at 00971502061209.";
-      return { statusCode: 503, body: JSON.stringify({ ok:false, message: msg }) };
-    }
-
-    if(!validateSchema(recipe)){
-      const msg = lang==="ar"
-        ? "حدث خطأ في هيكل الاستجابة. برجاء المحاولة لاحقًا."
-        : "Invalid response schema. Please try again later.";
-      return { statusCode: 500, body: JSON.stringify({ ok:false, message: msg }) };
-    }
-
-    // Save to history (cache + last)
-    const updated = { ...cur, last: recipe, cache: { ...(cur.cache||{}), [key]: recipe } };
-    await ghPutJson(historyPath, updated, sha || undefined, `history:add ${emailSan} ${key}`);
-
-    return { statusCode: 200, body: JSON.stringify({ ok:true, recipe }) };
-  }catch(err){
-    const lang = (JSON.parse(event.body||"{}").lang) || "ar";
-    const msg = lang==="ar"
-      ? "تعذر توليد الوصفة حاليًا، يرجى المحاولة لاحقًا أو التواصل عبر 00971502061209."
-      : "Unable to generate a recipe right now. Please try again later or contact us at 00971502061209.";
-    return { statusCode: 500, body: JSON.stringify({ ok:false, message: msg, error: err.message }) };
-  }
-}
+};

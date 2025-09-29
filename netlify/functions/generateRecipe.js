@@ -1,28 +1,27 @@
 // netlify/functions/generateRecipe.js
-// UAE-ready — works with app.html. Broad model pool on v1beta, strict JSON schema,
-// Arabic-only output, and hard rules for "نظام د. محمد سعيد" (≤5g net carbs, no processed/sugars/additives).
+// UAE-ready for app.html — broad v1beta model pool, Arabic JSON schema,
+// soft-enforced Dr. Mohamed Saeed rules: try repair once; if still violated, return with warning (no hard fail).
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// ترتيب يفضّل النماذج الأكثر استقرارًا في الإمارات أولاً
+// Same pool/order that worked for you
 const MODEL_POOL = [
-  // Flash (سريع ومتاح عادةً)
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-exp",
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-001",
-  // Pro (أدق لكن أبطأ)
+  // Pro-first
+  "gemini-1.5-pro-latest",
   "gemini-1.5-pro",
   "gemini-1.5-pro-001",
   "gemini-pro",
   "gemini-1.0-pro",
-  // أسماء لاحقة قد لا تكون متاحة — تُجرّب أخيراً
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-pro-latest"
+  // Flash
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-exp",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-001",
+  "gemini-1.5-flash-latest"
 ];
 
-/* ---------------- Utilities ---------------- */
+/* ---------------- HTTP helpers ---------------- */
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
@@ -33,6 +32,7 @@ const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringif
 const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
 const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
 
+/* ---------------- Schema ---------------- */
 function validateRecipeSchema(rec) {
   const must = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
   if (!rec || typeof rec !== "object") return { ok:false, error:"recipe_not_object" };
@@ -58,34 +58,35 @@ function validateRecipeSchema(rec) {
   return { ok:true };
 }
 
-function buildSystemInstruction(maxSteps = 6) {
+/* ---------------- Prompting ---------------- */
+function systemInstruction(maxSteps = 6) {
   return `
-أنت شيف تغذية يكتب بالعربية فقط.
-أعد **JSON فقط** بلا شرح خارجي وفق المخطط التالي:
+أنت شيف محترف. أعد **JSON فقط** حسب هذا المخطط، بدون أي نص خارجه:
 {
   "title": string,
   "servings": number,
   "total_time_min": number,
   "macros": { "protein_g": number, "carbs_g": number, "fat_g": number, "calories": number },
   "ingredients": string[],
-  "steps": string[],       // ${maxSteps} خطوات كحد أقصى، قصيرة ومباشرة
+  "steps": string[],  // ${maxSteps} خطوات كحد أقصى، قصيرة ومباشرة
   "lang": "ar"
 }
-- أرقام الماكروز أرقام خالصة بلا وحدات.
-- ingredients: صياغة مختصرة (كمية + مكوّن) مثل "200 جم صدر دجاج".
-- steps: جمل تنفيذية قصيرة وواضحة.
-- اللغة العربية حصراً، ولا تضف أي نص خارج JSON.
+- أرقام الماكروز بدون وحدات.
+- ingredients عناصر قصيرة (كمية + مكوّن) مثل "200 جم صدر دجاج".
+- steps خطوات تنفيذية قصيرة وواضحة.
+- اللغة عربية فقط، ولا تضف أي شيء خارج JSON.
 `.trim();
 }
 
-function buildUserPrompt(input) {
+function userPrompt(input) {
   const {
     mealType = "وجبة",
     cuisine = "متنوع",
     dietType = "متوازن",
     caloriesTarget = 500,
     allergies = [],
-    focus = ""
+    focus = "",
+    __repair = false
   } = input || {};
 
   const avoid = (Array.isArray(allergies) && allergies.length) ? allergies.join(", ") : "لا شيء";
@@ -93,14 +94,17 @@ function buildUserPrompt(input) {
   const isDrMoh = /محمد\s*سعيد/.test(String(dietType));
 
   const drRules = isDrMoh ? `
-قواعد **صارمة** لنظام د. محمد سعيد:
-- الكربوهيدرات الصافية لكل حصة ≤ 5 جم (خمسة جرامات كحد أقصى).
+قواعد صارمة لنظام د. محمد سعيد:
+- الكربوهيدرات الصافية لكل حصة ≤ 5 جم.
 - ممنوع السكريات والمُحلّيات (سكر أبيض/بني، عسل، شراب الذرة/الجلوكوز/الفركتوز، المحليات الصناعية).
-- ممنوع المصنّعات: لانشون/نقانق/سلامي/بسطرمة، المرق البودرة والمكعبات، الصلصات التجارية (كاتشب/مايونيز/باربكيو) إن لم تكن منزلية صِرفة.
-- ممنوع الإضافات المسببة للالتهاب: MSG والجلوتامات، نيتريت/نترات، ألوان/نكهات صناعية، مستحلبات.
-- ممنوع الزيوت النباتية المكررة/المهدرجة (كانولا، صويا، ذرة، بذر العنب). اسمح فقط بزيت زيتون بكر، زبدة/سمن حيواني طبيعي، أفوكادو ومكسرات نيئة غير مملّحة.
-- استخدم مكونات كاملة وحقيقية قدر الإمكان.
+- ممنوع المصنّعات: لانشون/نقانق/سلامي/بسطرمة، المرق البودرة/المكعبات، الصلصات التجارية إن لم تكن منزلية.
+- ممنوع الإضافات المسببة للالتهاب: MSG/جلوتامات، نيتريت/نترات، ألوان/نكهات صناعية، مستحلبات.
+- ممنوع الزيوت النباتية المكررة/المهدرجة (كانولا/صويا/ذرة/بذر العنب). اسمح بزيت زيتون بكر وزبدة/سمن طبيعي وأفوكادو ومكسرات نيئة.
 `.trim() : "";
+
+  const repairLine = __repair && isDrMoh
+    ? "الإخراج السابق خالف القيود. أعد توليد وصفة تلتزم حرفيًا بالبنود أعلاه، مع ضبط المقادير لضمان ≤ 5 جم كربوهيدرات/حصة."
+    : "";
 
   return `
 أنشئ وصفة ${mealType} من مطبخ ${cuisine} لنظام ${dietType}.
@@ -108,10 +112,12 @@ function buildUserPrompt(input) {
 حساسيات يجب تجنبها: ${avoid}.
 ${focusLine}
 ${drRules}
+${repairLine}
 أعد النتيجة كـ JSON فقط حسب المخطط المطلوب وبالعربية.
 `.trim();
 }
 
+/* ---------------- JSON extract ---------------- */
 function extractJsonFromCandidates(jr) {
   const text =
     jr?.candidates?.[0]?.content?.parts?.map(p => p?.text || "").join("") ||
@@ -132,42 +138,15 @@ function extractJsonFromCandidates(jr) {
   catch { return null; }
 }
 
+/* ---------------- Call model ---------------- */
 async function callOnce(model, input, timeoutMs = 28000) {
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 
-  const schema = {
-    type: "OBJECT",
-    properties: {
-      title: { type:"STRING" },
-      servings: { type:"NUMBER" },
-      total_time_min: { type:"NUMBER" },
-      macros: {
-        type: "OBJECT",
-        properties: {
-          protein_g: { type:"NUMBER" },
-          carbs_g:   { type:"NUMBER" },
-          fat_g:     { type:"NUMBER" },
-          calories:  { type:"NUMBER" }
-        },
-        required: ["protein_g","carbs_g","fat_g","calories"]
-      },
-      ingredients: { type:"ARRAY", items:{ type:"STRING" } },
-      steps: { type:"ARRAY", items:{ type:"STRING" } },
-      lang: { type:"STRING", enum:["ar"] }
-    },
-    required: ["title","servings","total_time_min","macros","ingredients","steps","lang"]
-  };
-
   const body = {
-    systemInstruction: { role: "system", parts: [{ text: buildSystemInstruction(6) }] },
-    contents: [{ role: "user", parts: [{ text: buildUserPrompt(input) }] }],
-    generationConfig: {
-      temperature: 0.35,
-      topP: 0.9,
-      maxOutputTokens: 1024,
-      responseMimeType: "application/json",
-      responseSchema: schema
-    },
+    // v1beta قد يتجاهل responseSchema/MIME إن لم يدعمها — لا تضر
+    systemInstruction: { role: "system", parts: [{ text: systemInstruction(6) }] },
+    contents: [{ role: "user", parts: [{ text: userPrompt(input) }] }],
+    generationConfig: { temperature: 0.6, topP: 0.9, maxOutputTokens: 1000 },
     safetySettings: []
   };
 
@@ -190,25 +169,18 @@ async function callOnce(model, input, timeoutMs = 28000) {
       return { ok:false, error: msg };
     }
 
-    // حاول أولاً كـ JSON مباشر وفق responseSchema
-    let json = data;
-    if (!json?.title || !json?.macros) {
-      json = extractJsonFromCandidates(data);
-    }
+    // حاول كـ JSON مباشر، وإلا استخرج من النص
+    let json = data && typeof data === "object" && data.title ? data : extractJsonFromCandidates(data);
     if (!json) return { ok:false, error:"gemini_returned_non_json" };
 
-    // تقنين الخطوات إلى 6 عند المصدر إن زادت
+    // تطبيع: تأمين اللغة + تقصير الخطوات لحد أقصى 6
+    if (!json.lang) json.lang = "ar";
     if (Array.isArray(json.steps) && json.steps.length > 6) {
       const chunk = Math.ceil(json.steps.length / 6);
       const merged = [];
-      for (let i=0;i<json.steps.length;i+=chunk) {
-        merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
-      }
+      for (let i=0;i<json.steps.length;i+=chunk) merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
       json.steps = merged.slice(0,6);
     }
-
-    // ملء حقل اللغة لضمان التوافق مع الواجهة
-    if (!json.lang) json.lang = "ar";
 
     const v = validateRecipeSchema(json);
     if (!v.ok) return { ok:false, error:`schema_validation_failed:${v.error}` };
@@ -221,21 +193,17 @@ async function callOnce(model, input, timeoutMs = 28000) {
   }
 }
 
-/* ----- قواعد د. محمد سعيد (تحقق بعد التوليد) ----- */
+/* ---------------- Dr. Mohamed checks ---------------- */
+const DR_MOH = /محمد\s*سعيد/;
 function violatesDrMoh(recipe) {
   const carbs = Number(recipe?.macros?.carbs_g || 0);
   const ing = (recipe?.ingredients || []).join(" ").toLowerCase();
 
   const banned = [
-    // sugars & syrups
     "سكر","sugar","عسل","honey","دبس","شراب","سيرب","glucose","fructose","corn syrup","hfcs",
-    // processed meats and canned stuff
     "لانشون","نقانق","سلامي","بسطرمة","مرتديلا","مصنع","معلبات","مرق","مكعبات",
-    // additives & msg
     "msg","جلوتامات","glutamate","نتريت","نترات","ملون","نكهات صناعية","مواد حافظة","مستحلب",
-    // refined oils / margarines
     "مهدرج","مارجرين","زيت كانولا","زيت ذرة","زيت صويا","بذر العنب","vegetable oil",
-    // refined starch/flour
     "دقيق أبيض","طحين أبيض","نشا الذرة","cornstarch","خبز","مكرونة","رز أبيض","سكر بني"
   ];
 
@@ -254,25 +222,28 @@ exports.handler = async (event) => {
   try { input = JSON.parse(event.body || "{}"); }
   catch { return bad(400, "invalid_json_body"); }
 
-  const isDrMoh = /محمد\s*سعيد/.test(String(input?.dietType || ""));
+  const wantDrMoh = DR_MOH.test(String(input?.dietType || ""));
 
   const errors = {};
   for (const model of MODEL_POOL) {
-    const res = await callOnce(model, input);
-    if (res.ok) {
-      // تحقق صريح لقواعد د. محمد سعيد
-      if (isDrMoh && violatesDrMoh(res.recipe)) {
-        errors[model] = "violated_dr_moh_rules";
-        continue; // جرّب نموذجاً آخر دون إفادة المستخدم بوصفة مخالفة
+    // المحاولة الأولى
+    const r1 = await callOnce(model, input);
+    if (!r1.ok) { errors[model] = r1.error; continue; }
+
+    // إصلاح مرة واحدة عند مخالفة قواعد د. محمد سعيد
+    if (wantDrMoh && violatesDrMoh(r1.recipe)) {
+      const r2 = await callOnce(model, { ...input, __repair: true });
+      if (r2.ok && !violatesDrMoh(r2.recipe)) {
+        return ok({ recipe: r2.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
       }
-      return ok({ recipe: res.recipe, model });
+      // قبول المخرجات مع تحذير بدلاً من إسقاط الطلب
+      const fallbackRecipe = (r2.ok ? r2.recipe : r1.recipe);
+      return ok({ recipe: fallbackRecipe, model, warning: "dr_moh_rules_not_strictly_met" });
     }
-    errors[model] = res.error;
+
+    return ok({ recipe: r1.recipe, model });
   }
 
-  // لا وصفات افتراضية — تقرير واضح بكل موديل تمّت تجربته
-  const extra = isDrMoh
-    ? { note: "تم رفض المخرجات التي خالفت قواعد د. محمد سعيد (≤5 جم كربوهيدرات/حصة + منع السكريات/المصنعات/الإضافات)." }
-    : {};
-  return bad(502, "All models failed for your key/region on v1beta", { errors, tried: MODEL_POOL, ...extra });
+  // فشل حقيقي (HTTP/مفتاح/إتاحة)
+  return bad(502, "All models failed for your key/region on v1beta", { errors, tried: MODEL_POOL });
 };

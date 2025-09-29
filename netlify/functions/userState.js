@@ -1,11 +1,15 @@
+// Netlify Function: userState (GET/PUT)
+// Auth headers required for both: x-auth-token, x-session-nonce must match users.json
+// Storage per-user: data/history/{email_sanitized}.json
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
 const GH_TOKEN = process.env.GITHUB_TOKEN;
 const GH_API = "https://api.github.com";
 
-function sanitizeEmail(email){ return (email||"").toLowerCase().replace(/[^a-z0-9]+/g,"_"); }
-
+function sanitizeEmail(email){
+  return (email||"").toLowerCase().replace(/[^a-z0-9]+/g,"_");
+}
 async function ghGetJson(path, allow404=false){
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
     headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
@@ -31,6 +35,7 @@ async function auth(event){
   const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
   const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
   const email = (new URLSearchParams(event.queryStringParameters||{}).get("email")) || JSON.parse(event.body||"{}").email;
+
   if(!token || !nonce || !email) return { ok:false, statusCode: 401 };
 
   const { json: users } = await ghGetJson("data/users.json");
@@ -40,7 +45,7 @@ async function auth(event){
   return { ok:true, email, user };
 }
 
-module.exports.handler = async (event) => {
+export async function handler(event){
   try{
     const a = await auth(event);
     if(!a.ok) return { statusCode: a.statusCode, body: JSON.stringify({ ok:false }) };
@@ -65,4 +70,4 @@ module.exports.handler = async (event) => {
   }catch(err){
     return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
   }
-};
+}

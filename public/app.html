@@ -54,6 +54,30 @@
   <div id="toast" class="toast"></div>
 
   <div class="wrap">
+    <!-- ===== شريط علوي: بروفايل + أزرار ===== -->
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+      <!-- ملف العميل -->
+      <div id="userProfile" class="hidden md:flex md:items-center md:gap-3">
+        <div class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--line)] bg-white shadow">
+          <span class="font-extrabold">العميل:</span>
+          <span id="upName" class="font-bold text-[var(--muted)]">—</span>
+        </div>
+        <div id="upRemainWrap" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--line)] bg-white shadow">
+          <span class="font-extrabold">الأيام المتبقية:</span>
+          <span id="upRemain" class="font-black text-emerald-700">—</span>
+        </div>
+      </div>
+      <!-- الأزرار -->
+      <div class="flex items-center gap-2">
+        <button id="printBtn" class="px-4 py-2 rounded-xl border border-[var(--line)] bg-white hover:shadow font-bold">
+          طباعة
+        </button>
+        <button id="logoutBtn" class="px-4 py-2 rounded-xl bg-[var(--brand)] text-white hover:brightness-95 font-bold">
+          تسجيل الخروج
+        </button>
+      </div>
+    </div>
+
     <!-- Header + Form -->
     <div class="card mb-8">
       <h1 class="text-4xl md:text-5xl font-black text-center">مجلة الوصفة الذكية</h1>
@@ -219,6 +243,11 @@
           servingsValue=$('servingsValue'), ingList=$('ingredientsList'),
           stepsBox=$('preparationSteps'), tlWrap=$('tl-wrap');
 
+    // profile + top buttons
+    const logoutBtn = $('logoutBtn'), printBtn = $('printBtn'),
+          userProfile = $('userProfile'), upName = $('upName'),
+          upRemain = $('upRemain'), upRemainWrap = $('upRemainWrap');
+
     /* ===== Toast ===== */
     function pushToast(text,type="info",ms=3500){
       const d=document.createElement('div');
@@ -358,7 +387,37 @@
       }
     }
 
-    // init
+    // ===== ملف العميل =====
+    function daysRemaining(endISO){
+      try{
+        const end = new Date(endISO + 'T23:59:59');
+        const today = new Date();
+        const diff = Math.ceil((end - today)/(1000*60*60*24));
+        return isNaN(diff) ? null : diff;
+      }catch(_){ return null; }
+    }
+    function renderProfile(){
+      try{
+        const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
+        if(!sess) return;
+        const nm = sess.name || sess.email || "—";
+        upName.textContent = nm;
+        // إن وُجد end_date نعرض الأيام المتبقية، خلاف ذلك نخفي فقط القيمة
+        if(sess.end_date){
+          const rem = daysRemaining(sess.end_date);
+          if(rem!==null){
+            upRemain.textContent = rem >= 0 ? rem : 0;
+          }else{
+            upRemainWrap.classList.add('hidden');
+          }
+        }else{
+          upRemainWrap.classList.add('hidden');
+        }
+        userProfile.classList.remove('hidden');
+      }catch(_){}
+    }
+
+    // ===== جلسة المستخدم =====
     function ensureSessionOrRedirect(){
       try{
         const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
@@ -368,15 +427,32 @@
       }catch(_){ window.location.replace("login.html"); }
     }
 
+    // ===== أزرار أعلى الصفحة =====
+    function handleLogout(){
+      try{
+        localStorage.removeItem("wasfa_session");
+        pushToast("تم تسجيل الخروج","success");
+      }catch(_){}
+      window.location.replace("login.html");
+    }
+    function handlePrint(){
+      window.print();
+    }
+
     resetView();
     document.addEventListener('DOMContentLoaded', ()=>{
       ensureSessionOrRedirect();
+      renderProfile();
       loadPublicSettingsAndBind();
+
       btn.addEventListener('click', ()=>{
         const v=+calorieTarget.value||0;
         if(v<100||v>2000){ setError("أدخل سعرات بين 100 و 2000"); return; }
         resetView(); generate();
       });
+
+      logoutBtn.addEventListener('click', handleLogout);
+      printBtn.addEventListener('click', handlePrint);
     });
   </script>
 </body>

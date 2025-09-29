@@ -142,6 +142,8 @@ async function callGeminiOnce(url, body){
               return { ok:false, code:r.status, text:null };
           }
           const jr = await r.json();
+          // الاستجابة في حالة JSON/Structued generation لا تحتوي على حقل parts[0].text
+          // إذا كان النموذج عاد بنجاح، فسنحاول استخراج النص أو التحذير منه
           const text = (((jr.candidates||[])[0]||{}).content||{}).parts?.map(p=>p.text).join("") || "";
           return { ok:true, code:200, text };
 
@@ -163,27 +165,70 @@ async function callGemini(prompt){
   const body = {
     contents: [{ role:"user", parts:[{ text: prompt }]}],
     generationConfig: { 
-        temperature: 0.7, // رفع درجة الحرارة لإنشاء وصفات أكثر إبداعًا
+        temperature: 0.7,
         topP: 1, 
         topK: 1, 
-        maxOutputTokens: 2048 // زيادة حجم المخرجات
+        maxOutputTokens: 2048,
+        // *** هذا هو التعديل الحاسم: طلب JSON صارم ***
+        responseMimeType: "application/json",
+        responseSchema: {
+            type: "OBJECT",
+            properties: {
+                title: { type: "STRING" },
+                servings: { type: "NUMBER" },
+                total_time_min: { type: "NUMBER" },
+                macros: {
+                    type: "OBJECT",
+                    properties: {
+                        protein_g: { type: "NUMBER" },
+                        carbs_g: { type: "NUMBER" },
+                        fat_g: { type: "NUMBER" },
+                        calories: { type: "NUMBER" }
+                    },
+                    required: ["protein_g", "carbs_g", "fat_g", "calories"]
+                },
+                ingredients: { type: "ARRAY", items: { type: "STRING" } },
+                steps: { type: "ARRAY", items: { type: "STRING" } },
+                lang: { type: "STRING" }
+            },
+            required: ["title", "servings", "total_time_min", "macros", "ingredients", "steps", "lang"]
+        }
     },
     safetySettings: []
   };
 
-  // 1. تحديد اسم النموذج الموصى به بشكل صريح
   const modelName = "gemini-2.5-flash-preview-05-20";
   const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   
   let res = await callGeminiOnce(apiUrl, body);
+
+  // إذا نجح الاستدعاء، فإن النص سيمثل JSON الصارم، لذا سنقوم باستخراجه بشكل مختلف
+  if (res.ok) {
+      const result = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+      }).then(r => r.json());
+      
+      const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (jsonText) {
+          res.text = jsonText; // نضع النص المستخرج في حقل النص للتحليل لاحقًا
+      } else {
+          // يمكن أن يكون هذا خطأ في البنية إذا لم يكن هناك نص
+          res.ok = false;
+          res.code = 500;
+          res.error = "AI response was empty or malformed (Structured JSON mode).";
+      }
+  }
+
   return res;
 }
 
 function tryParseJsonFromText(t){
   if(!t) return null;
-  // remove fenced code if present
+  // إزالة أي بادئات أو لاحقات غير مرغوب فيها مثل '```json'
   let s = t.trim().replace(/^```json\s*/i,'').replace(/```$/,'').trim();
-  // quick bracket slice if extra text
+  // تقطيع الأقواس لتنظيف أي نص إضافي
   const first = s.indexOf("{"); const last = s.lastIndexOf("}");
   if(first !== -1 && last !== -1) s = s.slice(first, last+1);
   try{ return JSON.parse(s); }catch(e){ 
@@ -191,35 +236,8 @@ function tryParseJsonFromText(t){
     return null; 
   }
 }
-
-function fallbackRecipe(input){
-  const s = Number(input.servings)||1;
-  const t = 30; // 30 دقيقة كقيمة افتراضية
-  
-  // يمكن استخدام حقل ingredients القادم من الواجهة كقيود/مكونات
-  const constraints = (input.ingredients? String(input.ingredients).split(/[،,]/).map(x=>x.trim()).filter(Boolean) : []);
-  const baseIng = constraints.length? constraints : ["صدر دجاج (200 جرام)","أرز أبيض مطبوخ (150 جرام)","بروكلي (100 جرام)","زيت زيتون (1 ملعقة صغيرة)","ملح","فلفل"];
-  
-  // محاولة استخلاص السعرات الحرارية المستهدفة من حقل macros إذا كانت موجودة
-  const targetCaloriesMatch = (input.macros || "").match(/(\d+)\s*سعرة/);
-  const targetCalories = targetCaloriesMatch ? Number(targetCaloriesMatch[1]) : 600;
-
-  return {
-    title: `وجبة ${input.diet||"متوازنة"} سريعة`,
-    servings: s,
-    total_time_min: t,
-    // تقديرات الماكروز بناءً على السعرات المستهدفة
-    macros: { protein_g: Math.round(targetCalories*0.35/4/s), carbs_g: Math.round(targetCalories*0.35/4/s), fat_g: Math.round(targetCalories*0.3/9/s), calories: targetCalories },
-    ingredients: baseIng,
-    steps: [
-      "قم بتتبيل المكونات الرئيسية (مثل الدجاج) بالملح والفلفل.",
-      "اشوِ البروتين أو اطهِه حتى النضج التام.",
-      "سخّن الأرز والخضار وقدم الوجبة كاملة.",
-      "قسّم الوجبة إلى حصص متساوية (${s} حصص)."
-    ],
-    lang: "ar"
-  };
-}
+// ... بقية الكود دون تغيير
+// ...
 
 exports.handler = async (event) => {
   try{

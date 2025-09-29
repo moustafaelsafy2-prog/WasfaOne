@@ -1,6 +1,7 @@
-// generateRecipe.js  — Netlify Function (V1) to proxy requests to Gemini
-const GEMINI_API_URL_BASE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
+// /netlify/functions/generateRecipe.js
+// Netlify Function V1 — Proxy to Gemini API securely (API key hidden in server)
 
+const GEMINI_API_URL_BASE = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 function resp(status, obj) {
@@ -16,31 +17,29 @@ function resp(status, obj) {
 
 async function callGemini(payload) {
   const url = GEMINI_API_URL_BASE + encodeURIComponent(GEMINI_API_KEY);
-  const r = await fetch(url, {
+  return fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return r;
 }
 
 exports.handler = async (event) => {
   try {
     if (event.httpMethod === "OPTIONS") return { statusCode: 204 };
-    if (event.httpMethod !== "POST") return resp(405, { ok:false, error: "method_not_allowed" });
+    if (event.httpMethod !== "POST") return resp(405, { ok: false, error: "method_not_allowed" });
 
-    if (!GEMINI_API_KEY) return resp(500, { ok:false, error: "gemini_key_missing" });
+    if (!GEMINI_API_KEY) return resp(500, { ok: false, error: "gemini_key_missing" });
 
     const body = event.body ? JSON.parse(event.body) : null;
-    if (!body) return resp(400, { ok:false, error: "missing_body" });
+    if (!body) return resp(400, { ok: false, error: "missing_body" });
 
-    // Expecting minimal fields from client: mealType, cuisine, dietType, calorieTarget, commonAllergy, customAllergy, focus
     const { mealType, cuisine, dietType, calorieTarget, commonAllergy, customAllergy, focus } = body;
     if (!mealType || !cuisine || !calorieTarget) {
-      return resp(400, { ok:false, error: "missing_fields" });
+      return resp(400, { ok: false, error: "missing_fields" });
     }
 
-    // Build system and user prompts exactly like app.html expects
+    // Build constraints
     let dietConstraints = "";
     if (dietType === "نظام د. محمد سعيد") {
       dietConstraints = `
@@ -116,12 +115,12 @@ exports.handler = async (event) => {
               }
             }
           },
-          required: ["title","time","servings","macros","ingredients","preparation"]
+          required: ["title", "time", "servings", "macros", "ingredients", "preparation"]
         }
       }
     };
 
-    // Retry logic (exponential backoff) for transient errors
+    // Retry logic
     const maxRetries = 3;
     let lastErr = null;
     for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -130,43 +129,36 @@ exports.handler = async (event) => {
         if (!res.ok) {
           const status = res.status;
           const text = await res.text();
-          // Retry only for 429 / 5xx
           if ((status === 429 || status >= 500) && attempt < maxRetries - 1) {
             const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
             await new Promise(r => setTimeout(r, delay));
             continue;
           }
-          return resp(502, { ok:false, error: "gemini_error", status, body: text.slice(0,200) });
+          return resp(502, { ok: false, error: "gemini_error", status, body: text.slice(0,200) });
         }
         const result = await res.json();
-        // try to extract JSON string from model response
-        const jsonString = result?.candidates?.[0]?.content?.parts?.[0]?.text || result?.candidates?.[0]?.content?.text;
-        if (!jsonString) return resp(502, { ok:false, error: "no_model_output", raw: result });
+        const jsonString = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!jsonString) return resp(502, { ok: false, error: "no_model_output", raw: result });
         let parsed;
         try {
           parsed = JSON.parse(jsonString);
         } catch (e) {
-          // If model returned object directly
-          if (typeof result.candidates?.[0]?.content === "object") {
-            parsed = result.candidates[0].content;
-          } else {
-            return resp(502, { ok:false, error: "parse_failed", message: e.message, sample: jsonString.slice(0,500) });
-          }
+          return resp(502, { ok: false, error: "parse_failed", message: e.message, sample: jsonString.slice(0,500) });
         }
-        return resp(200, { ok:true, recipe: parsed });
+        return resp(200, { ok: true, recipe: parsed });
       } catch (e) {
         lastErr = e;
         if (attempt < maxRetries - 1) {
-          const delay = Math.pow(2, attempt) * 1000 + Math.random()*500;
+          const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
           await new Promise(r => setTimeout(r, delay));
           continue;
         }
       }
     }
 
-    return resp(500, { ok:false, error: "exception", message: lastErr?.message || "unknown" });
+    return resp(500, { ok: false, error: "exception", message: lastErr?.message || "unknown" });
 
   } catch (err) {
-    return resp(500, { ok:false, error: "exception", message: err.message });
+    return resp(500, { ok: false, error: "exception", message: err.message });
   }
 };

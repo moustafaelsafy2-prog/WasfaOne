@@ -1,86 +1,103 @@
-// Netlify Function: adminSettings (GET/PUT settings.json)
-// Header: x-admin-key === ADMIN_PASSWORD
-// يحدّث: data/settings.json  +  public/data/settings.json (نسخة تُنشر للواجهة)
+// /netlify/functions/adminSettings.js — Netlify Functions (V1) + Node 18
 
-const OWNER = process.env.GITHUB_REPO_OWNER;
-const REPO  = process.env.GITHUB_REPO_NAME;
-const REF   = process.env.GITHUB_REF || "main";
-const GH_TOKEN = process.env.GITHUB_TOKEN;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const GH_API = "https://api.github.com";
+const {
+  ADMIN_PASSWORD,
+  GITHUB_TOKEN,
+  GITHUB_REPO_OWNER,
+  GITHUB_REPO_NAME,
+  GITHUB_REF = "main",
+} = process.env;
 
-function forbidden(){
-  return { statusCode: 401, body: JSON.stringify({ ok:false, error:"unauthorized" })};
+const SETTINGS_PATH = "data/settings.json";
+const BASE_URL = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/`;
+const baseHeaders = {
+  Authorization: `Bearer ${GITHUB_TOKEN}`,
+  Accept: "application/vnd.github+json",
+  "User-Agent": "WasfaOne-Netlify",
+};
+
+function resp(status, obj) {
+  return {
+    statusCode: status,
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+    },
+    body: JSON.stringify(obj),
+  };
 }
-function isHttpUrl(u){
-  try{ const x=new URL(u); return x.protocol==="http:"||x.protocol==="https:"; }catch{ return false; }
+
+async function ghGetJson(path) {
+  const url = `${BASE_URL}${path}?ref=${encodeURIComponent(GITHUB_REF)}`;
+  const r = await fetch(url, { headers: baseHeaders });
+  if (r.status === 404) return { data: null, sha: null }; // غير موجود بعد
+  if (!r.ok) throw new Error(`GH_GET_${r.status}`);
+  const j = await r.json();
+  const txt = Buffer.from(j.content || "", "base64").toString("utf8");
+  return { data: txt ? JSON.parse(txt) : null, sha: j.sha };
 }
 
-async function ghGetJson(path){
-  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
-    headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
-  });
-  if(!r.ok) throw new Error(`GitHub GET ${path} ${r.status}`);
-  const data = await r.json();
-  const content = Buffer.from(data.content || "", "base64").toString("utf-8");
-  return { json: JSON.parse(content), sha: data.sha };
-}
-
-async function ghPutJson(path, json, sha, message){
-  const content = Buffer.from(JSON.stringify(json, null, 2), "utf-8").toString("base64");
-  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
-    method:"PUT",
-    headers:{ Authorization:`token ${GH_TOKEN}`, "User-Agent":"WasfaOne","Content-Type":"application/json" },
-    body: JSON.stringify({ message, content, sha, branch: REF })
-  });
-  if(!r.ok) throw new Error(`GitHub PUT ${path} ${r.status}`);
+async function ghPutJson(path, nextData, message, sha) {
+  const url = `${BASE_URL}${path}`;
+  const body = {
+    message,
+    content: Buffer.from(JSON.stringify(nextData, null, 2), "utf8").toString("base64"),
+    branch: GITHUB_REF,
+  };
+  if (sha) body.sha = sha;
+  const r = await fetch(url, { method: "PUT", headers: baseHeaders, body: JSON.stringify(body) });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`GH_PUT_${r.status}:${t.slice(0,200)}`);
+  }
   return r.json();
 }
 
-module.exports.handler = async (event) => {
-  // تحقّق مفتاح الأدمن
-  if((event.headers["x-admin-key"] || event.headers["X-Admin-Key"]) !== ADMIN_PASSWORD){
-    return forbidden();
-  }
+exports.handler = async (event) => {
+  try {
+    if (event.httpMethod === "OPTIONS") return { statusCode: 204 };
 
-  try{
-    if(event.httpMethod === "GET"){
-      const { json: settings } = await ghGetJson("data/settings.json");
-      return { statusCode: 200, body: JSON.stringify({ ok:true, settings }) };
+    // فحص الإعدادات
+    if (!ADMIN_PASSWORD || !GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
+      return resp(500, { ok: false, error: "config_missing" });
     }
 
-    if(event.httpMethod === "PUT"){
-      const body = JSON.parse(event.body || "{}");
-      const input = body.settings;
-      if(!input) return { statusCode: 400, body: JSON.stringify({ ok:false, error:"missing_settings" }) };
+    // تحقّق كلمة الأدمن
+    const key = event.headers["x-admin-key"] || event.headers["X-Admin-Key"] || event.headers["x-admin-key".toLowerCase()];
+    if (key !== ADMIN_PASSWORD) return resp(401, { ok: false, error: "unauthorized" });
 
-      // تحقق روابط أساسية (http/https فقط)
-      const candidates = [
-        input?.branding?.logo_url,
-        input?.contact?.whatsapp_link,
-        ...Object.values(input?.images || {})
-      ].filter(Boolean);
-      if(!candidates.every(isHttpUrl)){
-        return { statusCode: 400, body: JSON.stringify({ ok:false, error:"invalid_url" }) };
-      }
+    const method = event.httpMethod;
+    const body = event.body ? JSON.parse(event.body) : {};
 
-      // حدّث الملف الرئيسي
-      const { sha } = await ghGetJson("data/settings.json");
-      await ghPutJson("data/settings.json", input, sha, "admin:update settings");
-
-      // إنشاء/تحديث نسخة عامة تُنشر للواجهة
-      let publicSha = null;
-      try {
-        const got = await ghGetJson("public/data/settings.json");
-        publicSha = got.sha;
-      } catch (e) { /* قد لا يكون الملف موجودًا أول مرة */ }
-      await ghPutJson("public/data/settings.json", input, publicSha, "admin:update public settings");
-
-      return { statusCode: 200, body: JSON.stringify({ ok:true }) };
+    if (method === "GET") {
+      const { data } = await ghGetJson(SETTINGS_PATH);
+      // إن لم يوجد الملف نرجع هيكل افتراضي بسيط
+      const defaults = {
+        branding: { site_name_ar: "WasfaOne", site_name_en: "WasfaOne", logo_url: "" },
+        contact: { phone_display: "", whatsapp_link: "", email: "", social: { instagram: "", tiktok: "", youtube: "" } },
+        diet_systems: [],
+        images: {},
+        images_meta: {}
+      };
+      return resp(200, { ok: true, settings: data || defaults });
     }
 
-    return { statusCode: 405, body: JSON.stringify({ ok:false, error:"method_not_allowed" }) };
-  }catch(err){
-    return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
+    if (method === "PUT") {
+      // تبسيط: نتوقع جسماً مطابقاً للهيكل
+      const next = {
+        branding: body.branding || {},
+        contact: body.contact || {},
+        diet_systems: Array.isArray(body.diet_systems) ? body.diet_systems : [],
+        images: body.images || {},
+        images_meta: body.images_meta || {}
+      };
+      const { sha } = await ghGetJson(SETTINGS_PATH);
+      await ghPutJson(SETTINGS_PATH, next, `admin: update settings.json`, sha);
+      return resp(200, { ok: true, settings: next });
+    }
+
+    return resp(405, { ok: false, error: "method_not_allowed" });
+  } catch (e) {
+    return resp(500, { ok: false, error: "exception", message: e.message });
   }
 };

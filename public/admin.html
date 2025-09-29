@@ -1,1 +1,143 @@
-<!-- admin.html content here -->
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>WasfaOne — Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/styles.css">
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+</head>
+<body class="bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-100">
+  <!-- Header -->
+  <header class="flex items-center justify-between p-4 shadow bg-white/70 dark:bg-slate-800/70 backdrop-blur">
+    <div class="flex items-center gap-3">
+      <img id="admin-logo" src="" alt="Logo" class="h-8 object-contain"/>
+      <span id="admin-site-name" class="font-extrabold text-xl">WasfaOne</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="index.html" class="text-sm hover:underline" id="admin-home-link">الرئيسية</a>
+      <button id="lang-toggle" class="px-3 py-1.5 rounded bg-red-500 text-white hover:scale-105 transition text-sm">EN</button>
+    </div>
+  </header>
+
+  <!-- Sticky line -->
+  <div class="w-full bg-slate-100 dark:bg-slate-800 text-center text-sm py-2">
+    <span>للاشتراك أو التجديد: 00971502061209 — </span>
+    <a class="text-green-600 dark:text-green-400 underline" target="_blank" href="https://wa.me/971502061209">واتساب/اتصال</a>
+  </div>
+
+  <!-- Admin Key Gate -->
+  <section class="max-w-3xl mx-auto p-4 md:p-8" data-aos="fade-up">
+    <div id="admin-gate" class="p-5 rounded-2xl shadow bg-white dark:bg-slate-800">
+      <h1 id="admin-gate-title" class="text-2xl font-extrabold mb-2">لوحة التحكم</h1>
+      <p id="admin-gate-sub" class="text-slate-500 text-sm mb-4">
+        أدخل كلمة مرور الأدمن مرة واحدة للوصول للإدارة (تحفظ محليًا أثناء الجلسة).
+      </p>
+      <div class="flex items-center gap-2">
+        <input id="admin-key-input" type="password" class="flex-1 p-2.5 border rounded" placeholder="ADMIN_PASSWORD"/>
+        <button id="admin-key-save" class="px-4 py-2 bg-red-500 text-white rounded hover:scale-[1.02]">دخول</button>
+      </div>
+      <p id="admin-gate-error" class="text-red-500 text-sm mt-2 hidden"></p>
+    </div>
+  </section>
+
+  <!-- Tabs -->
+  <main id="admin-panels" class="max-w-6xl mx-auto p-4 md:p-8 hidden" data-aos="fade-up" data-aos-delay="100">
+    <div class="flex flex-wrap gap-2 mb-4">
+      <button data-tab="users" class="tab-btn active">Users</button>
+      <button data-tab="settings" class="tab-btn">Settings</button>
+      <button data-tab="images" class="tab-btn">Images</button>
+    </div>
+
+    <!-- Users Tab -->
+    <section id="tab-users" class="tab-pane">
+      <div class="flex items-center justify-between mb-3">
+        <h2 id="users-title" class="text-xl font-extrabold">المستخدمون</h2>
+        <button id="btn-add-user" class="px-3 py-2 bg-green-500 text-white rounded hover:scale-105">إضافة</button>
+      </div>
+      <div class="overflow-x-auto rounded-2xl border dark:border-slate-700">
+        <table class="min-w-full text-sm">
+          <thead class="bg-slate-100 dark:bg-slate-800">
+            <tr>
+              <th class="th">Email</th>
+              <th class="th">Name</th>
+              <th class="th">Status</th>
+              <th class="th">Start</th>
+              <th class="th">End</th>
+              <th class="th">Device</th>
+              <th class="th">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody" class="divide-y dark:divide-slate-700"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Settings Tab -->
+    <section id="tab-settings" class="tab-pane hidden">
+      <h2 id="settings-title" class="text-xl font-extrabold mb-3">الإعدادات العامة</h2>
+      <form id="settings-form" class="grid md:grid-cols-2 gap-4">
+        <div>
+          <label class="lbl">اسم الموقع (AR)</label>
+          <input id="site_name_ar" class="inp">
+        </div>
+        <div>
+          <label class="lbl">اسم الموقع (EN)</label>
+          <input id="site_name_en" class="inp">
+        </div>
+        <div>
+          <label class="lbl">الشعار (URL)</label>
+          <input id="logo_url" class="inp">
+        </div>
+
+        <div>
+          <label class="lbl">هاتف للعرض</label>
+          <input id="phone_display" class="inp">
+        </div>
+        <div>
+          <label class="lbl">رابط واتساب</label>
+          <input id="whatsapp_link" class="inp">
+        </div>
+        <div>
+          <label class="lbl">البريد الإلكتروني</label>
+          <input id="email_contact" class="inp">
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="lbl">الأنظمة الغذائية</label>
+          <div id="diet-list-editor" class="space-y-3"></div>
+          <button type="button" id="btn-add-diet" class="mt-2 px-3 py-2 bg-slate-200 dark:bg-slate-700 rounded">إضافة نظام</button>
+        </div>
+
+        <div class="md:col-span-2 flex items-center gap-3">
+          <button id="btn-save-settings" type="submit" class="px-4 py-2 bg-red-500 text-white rounded hover:scale-105">حفظ</button>
+          <span id="settings-status" class="text-sm text-slate-500"></span>
+        </div>
+      </form>
+    </section>
+
+    <!-- Images Tab -->
+    <section id="tab-images" class="tab-pane hidden">
+      <h2 id="images-title" class="text-xl font-extrabold mb-3">الصور والنص البديل</h2>
+      <form id="images-form" class="grid gap-4">
+        <div id="images-grid" class="grid md:grid-cols-2 gap-4"></div>
+        <div class="flex items-center gap-3">
+          <button id="btn-save-images" type="submit" class="px-4 py-2 bg-red-500 text-white rounded hover:scale-105">حفظ</button>
+          <span id="images-status" class="text-sm text-slate-500"></span>
+        </div>
+      </form>
+      <p class="mt-2 text-xs text-slate-500">يتم التحقق من الروابط (HTTP/HTTPS فقط) وإضافة ?v=timestamp بعد التحديث.</p>
+    </section>
+  </main>
+
+  <footer class="py-6 text-center text-sm text-slate-500">
+    <a id="footer-privacy" class="hover:underline" href="privacy.html">سياسة الخصوصية</a> ·
+    <span>WasfaOne</span>
+  </footer>
+
+  <script src="assets/app.js"></script>
+  <script> AOS.init(); initAdminPage(); </script>
+</body>
+</html>

@@ -1,110 +1,132 @@
-// Netlify Function: adminUsers (CRUD + relink)
-// Methods:
-//  - GET: list users
-//  - POST { action:"create", user } or { action:"relink", email }
-//  - PUT  { user } (update by email)
-//  - DELETE { email }
-// Header: x-admin-key === ADMIN_PASSWORD
-// Storage: data/users.json
-const OWNER = process.env.GITHUB_REPO_OWNER;
-const REPO  = process.env.GITHUB_REPO_NAME;
-const REF   = process.env.GITHUB_REF || "main";
-const GH_TOKEN = process.env.GITHUB_TOKEN;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const GH_API = "https://api.github.com";
+// /netlify/functions/adminUsers.js
+import fetch from "node-fetch";
 
-function forbidden(){ return { statusCode: 401, body: JSON.stringify({ ok:false, error:"unauthorized" })}; }
+const {
+  ADMIN_PASSWORD,
+  GITHUB_TOKEN,
+  GITHUB_REPO_OWNER,
+  GITHUB_REPO_NAME,
+  GITHUB_REF = "main",
+} = process.env;
 
-async function ghGetJson(path){
-  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
-    headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
-  });
-  if(!r.ok) throw new Error(`GitHub GET ${path} ${r.status}`);
-  const data = await r.json();
-  const content = Buffer.from(data.content || "", "base64").toString("utf-8");
-  return { json: JSON.parse(content), sha: data.sha };
+const USERS_PATH = "data/users.json";
+
+const ghHeaders = {
+  Accept: "application/vnd.github+json",
+  "User-Agent": "WasfaOne-Netlify",
+};
+
+async function ghGetJson(path) {
+  const url = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/${path}?ref=${GITHUB_REF}`;
+  const res = await fetch(url, { headers: { ...ghHeaders, Authorization: `Bearer ${GITHUB_TOKEN}` } });
+  if (!res.ok) throw new Error(`GitHub GET failed ${res.status}`);
+  const json = await res.json();
+  const content = Buffer.from(json.content, "base64").toString("utf8");
+  return { data: JSON.parse(content || "[]"), sha: json.sha };
 }
-async function ghPutJson(path, json, sha, message){
-  const content = Buffer.from(JSON.stringify(json, null, 2), "utf-8").toString("base64");
-  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
+
+async function ghPutJson(path, nextData, message, sha) {
+  const url = `https://api.github.com/repos/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/contents/${path}`;
+  const body = {
+    message,
+    content: Buffer.from(JSON.stringify(nextData, null, 2), "utf8").toString("base64"),
+    branch: GITHUB_REF,
+    sha,
+  };
+  const res = await fetch(url, {
     method: "PUT",
-    headers: {
-      Authorization: `token ${GH_TOKEN}`,
-      "User-Agent":"WasfaOne",
-      "Content-Type":"application/json"
-    },
-    body: JSON.stringify({ message, content, sha, branch: REF })
+    headers: { ...ghHeaders, Authorization: `Bearer ${GITHUB_TOKEN}` },
+    body: JSON.stringify(body),
   });
-  if(!r.ok) throw new Error(`GitHub PUT ${path} ${r.status}`);
-  return r.json();
+  if (!res.ok) throw new Error(`GitHub PUT failed ${res.status}`);
+  return res.json();
 }
 
-export async function handler(event){
-  if((event.headers["x-admin-key"] || event.headers["X-Admin-Key"]) !== ADMIN_PASSWORD){
-    return forbidden();
-  }
-  try{
-    const { json: users, sha } = await ghGetJson("data/users.json");
+function json(res, status, data) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" },
+  });
+}
+
+function ensureAdmin(event) {
+  const key = event.headers["x-admin-key"] || event.headers["X-Admin-Key"];
+  if (!ADMIN_PASSWORD || key !== ADMIN_PASSWORD) throw new Error("unauthorized");
+}
+
+function sanitizeUser(u) {
+  const allowed = ["email","password","name","status","start_date","end_date","device_fingerprint","session_nonce","lock_reason"];
+  const out = {};
+  for (const k of allowed) out[k] = u?.[k] ?? null;
+  // Basic required fields
+  if (!out.email || !out.password || !out.name) throw new Error("missing_fields");
+  if (!out.status) out.status = "active";
+  return out;
+}
+
+export default async (event) => {
+  try {
+    ensureAdmin(event);
+
     const method = event.httpMethod;
+    const action = (event.queryStringParameters?.action || "").toLowerCase();
 
-    if(method === "GET"){
-      return { statusCode: 200, body: JSON.stringify({ ok:true, users }) };
+    if (method === "GET") {
+      const { data } = await ghGetJson(USERS_PATH);
+      return json(event, 200, { ok: true, users: data });
     }
 
-    const body = JSON.parse(event.body || "{}");
+    const body = event.body ? JSON.parse(event.body) : {};
 
-    if(method === "POST"){
-      if(body.action === "create" && body.user){
-        const u = body.user;
-        // prevent dup
-        if(users.find(x => x.email.toLowerCase() === (u.email||"").toLowerCase())){
-          return { statusCode: 409, body: JSON.stringify({ ok:false, error:"exists" }) };
-        }
-        users.push({
-          email: u.email, password: u.password || "123456", name: u.name || "",
-          status: u.status || "active",
-          start_date: u.start_date || "", end_date: u.end_date || "",
-          device_fingerprint: null, session_nonce: null, lock_reason: null, auth_token: null
-        });
-        await ghPutJson("data/users.json", users, sha, `admin:create ${u.email}`);
-        return { statusCode: 200, body: JSON.stringify({ ok:true }) };
+    // Load current
+    const { data: users, sha } = await ghGetJson(USERS_PATH);
+
+    if (method === "POST") {
+      if (action === "resetDevice") {
+        const email = body?.email;
+        const idx = users.findIndex(u => (u.email||"").toLowerCase() === (email||"").toLowerCase());
+        if (idx === -1) return json(event, 404, { ok:false, error:"not_found" });
+        users[idx].device_fingerprint = null;
+        users[idx].session_nonce = null;
+        await ghPutJson(USERS_PATH, users, `admin: reset device for ${email}`, sha);
+        return json(event, 200, { ok:true, user: users[idx] });
       }
-      if(body.action === "relink" && body.email){
-        const u = users.find(x => x.email.toLowerCase() === body.email.toLowerCase());
-        if(!u) return { statusCode: 404, body: JSON.stringify({ ok:false }) };
-        u.device_fingerprint = null;
-        u.session_nonce = null;
-        u.auth_token = null;
-        u.lock_reason = null;
-        await ghPutJson("data/users.json", users, sha, `admin:relink ${u.email}`);
-        return { statusCode: 200, body: JSON.stringify({ ok:true }) };
-      }
-      return { statusCode: 400, body: JSON.stringify({ ok:false }) };
+      // Create
+      const nu = sanitizeUser(body);
+      const exists = users.some(u => (u.email||"").toLowerCase() === nu.email.toLowerCase());
+      if (exists) return json(event, 409, { ok:false, error:"exists" });
+      users.push(nu);
+      await ghPutJson(USERS_PATH, users, `admin: create user ${nu.email}`, sha);
+      return json(event, 201, { ok:true, user: nu });
     }
 
-    if(method === "PUT" && body.user){
-      const u = body.user;
-      const idx = users.findIndex(x => x.email.toLowerCase() === (u.email||"").toLowerCase());
-      if(idx === -1) return { statusCode: 404, body: JSON.stringify({ ok:false }) };
-      // Only update editable fields (email immutable here to keep keying)
-      users[idx].name = u.name ?? users[idx].name;
-      users[idx].status = u.status ?? users[idx].status;
-      users[idx].start_date = u.start_date ?? users[idx].start_date;
-      users[idx].end_date = u.end_date ?? users[idx].end_date;
-      await ghPutJson("data/users.json", users, sha, `admin:update ${users[idx].email}`);
-      return { statusCode: 200, body: JSON.stringify({ ok:true }) };
+    if (method === "PUT") {
+      // Update by email (immutable key)
+      const email = body?.email;
+      if (!email) return json(event, 400, { ok:false, error:"missing_email" });
+      const idx = users.findIndex(u => (u.email||"").toLowerCase() === email.toLowerCase());
+      if (idx === -1) return json(event, 404, { ok:false, error:"not_found" });
+      const merged = { ...users[idx], ...sanitizeUser({ ...users[idx], ...body, email }) };
+      users[idx] = merged;
+      await ghPutJson(USERS_PATH, users, `admin: update user ${email}`, sha);
+      return json(event, 200, { ok:true, user: merged });
     }
 
-    if(method === "DELETE" && body.email){
-      const idx = users.findIndex(x => x.email.toLowerCase() === body.email.toLowerCase());
-      if(idx === -1) return { statusCode: 404, body: JSON.stringify({ ok:false }) };
-      const removed = users.splice(idx,1)[0];
-      await ghPutJson("data/users.json", users, sha, `admin:delete ${removed.email}`);
-      return { statusCode: 200, body: JSON.stringify({ ok:true }) };
+    if (method === "DELETE") {
+      const email = body?.email;
+      if (!email) return json(event, 400, { ok:false, error:"missing_email" });
+      const next = users.filter(u => (u.email||"").toLowerCase() !== email.toLowerCase());
+      if (next.length === users.length) return json(event, 404, { ok:false, error:"not_found" });
+      await ghPutJson(USERS_PATH, next, `admin: delete user ${email}`, sha);
+      return json(event, 200, { ok:true, removed: email });
     }
 
-    return { statusCode: 400, body: JSON.stringify({ ok:false }) };
-  }catch(err){
-    return { statusCode: 500, body: JSON.stringify({ ok:false, error: err.message }) };
+    return json(event, 405, { ok:false, error:"method_not_allowed" });
+  } catch (e) {
+    const code = e.message === "unauthorized" ? 401 : 500;
+    return new Response(JSON.stringify({ ok:false, error:e.message }), {
+      status: code,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
   }
-}
+};

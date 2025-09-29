@@ -39,11 +39,11 @@
 
         /* --- إصلاح عرض JSON في صفحة RTL --- */
         .json-block {
-          direction: ltr !important;         /* إجبار اتجاه LTR */
-          text-align: left !important;       /* محاذاة يسار */
-          unicode-bidi: plaintext;           /* يمنع عكس الأقواس/الفواصل */
+          direction: ltr !important;
+          text-align: left !important;
+          unicode-bidi: plaintext;
           font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-          white-space: pre;                  /* يحافظ على المسافات */
+          white-space: pre;
         }
     </style>
 </head>
@@ -191,9 +191,30 @@
     </div>
 
     <script type="module">
-        const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=";
-        const API_KEY = ""; // Provided by the environment
+        // مفتاح Gemini (يفضّل حقنه من بيئة الاستضافة). يمكن أيضًا تمريره عبر window.GEMINI_API_KEY أو باراميتر ?key=
+        const API_KEY_FROM_WINDOW = (typeof window !== "undefined" && window.GEMINI_API_KEY) ? String(window.GEMINI_API_KEY) : "";
+        const API_KEY_FROM_QUERY = new URLSearchParams(location.search).get("key") || "";
+        const API_KEY = (API_KEY_FROM_WINDOW || API_KEY_FROM_QUERY || "").trim();
 
+        // جميع إصدارات Gemini (يتم التجربة بالتسلسل حتى النجاح)
+        const GEMINI_MODELS = [
+            // عائلة 2.5 (قد تكون بعضها Preview/Exp وتعيد 404 إن لم تكن متاحة في الحساب — لا مشكلة)
+            "gemini-2.5-pro-001",
+            "gemini-2.5-flash-001",
+            "gemini-2.5-flash-preview-05-20",
+            // عائلة 2.0
+            "gemini-2.0-pro-exp",
+            "gemini-2.0-pro",
+            "gemini-2.0-flash-exp",
+            "gemini-2.0-flash",
+            // عائلة 1.5
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash"
+        ];
+
+        // عناصر DOM
         const mealTypeEl = document.getElementById('mealType');
         const cuisineEl = document.getElementById('cuisine');
         const dietTypeEl = document.getElementById('dietType');
@@ -217,6 +238,112 @@
         const preparationSteps = document.getElementById('preparationSteps');
         const rawJson = document.getElementById('rawJson');
 
+        // تجهيز نص النظام + طلب المستخدم — كما طلبت، نفس الحقول ونفس تنسيق JSON الناتج
+        function buildPrompts({mealType, cuisine, dietType, calorieTarget, commonAllergy, customAllergy, focus}) {
+            const systemPrompt =
+`أنت شيف خبير في التغذية. مهمتك هي إنشاء وصفة طعام كاملة ومفصلة باللغة العربية بناءً على طلب المستخدم.
+يجب أن تتضمن الوصفة اسم الوجبة، وقت التحضير، عدد الحصص، قائمة المكونات، طريقة التحضير خطوة بخطوة،
+والماكروز (السعرات الحرارية، البروتين، الكربوهيدرات، الدهون).
+الرد يجب أن يكون بتنسيق JSON فقط وبهذه البنية الحرفية:
+{
+  "title": "STRING",
+  "time": "STRING",
+  "servings": "STRING",
+  "macros": { "calories": "STRING", "protein": "STRING", "carbs": "STRING", "fats": "STRING" },
+  "ingredients": [ { "name": "STRING", "quantity": "STRING" } ],
+  "preparation": [ { "title": "STRING", "instruction": "STRING" } ]
+}
+ممنوع أي نصوص خارج JSON.`;
+
+            const dietConstraints =
+(dietType === "نظام د. محمد سعيد") ?
+`**يجب أن تلتزم بدقة بمتطلبات نظام د. محمد سعيد (نظام كيتوني معدّل):**
+- خالية تماماً من الكربوهيدرات المرتفعة والسكريات.
+- خالية تماماً من الجلوتين، اللاكتوز، الليكتين، والبقوليات.
+- خالية تماماً من الزيوت المهدرجة.
+- مسموح فقط بالدهون الصحية (مثل زيت الزيتون، الأفوكادو).
+- مسموح فقط بالأجبان الدسمة من أصل حيواني والزبادي اليوناني.` :
+`تناسب النظام الغذائي "${dietType}".`;
+
+            const allergies = [];
+            if (commonAllergy && commonAllergy !== "لا يوجد") allergies.push(commonAllergy);
+            if (customAllergy) allergies.push(customAllergy);
+            const allergyConstraint = allergies.length
+              ? `**ويجب أن تكون خالية تمامًا من (حساسية):** ${allergies.join(' و ')}.`
+              : "";
+
+            const userQuery =
+`أريد وصفة لوجبة "${mealType}"، من المطبخ "${cuisine}".
+${dietConstraints}
+**يجب أن تكون السعرات الحرارية للوجبة الواحدة حوالي ${calorieTarget} سعرة حرارية.**
+${allergyConstraint}
+مع التركيز الإضافي على: "${focus}".
+
+**ملحوظة للمكونات:** استخدم وحدات الميزان (جرام/مل) في "quantity"، ويمكن إضافة القياس المعتاد بين قوسين مثل: "250 جرام (1 كوب)".`;
+            return { systemPrompt, userQuery };
+        }
+
+        // استدعاء موديل واحد
+        async function callModel(model, payload, apiKey){
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const started = performance.now();
+            const r = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const elapsed = Math.round(performance.now() - started);
+            let body = null;
+            try { body = await r.json(); } catch {}
+            const text = body?.candidates?.[0]?.content?.parts?.map(p=>p.text).join("") || "";
+            return {
+                ok: r.ok && !!text,
+                status: r.status,
+                elapsed,
+                body,
+                text
+            };
+        }
+
+        // محاولة توليد مع تجربة جميع الإصدارات بالتتابع + backoff بسيط على 429
+        async function tryAllModels(payload, apiKey){
+            const diagnostics = [];
+            for(const model of GEMINI_MODELS){
+                const res = await callModel(model, payload, apiKey);
+                diagnostics.push({
+                    model,
+                    http_status: res.status,
+                    elapsed_ms: res.elapsed,
+                    api_error: res.body?.error || null,
+                    snippet: res.text ? res.text.slice(0,140) : null
+                });
+
+                if(res.ok){
+                    // قد يحيط النموذج JSON بسياج Markdown — ننزعه ونحاول التحليل
+                    const cleaned = res.text.trim()
+                        .replace(/^```json\s*/i,'')
+                        .replace(/^```/,'')
+                        .replace(/```$/,'')
+                        .trim();
+                    // محاولة قص أول { ... آخر } إن وُجد نص زائد
+                    const first = cleaned.indexOf("{"), last = cleaned.lastIndexOf("}");
+                    const onlyJson = (first !== -1 && last !== -1) ? cleaned.slice(first, last+1) : cleaned;
+
+                    try {
+                        const parsed = JSON.parse(onlyJson);
+                        return { ok:true, data: parsed, usedModel: model, diagnostics };
+                    } catch(parseErr){
+                        diagnostics[diagnostics.length-1].parse_error = String(parseErr);
+                        // لو فشل الـ parse نتابع على الموديل التالي
+                    }
+                } else if(res.status === 429) {
+                    // backoff سريع ثم نكمل على نفس الموديل أو التالي
+                    await new Promise(r => setTimeout(r, 1200));
+                }
+            }
+            return { ok:false, diagnostics };
+        }
+
         function renderRecipe(data) {
             recipeTitle.textContent = data.title;
             timeValue.textContent = data.time;
@@ -228,14 +355,14 @@
             fatsValue.textContent = `${data.macros.fats} جم`;
 
             ingredientsList.innerHTML = '';
-            data.ingredients.forEach(ingredient => {
+            (data.ingredients || []).forEach(ingredient => {
                 const li = document.createElement('li');
                 li.innerHTML = `<span class="font-bold text-gray-800">${ingredient.name}</span> <span class="text-gray-500 text-sm mr-2">(${ingredient.quantity})</span>`;
                 ingredientsList.appendChild(li);
             });
 
             preparationSteps.innerHTML = '';
-            data.preparation.forEach(step => {
+            (data.preparation || []).forEach(step => {
                 const div = document.createElement('div');
                 div.className = 'prep-step';
                 div.innerHTML = `
@@ -245,60 +372,22 @@
                 preparationSteps.appendChild(div);
             });
 
-            // عرض نفس البيانات كـ JSON خام — دون أي تغيير في البنية أو الأسماء
             rawJson.textContent = JSON.stringify(data, null, 2);
 
             recipeOutput.classList.remove('hidden');
             setTimeout(() => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }, 100);
         }
 
-        async function generateRecipe() {
-            const mealType = mealTypeEl.value;
-            const cuisine = cuisineEl.value;
-            const dietType = dietTypeEl.value;
-            const calorieTarget = calorieTargetEl.value;
-            const commonAllergy = commonAllergyEl.value;
-            const customAllergy = customAllergyEl.value.trim();
-            const focus = focusEl.value.trim() || "مُبتكرة وعصرية";
-
-            let dietConstraints = "";
-            if (dietType === "نظام د. محمد سعيد") {
-                dietConstraints = `
-                    **يجب أن تلتزم بدقة بمتطلبات نظام د. محمد سعيد (نظام كيتوني معدّل):**
-                    - خالية تماماً من الكربوهيدرات المرتفعة والسكريات.
-                    - خالية تماماً من الجلوتين، اللاكتوز، الليكتين، والبقوليات.
-                    - خالية تماماً من الزيوت المهدرجة.
-                    - مسموح فقط بالدهون الصحية (مثل زيت الزيتون، الأفوكادو).
-                    - مسموح فقط بالأجبان الدسمة من أصل حيواني والزبادي اليوناني.
-                `;
-            } else {
-                dietConstraints = `تناسب النظام الغذائي "${dietType}".`;
-            }
-
-            let allergyConstraint = "";
-            if (commonAllergy !== "لا يوجد" || customAllergy) {
-                const allergies = [];
-                if (commonAllergy !== "لا يوجد") allergies.push(commonAllergy);
-                if (customAllergy) allergies.push(customAllergy);
-                allergyConstraint = `**ويجب أن تكون خالية تمامًا من المكونات التالية (حساسية):** ${allergies.join(' و ')}.`;
-            }
-
-            const systemPrompt = `أنت شيف خبير في التغذية. مهمتك هي إنشاء وصفة طعام كاملة ومفصلة باللغة العربية بناءً على طلب المستخدم. يجب أن تتضمن الوصفة اسم الوجبة، وقت التحضير، عدد الحصص، قائمة المكونات، طريقة التحضير خطوة بخطوة، والماكروز (السعرات الحرارية، البروتين، الكربوهيدرات، الدهون). يجب أن يكون الرد بتنسيق JSON حصراً. **يجب أن تلتزم بدقة بالسعرات الحرارية المطلوبة والقيود الغذائية والحساسيات المذكورة.**`;
-
-            const userQuery = `
-                أريد وصفة لوجبة "${mealType}"، من المطبخ "${cuisine}".
-                ${dietConstraints}
-                **يجب أن تكون السعرات الحرارية للوجبة الواحدة حوالي ${calorieTarget} سعرة حرارية.**
-                ${allergyConstraint}
-                مع التركيز الإضافي على: "${focus}".
-
-                **ملحوظة هامة للمكونات:** يجب أن تكون الكميات في حقل 'quantity' دقيقة، باستخدام **وحدات الميزان (جرام أو مل)**، متبوعة بالقياس المعتاد بين قوسين لسهولة التنفيذ. مثال: '250 جرام (1 كوب)' أو '120 مل (نصف كوب)'.
-            `;
-
-            const payload = {
+        function buildPayload({systemPrompt, userQuery}){
+            return {
                 contents: [{ parts: [{ text: userQuery }] }],
                 systemInstruction: { parts: [{ text: systemPrompt }] },
                 generationConfig: {
+                    // نحافظ على الحتمية العالية
+                    temperature: 0,
+                    topP: 1,
+                    topK: 1,
+                    maxOutputTokens: 1024,
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: "OBJECT",
@@ -340,39 +429,24 @@
                     }
                 }
             };
-
-            const maxRetries = 3;
-            for (let i = 0; i < maxRetries; i++) {
-                try {
-                    const response = await fetch(GEMINI_API_URL + API_KEY, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) {
-                        if (response.status === 429 && i < maxRetries - 1) {
-                            const delay = Math.pow(2, i) * 1000 + Math.random()*1000;
-                            await new Promise(r => setTimeout(r, delay));
-                            continue;
-                        }
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const result = await response.json();
-                    const jsonString = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!jsonString) throw new Error("AI response was empty or malformed.");
-                    return JSON.parse(jsonString);
-                } catch (e) {
-                    if (i === maxRetries - 1) throw new Error("فشلت عملية إنشاء الوصفة بعد عدة محاولات.");
-                }
-            }
         }
 
         generateBtn.addEventListener('click', async () => {
-            if (!calorieTargetEl.value || +calorieTargetEl.value < 100 || +calorieTargetEl.value > 2000) {
+            // التحقق من المفتاح
+            if(!API_KEY){
+                errorMsg.textContent = "لم يتم تعيين مفتاح Gemini. مرره في window.GEMINI_API_KEY أو كسلسلة استعلام ?key=YOUR_KEY";
+                errorMsg.classList.remove('hidden');
+                return;
+            }
+            // التحقق من السعرات
+            const kcal = +calorieTargetEl.value;
+            if (!kcal || kcal < 100 || kcal > 2000) {
                 errorMsg.textContent = "يرجى إدخال قيمة سعرات حرارية صالحة بين 100 و 2000.";
                 errorMsg.classList.remove('hidden');
                 return;
             }
+
+            // الحالة المرئية
             generateBtn.disabled = true;
             loadingIndicator.classList.remove('hidden');
             errorMsg.classList.add('hidden');
@@ -380,19 +454,34 @@
             generateBtn.innerHTML = '<div class="w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div> جارٍ التوليد...';
 
             try {
-                const recipe = await generateRecipe();
-                if (recipe) renderRecipe(recipe);
-                else {
-                    errorMsg.textContent = "لم يتمكن الذكاء الاصطناعي من توليد الوصفة. يرجى تعديل الخيارات والمحاولة.";
+                const prompts = buildPrompts({
+                    mealType: mealTypeEl.value,
+                    cuisine: cuisineEl.value,
+                    dietType: dietTypeEl.value,
+                    calorieTarget: calorieTargetEl.value,
+                    commonAllergy: commonAllergyEl.value,
+                    customAllergy: customAllergyEl.value.trim(),
+                    focus: (focusEl.value || "").trim() || "مُبتكرة وعصرية"
+                });
+                const payload = buildPayload(prompts);
+
+                const result = await tryAllModels(payload, API_KEY);
+
+                if (result.ok) {
+                    renderRecipe(result.data);
+                } else {
+                    // رسالة خطأ مفصلة كما طلبت
+                    const details = JSON.stringify({ reason: "No valid JSON from any Gemini model", diagnostics: result.diagnostics }, null, 2);
+                    errorMsg.innerHTML = `فشلت عملية إنشاء الوصفة بعد عدة محاولات.<br><pre class="json-block bg-yellow-50 border border-yellow-200 rounded-xl p-3 mt-2 text-xs overflow-x-auto">${details}</pre>`;
                     errorMsg.classList.remove('hidden');
                 }
             } catch (error) {
-                errorMsg.textContent = error.message;
+                errorMsg.innerHTML = `حدث خطأ غير متوقع.<br><pre class="json-block bg-red-50 border border-red-200 rounded-xl p-3 mt-2 text-xs overflow-x-auto">${String(error && error.message || error)}</pre>`;
                 errorMsg.classList.remove('hidden');
             } finally {
                 generateBtn.disabled = false;
                 loadingIndicator.classList.add('hidden');
-                generateBtn.innerHTML = 'توليد الوصفة الآن';
+                generateBtn.textContent = 'توليد الوصفة الآن';
             }
         });
     </script>

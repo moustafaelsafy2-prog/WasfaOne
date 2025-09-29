@@ -13,22 +13,15 @@
     .wrap{max-width:1080px;margin-inline:auto}
     .card{background:linear-gradient(180deg,#fff,#fafafa);border:1px solid var(--line);border-radius:22px;padding:22px;box-shadow:0 20px 40px rgba(0,0,0,.06)}
     .divider{height:1px;background:var(--line);margin:18px 0}
-    /* Updated grid layout for ingredients and preparation */
     .area{display:grid;grid-template-columns: .8fr 1.2fr;gap:28px;align-items:start}
     @media (max-width:1024px){ .area{grid-template-columns:1fr} }
-
-    /* meta chips */
     .meta{display:flex;gap:14px;flex-wrap:wrap}
     .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:#fff;font-weight:700}
     .chip svg{width:16px;height:16px;color:var(--brand)}
-
-    /* side panel for ingredients */
     .panel{position:sticky;top:16px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 12px 30px rgba(0,0,0,.04)}
     .panel h3{font-size:1.25rem;font-weight:900;margin-bottom:10px}
     .ingredient-list li{position:relative;padding-right:1.25rem;line-height:1.9;margin-bottom:.4rem}
     .ingredient-list li::before{content:'•';position:absolute;right:0;color:var(--brand);font-weight:900}
-
-    /* preparation steps */
     .steps-list{counter-reset:step}
     .step{position:relative;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 100px 18px 24px;box-shadow:0 8px 20px rgba(0,0,0,.04);margin-bottom:14px}
     .step::before{
@@ -38,8 +31,6 @@
       color:#fff; background:var(--brand); font-weight:900; box-shadow:0 2px 6px rgba(239,68,68,.35)
     }
     .step p{margin:0;color:var(--muted);line-height:1.95}
-
-    /* traffic light nutrition */
     .tl-wrap{display:flex;gap:8px;flex-wrap:wrap}
     .tl-pill{flex:1 1 120px;border-radius:14px;padding:10px;border:2px solid #111;color:#111;text-align:center;background:#fff}
     .tl-pill .name{display:block;font-weight:800;font-size:14px}
@@ -48,8 +39,6 @@
     .tl-low{background:#e7f7e7;border-color:#0f5132}
     .tl-med{background:#fff7e6;border-color:#b45309}
     .tl-high{background:#ffecec;border-color:#b91c1c}
-
-    /* toast + loader + banners */
     .toast{position:fixed;inset-inline-start:16px;inset-block-start:16px;z-index:50}
     .toast-item{background:#111827;color:#fff;padding:10px 14px;border-radius:12px;box-shadow:0 10px 25px rgba(0,0,0,.25)}
     .toast-item.success{background:#065f46}.toast-item.error{background:#991b1b}.toast-item.info{background:#111827}
@@ -82,14 +71,12 @@
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">المطبخ</label>
           <select id="cuisine" class="w-full border rounded-md p-3">
-            <!-- الشرق الأوسط وشمال أفريقيا -->
             <option selected>شرق أوسطي</option>
             <option>مطبخ مصري</option>
             <option>مطبخ شامي</option>
             <option>مطبخ خليجي</option>
             <option>مغربي/تونسي/جزائري</option>
             <option>يمني</option>
-            <!-- المتوسط وأوروبا -->
             <option>تركي</option>
             <option>يوناني</option>
             <option>إيطالي</option>
@@ -97,7 +84,6 @@
             <option>فرنسي</option>
             <option>ألماني/نمساوي</option>
             <option>متوسطي (Mediterranean)</option>
-            <!-- آسيا -->
             <option>فارسي/إيراني</option>
             <option>هندي</option>
             <option>باكستاني</option>
@@ -108,7 +94,6 @@
             <option>تايلندي</option>
             <option>فيتنامي</option>
             <option>فلبيني</option>
-            <!-- الأمريكتان وأخرى -->
             <option>مكسيكي</option>
             <option>بيروفي/لاتيني</option>
             <option>أمريكي</option>
@@ -119,6 +104,7 @@
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">النظام الغذائي</label>
+          <!-- سيتم استبدال العناصر تلقائيًا من settings.json العام -->
           <select id="dietType" class="w-full border rounded-md p-3">
             <option selected>عادي/متوازن</option>
             <option>نظام د. محمد سعيد</option>
@@ -141,6 +127,7 @@
             <option>رياضي/زيادة كتلة عضلية</option>
             <option>حلال</option>
           </select>
+          <p class="text-xs text-slate-500 mt-1" id="dietHelp"></p>
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">سعرات الحصة</label>
@@ -177,11 +164,9 @@
         <p id="errorMsg" class="mt-2 text-sm text-red-600 hidden"></p>
       </div>
 
-      <!-- Result section starts here -->
       <div id="resultContainer" class="hidden">
         <div class="divider"></div>
 
-        <!-- Recipe Title + Metadata -->
         <div class="mb-4">
           <h2 id="recipeTitle" class="text-3xl md:text-4xl font-black leading-snug"></h2>
           <div class="meta mt-3 text-[var(--muted)]">
@@ -196,7 +181,6 @@
           </div>
         </div>
 
-        <!-- Nutrition Info (Moved Here) -->
         <div class="mt-6">
             <h3 class="text-xl font-black mb-3">المعلومات الغذائية</h3>
             <div id="tl-wrap" class="tl-wrap"></div>
@@ -204,7 +188,6 @@
       </div>
     </div>
 
-    <!-- Content area: Ingredients and Preparation -->
     <section id="contentArea" class="area mt-8 hidden">
       <aside class="panel">
         <h3>المكونات</h3>
@@ -228,7 +211,7 @@
           customAllergy=$('customAllergy'),
           btn=$('generateBtn'), spin=$('loadingIndicator'),
           statusMsg=$('statusMsg'), errMsg=$('errorMsg'),
-          banner=$('banner'), toast=$('toast');
+          banner=$('banner'), toast=$('toast'), dietHelp=$('dietHelp');
 
     // outputs
     const resultContainer = $('resultContainer'), contentArea = $('contentArea'),
@@ -277,7 +260,6 @@
       ].map(p=>`<div class="tl-pill ${p.c}"><span class="name">${p.n}</span><span class="grams">${p.g}</span><span class="flag">${p.f}</span></div>`).join("");
     }
 
-    // Map server schema to view
     function map(rec){
       return {
         title: rec.title,
@@ -295,7 +277,19 @@
     }
 
     async function callAPI(payload){
-      const r=await fetch(API_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
+      if(!sess || !sess.auth_token || !sess.session_nonce){
+        window.location.replace("login.html"); return { ok:false };
+      }
+      const r=await fetch(API_ENDPOINT,{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-auth-token": sess.auth_token,
+          "x-session-nonce": sess.session_nonce
+        },
+        body:JSON.stringify(payload)
+      });
       const data=await r.json().catch(()=>({}));
       if(!r.ok||!data.ok) throw new Error(data?.error||`تعذر الاتصال (${r.status})`);
       return data;
@@ -329,7 +323,6 @@
         const data=await callAPI(payload);
         const view=map(data.recipe);
         render(view, data.note, data.warning);
-        // Updated status and toast messages to remove model name
         setStatus(`تم التوليد بنجاح`, true);
         pushToast(`تم توليد الوصفة بنجاح`,"success");
       }catch(e){
@@ -341,28 +334,50 @@
       }
     }
 
+    // ===== تحميل الإعدادات العامة العامة (Public) والتحكم في القائمة =====
+    async function loadPublicSettingsAndBind(){
+      try{
+        const res = await fetch("data/settings.json?ts="+Date.now(), { cache:"no-store" });
+        if(!res.ok) throw new Error("settings_fetch_failed");
+        const s = await res.json();
+
+        // دعم مخططين: diets (عام) أو diet_systems (رسمي)
+        const diets = Array.isArray(s?.diets) ? s.diets :
+                      Array.isArray(s?.diet_systems) ? s.diet_systems : [];
+
+        if (diets.length){
+          // إعادة بناء قائمة الأنظمة من الإعدادات
+          dietType.innerHTML = diets.map(d=>`<option value="${d.id||d.name_ar||d.name_en||''}">${d.name_ar||d.name_en||d.id}</option>`).join("");
+          // ملاحظة توضيحية (أول نظام)
+          const first = diets[0];
+          const desc = first?.description_ar || "";
+          dietHelp.textContent = desc ? `مثال (${first.name_ar}): ${desc}` : "";
+        }
+      }catch(_){
+        // نتجاهل الفشل ونبقي القيم الافتراضية
+      }
+    }
+
     // init
+    function ensureSessionOrRedirect(){
+      try{
+        const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
+        if(!sess || !sess.auth_token || !sess.session_nonce){
+          window.location.replace("login.html");
+        }
+      }catch(_){ window.location.replace("login.html"); }
+    }
+
     resetView();
-    btn.addEventListener('click', ()=>{
-      const v=+calorieTarget.value||0;
-      if(v<100||v>2000){ setError("أدخل سعرات بين 100 و 2000"); return; }
-      resetView(); generate();
+    document.addEventListener('DOMContentLoaded', ()=>{
+      ensureSessionOrRedirect();
+      loadPublicSettingsAndBind();
+      btn.addEventListener('click', ()=>{
+        const v=+calorieTarget.value||0;
+        if(v<100||v>2000){ setError("أدخل سعرات بين 100 و 2000"); return; }
+        resetView(); generate();
+      });
     });
   </script>
-  <script>
-  (function(){
-    try{
-      const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
-      if(!sess || !sess.auth_token || !sess.session_nonce){
-        // الرجوع لتسجيل الدخول لو لا توجد جلسة
-        window.location.replace("login.html");
-      }
-    }catch(_){
-      window.location.replace("login.html");
-    }
-  })();
-</script>
-
 </body>
 </html>
-

@@ -1,23 +1,21 @@
-/* WasfaOne Frontend — app.js (diagnostics enabled) */
+/* WasfaOne Frontend — Single-file vanilla JS */
 
 const I18N = {
   ar: {
     toggle: "EN",
-    loading: "جاري التنفيذ...",
+    loading: "جاري توليد الوصفة...",
     needLogin: "الرجاء تسجيل الدخول",
     invalid: "مدخلات غير صالحة",
     copied: "تم النسخ",
-    friendlyErr: "تعذر توليد الوصفة حاليًا.",
-    details: "التفاصيل"
+    friendlyErr: "تعذر توليد الوصفة حاليًا. يرجى التأكد من إعداد مفتاح API في الخلفية.",
   },
   en: {
     toggle: "ع",
-    loading: "Loading...",
+    loading: "Generating Recipe...",
     needLogin: "Please login",
     invalid: "Invalid input",
     copied: "Copied",
-    friendlyErr: "Unable to generate a recipe right now.",
-    details: "Details"
+    friendlyErr: "Unable to generate a recipe right now. Please ensure your backend API key is set up.",
   }
 };
 
@@ -26,7 +24,7 @@ function qs(sel, root=document){ return root.querySelector(sel); }
 function setHtml(id, h){ const el = byId(id); if(el) el.innerHTML = h; }
 function show(el){ if(typeof el==="string") el = byId(el); if(el) el.classList.remove("hidden"); }
 function hide(el){ if(typeof el==="string") el = byId(el); if(el) el.classList.add("hidden"); }
-function safeJSON(o){ try{ return JSON.stringify(o, null, 2); }catch{return String(o)} }
+function safeJSON(o){ return JSON.stringify(o, null, 2); }
 function getLang(){ return localStorage.getItem("lang") || "ar"; }
 function applyLangToDocument(lang){ document.documentElement.lang = lang; document.documentElement.dir = (lang==="ar"?"rtl":"ltr"); }
 function bindLangToggle(refresher){
@@ -41,148 +39,228 @@ function bindLangToggle(refresher){
   };
   el.textContent = I18N[getLang()].toggle;
 }
-function alertBox(text, details){
+function alertBox(text){
   const el = byId("app-alert"); if(!el) return;
-  if(!text){ el.textContent = ""; hide(el); return; }
-  if(details){
-    el.innerHTML = `
-      <div>${text}</div>
-      <details class="mt-2">
-        <summary class="cursor-pointer underline">${I18N[getLang()].details}</summary>
-        <pre class="mt-2 whitespace-pre-wrap text-xs bg-gray-50 border rounded p-2">${typeof details==="string"? details : safeJSON(details)}</pre>
-      </details>`;
-  }else{
-    el.textContent = text;
+  // Use a dedicated status message area for the new design
+  const statusEl = byId("statusMsg");
+  if(statusEl) {
+    statusEl.textContent = text;
+    if(text) statusEl.classList.remove("hidden"); else statusEl.classList.add("hidden");
   }
-  show(el);
 }
-
-async function loadSettings(){
-  const r = await fetch("/data/settings.json", { cache: "no-store" });
-  if(!r.ok) throw new Error("settings_failed");
-  return r.json();
-}
-
+async function loadSettings(){ const r = await fetch("/data/settings.json", { cache:"no-store" }); if(!r.ok) throw new Error("settings_failed"); return r.json(); }
 function requireAuthOrRedirect(){
-  const token = localStorage.getItem("auth_token");
-  const nonce = localStorage.getItem("session_nonce");
-  if(!token || !nonce){ window.location.href = "/login.html"; return false; }
+  // تم تبسيط هذا لافتراض مصادقة ناجحة سلفًا، أو يجب أن يكون لديك صفحة login.html
+  const email = localStorage.getItem("user_email");
+  if(!email){ 
+    console.error("User email missing. Assuming logged out state.");
+    return false; // يمنع استدعاء الدالة الخلفية بدون بيانات أساسية
+  }
   return true;
 }
 
+// دالة جديدة لتنسيق بيانات الوصفة من generateRecipe.js وعرضها
+function renderRecipe(r, lang){
+  const T = I18N[lang];
+  
+  // يتم استخدام بنية البيانات التي تتوقعها دالة generateRecipe.js
+  const recipe = {
+      title: r.title || T.invalid,
+      time: r.total_time_min || 0,
+      servings: r.servings || 0,
+      calories: r.macros?.calories || 0,
+      protein: r.macros?.protein_g || 0,
+      carbs: r.macros?.carbs_g || 0,
+      fats: r.macros?.fat_g || 0,
+      ingredients: r.ingredients || [],
+      steps: r.steps || []
+  };
+
+  byId('recipeTitle').textContent = recipe.title;
+  byId('timeValue').textContent = `${recipe.time} min`;
+  byId('servingsValue').textContent = `${recipe.servings}`;
+
+  byId('caloriesValue').textContent = `${recipe.calories}`;
+  byId('proteinValue').textContent = `${recipe.protein} جم`;
+  byId('carbsValue').textContent = `${recipe.carbs} جم`;
+  byId('fatsValue').textContent = `${recipe.fats} جم`;
+
+  const ingredientsList = byId('ingredientsList');
+  ingredientsList.innerHTML = '';
+  recipe.ingredients.forEach(ingredient => {
+      const li = document.createElement('li');
+      // نفترض أن المكونات هي نصوص فقط من generateRecipe.js
+      li.innerHTML = `<span class="font-bold text-gray-800">${ingredient}</span>`;
+      ingredientsList.appendChild(li);
+  });
+
+  const preparationSteps = byId('preparationSteps');
+  preparationSteps.innerHTML = '';
+  recipe.steps.forEach(step => {
+      const div = document.createElement('div');
+      div.className = 'prep-step';
+      // يتم عرض الخطوات كنصوص مباشرة
+      div.innerHTML = `
+          <div class="step-title">${T.toggle === "EN" ? "الخطوة" : "Step"}</div>
+          <p class="text-gray-600 pr-0 text-base">${step}</p>
+      `;
+      preparationSteps.appendChild(div);
+  });
+
+  // عرض الـ JSON الخام
+  byId('rawJson').textContent = safeJSON(r);
+
+  byId('recipeOutput').classList.remove('hidden');
+  setTimeout(() => { window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); }, 100);
+}
+
+// دالة لتجميع المدخلات من DOM الجديد
+function getRecipeInput(lang) {
+    // تحديث الأسماء لتطابق app.html الجديد
+    const dietType = byId('dietType')?.value || "balanced";
+    const calorieTarget = byId('calorieTarget')?.value || "500";
+    const commonAllergy = byId('commonAllergy')?.value;
+    const customAllergy = byId('customAllergy')?.value?.trim();
+    const focus = byId('focus')?.value?.trim() || "وصفة دجاج صحية غنية بالبروتين";
+    const mealType = byId('mealType')?.value;
+    const cuisine = byId('cuisine')?.value;
+
+    let ingredients = [];
+    let macros = "";
+
+    // دمج قيود النظام الغذائي، الحساسية، والتركيز في حقل 'ingredients' أو 'macros'
+    // يتم وضع هذا المنطق في app.js ليعمل مع generateRecipe.js
+    
+    // بناء قيد الماكروز والسعرات الحرارية
+    if (calorieTarget && Number(calorieTarget) > 0) {
+      macros = `${calorieTarget} سعرة حرارية`;
+    }
+
+    // بناء حقل المكونات (سيتم تفسيره في generateRecipe.js كقيد)
+    let constraints = [];
+    if (mealType) constraints.push(`لوجبة ${mealType}`);
+    if (cuisine) constraints.push(`من المطبخ ${cuisine}`);
+
+    let allergyConstraint = "";
+    if (commonAllergy !== "لا يوجد") constraints.push(`خالي من: ${commonAllergy}`);
+    if (customAllergy) constraints.push(`خالي من: ${customAllergy}`);
+    
+    if(focus) constraints.push(`التركيز على: ${focus}`);
+
+
+    // نجمع جميع القيود في حقل المكونات ليتم معالجته بواسطة generateRecipe.js
+    // دالة generateRecipe.js تبحث عن 'ingredients' و 'macros'
+    
+    return {
+      email: localStorage.getItem("user_email") || "guest@example.com", // استخدام إيميل افتراضي مؤقت إذا لم يكن موجود
+      diet: dietType,
+      servings: 1, // تم تثبيتها في app.html
+      time: 30, // قيمة افتراضية للوقت
+      macros: macros,
+      ingredients: constraints.join('، ')
+    };
+}
+
+
 async function initAppPage(){
-  if(!requireAuthOrRedirect()) return;
+  // لا توجد حاجة للتحقق من requireAuthOrRedirect طالما يتم التعامل مع auth في Netlify Function
   const lang = getLang(); applyLangToDocument(lang);
   bindLangToggle(initAppPage);
-  const t = I18N[lang];
+  const T = I18N[lang];
+  const btnGen = byId("generateBtn");
+  const loadingIndicator = byId("loadingIndicator");
+  const errorMsg = byId("errorMsg");
+  const recipeOutput = byId('recipeOutput');
 
-  try{ const settings = await loadSettings(); const logo = byId("app-logo"); if(logo && settings?.branding?.logo_url){ logo.src = settings.branding.logo_url; } }catch{}
-
-  const name = localStorage.getItem("user_name") || (lang==="ar"?"مستخدم":"User");
-  if(byId("user-name")) byId("user-name").textContent = name;
-  if(byId("btn-logout")) byId("btn-logout").onclick = () => { localStorage.clear(); window.location.href = "/login.html"; };
-
-  const dietSel = byId("diet");
-  const servings = byId("servings");
-  const time = byId("time");
-  const macros = byId("macros");
-  const ing = byId("ingredients");
-  const btnGen = byId("btn-generate");
-  const btnCopy = byId("btn-copy-json");
-  const btnLast = byId("btn-load-last");
-  const recipeBox = byId("recipe-box");
-  const langToggle = byId("lang-toggle");
-  if(langToggle) langToggle.textContent = t.toggle;
-
+  // يتم هنا استخدام أسماء الحقول في app.html
+  const dietSel = byId("dietType"); 
+  
+  // تعبئة الأنظمة من settings (تُركت كما هي للتحميل المستقبلي)
   try{
     const settings = await loadSettings();
     if(dietSel){
       dietSel.innerHTML = "";
-      (settings?.diets||[]).forEach(d => {
+      // يجب أن يتطابق هذا المنطق مع ملف settings.json الفعلي
+      (settings?.diets || settings?.diet_systems || []).forEach(d => {
         const opt = document.createElement("option");
-        opt.value = d.id; opt.textContent = (lang==="ar"? d.name_ar : d.name_en);
+        opt.value = d.id || d.value || "balanced";
+        opt.textContent = (lang==="ar"? (d.name_ar||d.label_ar||"") : (d.name_en||d.label_en||""));
         dietSel.appendChild(opt);
+        // إعادة تعيين القيمة المختارة في حال وجودها
+        if(d.value === "عادي/متوازن") opt.selected = true;
       });
     }
-  }catch{}
+  }catch(e){ console.error("Could not load settings:", e); }
 
-  function renderRecipe(r){
-    setHtml("recipe-box", `
-      <h2 class="text-xl font-bold mb-3">${r.title}</h2>
-      <div class="text-sm text-gray-600 mb-4">${(lang==="ar"?"حصص":"Servings")}: ${r.servings} • ${(lang==="ar"?"الوقت":"Time")}: ${r.total_time_min} min</div>
-      <div class="mb-3">
-        <div class="font-semibold mb-1">${(lang==="ar"?"المكونات":"Ingredients")}</div>
-        <ul class="list-disc pr-6">${r.ingredients.map(i=>`<li>${i}</li>`).join("")}</ul>
-      </div>
-      <div class="mb-3">
-        <div class="font-semibold mb-1">${(lang==="ar"?"الخطوات":"Steps")}</div>
-        <ol class="list-decimal pr-6">${r.steps.map(i=>`<li>${i}</li>`).join("")}</ol>
-      </div>
-      <pre class="bg-gray-50 border rounded-xl p-3 overflow-x-auto text-xs">${safeJSON(r)}</pre>
-    `);
-  }
-
-  async function loadLast(){
-    try{
-      alertBox(t.loading);
-      const email = localStorage.getItem("user_email");
-      const r = await fetch(`/.netlify/functions/userState?email=${encodeURIComponent(email)}`, {
-        headers: { "x-auth-token": localStorage.getItem("auth_token")||"", "x-session-nonce": localStorage.getItem("session_nonce")||"" }
-      });
-      const jr = await r.json();
-      alertBox("");
-      if(jr?.ok && jr?.last) renderRecipe(jr.last);
-    }catch(e){ alertBox(""); }
-  }
-  if(btnLast) btnLast.onclick = loadLast;
-
-  if(btnCopy) btnCopy.onclick = () => {
-    const pre = qs("#recipe-box pre");
-    if(pre){ navigator.clipboard.writeText(pre.textContent||""); alertBox(t.copied); setTimeout(()=>alertBox(""), 1200); }
-  };
+  // دالة تحميل الوصفة الأخيرة (لا توجد أزرار loadLast في app.html الجديد، لذا تم تجاهلها أو إلغاء ربطها)
+  // تم حذفها مؤقتاً لتجنب استدعاء دالة userState غير الموجودة
 
   if(btnGen) btnGen.onclick = async () => {
-    try{
-      alertBox(t.loading);
-      const payload = {
-        email: localStorage.getItem("user_email"),
-        diet: dietSel?.value || "balanced",
-        servings: Number(servings?.value || 1),
-        time: Number(time?.value || 20),
-        macros: macros?.value || "",
-        ingredients: ing?.value || ""
-      };
-      if(!payload.email){ alertBox(t.needLogin); return; }
+    // التحقق من صلاحية السعرات الحرارية
+    const calorieTargetEl = byId('calorieTarget');
+    if (!calorieTargetEl.value || +calorieTargetEl.value < 100 || +calorieTargetEl.value > 2000) {
+        errorMsg.textContent = T.invalid + ": يرجى إدخال قيمة سعرات حرارية صالحة بين 100 و 2000.";
+        show(errorMsg);
+        return;
+    }
 
+    try{
+      // تهيئة الواجهة
+      btnGen.disabled = true;
+      show(loadingIndicator);
+      hide(errorMsg);
+      hide(recipeOutput);
+      btnGen.innerHTML = `<div class="w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div> ${T.loading}`;
+      alertBox(T.loading);
+
+      const payload = getRecipeInput(lang);
+      
       const r = await fetch("/.netlify/functions/generateRecipe", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          // يجب أن يتم تخزين هذه الرموز في localStorage من صفحة login/auth
           "x-auth-token": localStorage.getItem("auth_token")||"",
           "x-session-nonce": localStorage.getItem("session_nonce")||""
         },
         body: JSON.stringify(payload)
       });
-
       const jr = await r.json();
-      alertBox("");
+      
+      // إيقاف التهيئة
+      btnGen.disabled = false;
+      hide(loadingIndicator);
+      btnGen.innerHTML = T.toggle === "EN" ? 'توليد الوصفة الآن' : 'Generate Recipe Now';
+      alertBox(""); // مسح رسالة التحميل
 
-      if(jr?.ok && jr?.recipe){
-        renderRecipe(jr.recipe);
-      }else{
-        // NEW: show clear diagnostics from server
-        const msg = jr?.error || t.friendlyErr;
-        const diag = jr?.error_detail || jr?.diagnostics || jr;
-        alertBox(msg, diag);
+      // الخادم المُحدَّث يُعيد دائمًا recipe حتى عند فشل Gemini (هذا هو المنطق في generateRecipe.js)
+      if(jr?.ok && jr?.recipe){ 
+        // تحقق من وجود رسالة ملاحظة (note) من الخادم (رسالة فشل صديقة)
+        if(jr.note) {
+          errorMsg.textContent = jr.note;
+          show(errorMsg);
+        }
+        renderRecipe(jr.recipe, lang); 
+      }
+      else{
+        // في حال فشل الاتصال بالدالة الخلفية أو الخطأ غير المتوقع
+        errorMsg.textContent = jr?.error || T.friendlyErr;
+        show(errorMsg);
       }
     }catch(e){
-      alertBox(t.friendlyErr, String(e?.message||e));
+      console.error("Fetch error:", e);
+      errorMsg.textContent = T.friendlyErr;
+      show(errorMsg);
+      // إيقاف التهيئة عند الفشل
+      btnGen.disabled = false;
+      hide(loadingIndicator);
+      btnGen.innerHTML = T.toggle === "EN" ? 'توليد الوصفة الآن' : 'Generate Recipe Now';
+      alertBox("");
     }
   };
-
-  loadLast();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  if(location.pathname.endsWith("/app.html")) return initAppPage();
+  // يفترض أن هذا الملف يُستخدم لصفحة app.html
+  initAppPage();
 });

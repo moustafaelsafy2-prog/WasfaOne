@@ -4,35 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>مُنشئ الوصفات بالذكاء الاصطناعي</title>
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=Cairo:wght@200..1000&display=swap');
-        body { font-family: 'Cairo','Inter',sans-serif; background:#f7f7f9; min-height:100vh; overflow-x:hidden; }
-        .recipe-card{ box-shadow:0 10px 30px rgba(0,0,0,.08); transition:transform .3s; padding-bottom:2rem;}
-        .recipe-card:hover{ transform:translateY(-2px);}
-        .ingredient-list li{ position:relative; padding-right:1.5rem; line-height:1.8; margin-bottom:.75rem; font-size:1rem;}
-        .ingredient-list li::before{ content:'•'; position:absolute; right:0; color:#ef4444; font-weight:bold;}
-        .prep-step{ counter-increment:step-counter; margin-top:1.5rem; padding-bottom:1rem; border-bottom:1px solid #f3f4f6;}
-        .prep-step:last-child{ border-bottom:none;}
-        .prep-step .step-title{ font-size:1.125rem; font-weight:700; color:#1f2937; margin-bottom:.5rem; display:flex; align-items:center;}
-        .prep-step .step-title::before{ content:counter(step-counter) ". "; color:#ef4444; font-size:1.25rem; font-weight:800; margin-left:.5rem;}
-        .loader{ border-top-color:#ef4444; animation:spinner 1.5s linear infinite;}
-        @keyframes spinner{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
-        select,input[type="number"],input[type="text"]{ min-height:48px;}
-        @media (max-width:1023px){ .recipe-card .grid{display:flex; flex-direction:column} .recipe-card .order-1{order:1} .recipe-card .order-2{order:2}}
-        .json-block{ direction:ltr!important; text-align:left!important; unicode-bidi:plaintext; font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace; white-space:pre;}
+        body {
+            font-family: 'Cairo', 'Inter', sans-serif;
+            background-color: #f7f7f9;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .recipe-card { box-shadow: 0 10px 30px rgba(0,0,0,.08); transition: transform .3s; padding-bottom: 2rem; }
+        .recipe-card:hover { transform: translateY(-2px); }
+
+        /* تعديلات على عرض الخطوات والمكونات لتناسب app.js الجديد */
+        .ingredient-list li { position: relative; padding-right: 1.5rem; line-height: 1.8; margin-bottom: .75rem; font-size: 1rem; }
+        .ingredient-list li::before { content: '•'; position: absolute; right: 0; color: #ef4444; font-weight: bold; }
+
+        .prep-step { counter-increment: step-counter; margin-top: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #f3f4f6; }
+        .prep-step:last-child { border-bottom: none; }
+        .prep-step .step-title { font-size: 1.125rem; font-weight: 700; color: #1f2937; margin-bottom: .5rem; display: flex; align-items: center; }
+        .prep-step .step-title::before { content: counter(step-counter) ". "; color: #ef4444; font-size: 1.25rem; font-weight: 800; margin-left: .5rem; }
+        /* نهاية التعديلات */
+
+        .loader { border-top-color: #ef4444; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg) } 100% { transform: rotate(360deg) } }
+
+        select, input[type="number"], input[type="text"] { min-height: 48px; }
+
+        @media (max-width: 1023px) {
+          .recipe-card .grid { display: flex; flex-direction: column; }
+          .recipe-card .order-1 { order: 1; }
+          .recipe-card .order-2 { order: 2; }
+        }
+
+        /* --- إصلاح عرض JSON في صفحة RTL --- */
+        .json-block {
+          direction: ltr !important;
+          text-align: left !important;
+          unicode-bidi: plaintext;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+          white-space: pre;
+        }
     </style>
 </head>
 <body class="p-4 md:p-8">
     <div class="max-w-5xl mx-auto container-wrapper">
+        <!-- Header -->
         <header class="text-center mb-8">
             <h1 class="text-4xl font-extrabold text-red-600 mb-2">مُولِّد الوصفات الذكي</h1>
             <p class="text-gray-600 text-lg">اختر تفضيلاتك الغذائية ودع الذكاء الاصطناعي يُحضّر لك وجبتك المثالية.</p>
+            <!-- رسالة حالة عامة (لرسائل التحميل والأخطاء العامة) -->
+            <p id="statusMsg" class="mt-4 text-center text-sm font-semibold text-blue-600 hidden"></p>
         </header>
 
+        <!-- Input Form -->
         <div class="bg-white p-6 md:p-8 rounded-xl shadow-lg mb-8">
             <h2 class="text-2xl font-bold text-gray-800 mb-6 border-b pb-3 border-gray-100">حدد مواصفات الوجبة والنظام الغذائي</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- تم الاحتفاظ بالـ IDs لتطابق المنطق في app.js الجديد -->
                 <div>
                     <label for="mealType" class="block text-sm font-medium text-gray-700 mb-1">نوع الوجبة</label>
                     <select id="mealType" class="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
@@ -57,6 +88,7 @@
                     </select>
                 </div>
                 <div>
+                    <!-- ID: dietType -->
                     <label for="dietType" class="block text-sm font-medium text-gray-700 mb-1">النظام الغذائي المتبع</label>
                     <select id="dietType" class="mt-1 block w-full pl-3 pr-10 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
                         <option value="عادي/متوازن" selected>عادي / متوازن</option>
@@ -70,6 +102,7 @@
                     </select>
                 </div>
                 <div>
+                    <!-- ID: calorieTarget -->
                     <label for="calorieTarget" class="block text-sm font-medium text-gray-700 mb-1">السعرات الحرارية المطلوبة (لكل حصة)</label>
                     <input type="number" id="calorieTarget" min="100" max="2000" step="50" placeholder="مثال: 500 سعرة" value="550" class="mt-1 block w-full px-3 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border">
                 </div>
@@ -99,13 +132,18 @@
                 <input type="text" id="focus" placeholder="مثل: دجاج و خضار، طبق خفيف من السمك..." class="mt-1 block w-full px-3 py-3 text-base border-gray-300 focus:outline-none focus:ring-red-500 focus:border-red-500 sm:text-sm rounded-md shadow-sm border" value="وصفة دجاج صحية غنية بالبروتين">
             </div>
 
+            <!-- ID: generateBtn -->
             <button id="generateBtn" class="mt-6 w-full flex justify-center items-center py-3 px-4 border border-transparent text-lg font-medium rounded-xl text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out shadow-md hover:shadow-lg disabled:bg-red-400">
+                <!-- ID: loadingIndicator -->
                 <div id="loadingIndicator" class="hidden w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div>
                 توليد الوصفة الآن
             </button>
+            <!-- ID: errorMsg -->
             <p id="errorMsg" class="mt-3 text-center text-sm text-red-500 hidden">حدث خطأ. يرجى المحاولة مرة أخرى.</p>
         </div>
 
+        <!-- Output Card (Recipe Display) -->
+        <!-- ID: recipeOutput -->
         <div id="recipeOutput" class="recipe-card bg-white p-6 md:p-8 rounded-xl border border-gray-200 hidden">
             <div class="text-center mb-6">
                 <h2 id="recipeTitle" class="text-3xl font-extrabold text-gray-900 mb-2"></h2>
@@ -144,286 +182,29 @@
                             </div>
                         </div>
                     </div>
+
                     <div>
                         <h3 class="text-2xl font-bold text-gray-800 mb-4 border-b pb-2 border-gray-100">المكونات:</h3>
+                        <!-- ID: ingredientsList -->
                         <ul id="ingredientsList" class="ingredient-list pr-4 text-gray-700"></ul>
                     </div>
                 </div>
 
                 <div class="lg:col-span-2 order-2">
                     <h3 class="text-2xl font-extrabold text-gray-900 mb-6 border-b pb-2 border-gray-100">طريقة التحضير:</h3>
+                    <!-- ID: preparationSteps -->
                     <div id="preparationSteps" class="space-y-4"></div>
 
+                    <!-- JSON RAW OUTPUT (بنفس البنية والتنسيق) -->
                     <h3 class="text-2xl font-bold text-gray-800 mt-8 mb-3 border-b pb-2 border-gray-100">JSON (خام):</h3>
+                    <!-- ID: rawJson -->
                     <pre id="rawJson" class="json-block bg-gray-50 border border-gray-200 rounded-xl p-4 text-sm overflow-x-auto"></pre>
                 </div>
             </div>
         </div>
     </div>
 
-    <script type="module">
-        // الحصول على المفتاح من النافذة أو باراميتر الاستعلام
-        const API_KEY_FROM_WINDOW = (typeof window !== "undefined" && window.GEMINI_API_KEY) ? String(window.GEMINI_API_KEY) : "";
-        const API_KEY_FROM_QUERY = new URLSearchParams(location.search).get("key") || "";
-        const API_KEY = (API_KEY_FROM_WINDOW || API_KEY_FROM_QUERY || "").trim();
-
-        // قائمة كاملة بإصدارات Gemini (تُجرَّب بالترتيب)
-        const GEMINI_MODELS = [
-            "gemini-2.5-pro-001",
-            "gemini-2.5-flash-001",
-            "gemini-2.5-flash-preview-05-20",
-            "gemini-2.0-pro-exp",
-            "gemini-2.0-pro",
-            "gemini-2.0-flash-exp",
-            "gemini-2.0-flash",
-            "gemini-1.5-pro-latest",
-            "gemini-1.5-pro",
-            "gemini-1.5-flash-latest",
-            "gemini-1.5-flash"
-        ];
-
-        // عناصر DOM
-        const mealTypeEl = document.getElementById('mealType');
-        const cuisineEl = document.getElementById('cuisine');
-        const dietTypeEl = document.getElementById('dietType');
-        const calorieTargetEl = document.getElementById('calorieTarget');
-        const commonAllergyEl = document.getElementById('commonAllergy');
-        const customAllergyEl = document.getElementById('customAllergy');
-        const focusEl = document.getElementById('focus');
-        const generateBtn = document.getElementById('generateBtn');
-        const loadingIndicator = document.getElementById('loadingIndicator');
-        const errorMsg = document.getElementById('errorMsg');
-        const recipeOutput = document.getElementById('recipeOutput');
-
-        const recipeTitle = document.getElementById('recipeTitle');
-        const timeValue = document.getElementById('timeValue');
-        const servingsValue = document.getElementById('servingsValue');
-        const caloriesValue = document.getElementById('caloriesValue');
-        const proteinValue = document.getElementById('proteinValue');
-        const carbsValue = document.getElementById('carbsValue');
-        const fatsValue = document.getElementById('fatsValue');
-        const ingredientsList = document.getElementById('ingredientsList');
-        const preparationSteps = document.getElementById('preparationSteps');
-        const rawJson = document.getElementById('rawJson');
-
-        function buildPrompts({mealType, cuisine, dietType, calorieTarget, commonAllergy, customAllergy, focus}) {
-            const systemPrompt =
-`أنت شيف خبير في التغذية. مهمتك هي إنشاء وصفة طعام كاملة ومفصلة باللغة العربية بناءً على طلب المستخدم.
-يجب أن تتضمن الوصفة اسم الوجبة، وقت التحضير، عدد الحصص، قائمة المكونات، طريقة التحضير خطوة بخطوة،
-والماكروز (السعرات الحرارية، البروتين، الكربوهيدرات، الدهون).
-الرد يجب أن يكون بتنسيق JSON فقط وبهذه البنية الحرفية:
-{
-  "title": "STRING",
-  "time": "STRING",
-  "servings": "STRING",
-  "macros": { "calories": "STRING", "protein": "STRING", "carbs": "STRING", "fats": "STRING" },
-  "ingredients": [ { "name": "STRING", "quantity": "STRING" } ],
-  "preparation": [ { "title": "STRING", "instruction": "STRING" } ]
-}
-ممنوع أي نصوص خارج JSON.`;
-
-            const dietConstraints =
-(dietType === "نظام د. محمد سعيد") ?
-`**يجب أن تلتزم بدقة بمتطلبات نظام د. محمد سعيد (نظام كيتوني معدّل):**
-- خالية تماماً من الكربوهيدرات المرتفعة والسكريات.
-- خالية تماماً من الجلوتين، اللاكتوز، الليكتين، والبقوليات.
-- خالية تماماً من الزيوت المهدرجة.
-- مسموح فقط بالدهون الصحية (مثل زيت الزيتون، الأفوكادو).
-- مسموح فقط بالأجبان الدسمة من أصل حيواني والزبادي اليوناني.` :
-`تناسب النظام الغذائي "${dietType}".`;
-
-            const allergies = [];
-            if (commonAllergy && commonAllergy !== "لا يوجد") allergies.push(commonAllergy);
-            if (customAllergy) allergies.push(customAllergy);
-            const allergyConstraint = allergies.length ? `**ويجب أن تكون خالية تمامًا من (حساسية):** ${allergies.join(' و ')}.` : "";
-
-            const userQuery =
-`أريد وصفة لوجبة "${mealType}"، من المطبخ "${cuisine}".
-${dietConstraints}
-**يجب أن تكون السعرات الحرارية للوجبة الواحدة حوالي ${calorieTarget} سعرة حرارية.**
-${allergyConstraint}
-مع التركيز الإضافي على: "${focus}".
-
-**ملحوظة للمكونات:** استخدم وحدات الميزان (جرام/مل) في "quantity"، ويمكن إضافة القياس المعتاد بين قوسين مثل: "250 جرام (1 كوب)".`;
-            return { systemPrompt, userQuery };
-        }
-
-        function buildPayload({systemPrompt, userQuery}){
-            return {
-                contents: [{ parts: [{ text: userQuery }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: {
-                    temperature: 0, topP: 1, topK: 1, maxOutputTokens: 1024,
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            title: { type: "STRING" },
-                            time: { type: "STRING" },
-                            servings: { type: "STRING" },
-                            macros: { type: "OBJECT", properties: {
-                                calories: { type: "STRING" }, protein: { type: "STRING" }, carbs: { type: "STRING" }, fats: { type: "STRING" }
-                            }},
-                            ingredients: { type: "ARRAY", items: { type: "OBJECT", properties: {
-                                name:{type:"STRING"}, quantity:{type:"STRING"} } } },
-                            preparation: { type: "ARRAY", items: { type: "OBJECT", properties: {
-                                title:{type:"STRING"}, instruction:{type:"STRING"} } } }
-                        },
-                        required: ["title","time","servings","macros","ingredients","preparation"]
-                    }
-                }
-            };
-        }
-
-        // --- الاتصال المباشر بكل موديلات Gemini عند توفر المفتاح ---
-        async function callModel(model, payload, apiKey){
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-            const started = performance.now();
-            const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
-            const elapsed = Math.round(performance.now() - started);
-            let body = null; try{ body = await r.json(); }catch{}
-            const text = body?.candidates?.[0]?.content?.parts?.map(p=>p.text).join("") || "";
-            return { ok: r.ok && !!text, status: r.status, elapsed, body, text };
-        }
-        async function tryAllModels(payload, apiKey){
-            const diagnostics = [];
-            for(const model of GEMINI_MODELS){
-                const res = await callModel(model, payload, apiKey);
-                diagnostics.push({ model, http_status:res.status, elapsed_ms:res.elapsed, api_error:res.body?.error || null, snippet: res.text? res.text.slice(0,140):null });
-                if(res.ok){
-                    // تنظيف JSON لو ملفوف بعلامات
-                    let s = res.text.trim().replace(/^```json\s*/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-                    const first = s.indexOf("{"), last = s.lastIndexOf("}");
-                    if(first!==-1 && last!==-1) s = s.slice(first,last+1);
-                    try{ return { ok:true, data: JSON.parse(s), usedModel: model, diagnostics }; }catch(e){ diagnostics[diagnostics.length-1].parse_error=String(e); }
-                }else if(res.status===429){ await new Promise(r=>setTimeout(r,1200)); }
-            }
-            return { ok:false, diagnostics };
-        }
-
-        // --- مسار بديل تلقائي: استعمال وظيفة السيرفر عند غياب المفتاح ---
-        async function generateViaServer(form){
-            // نبعث نفس المعلومات التي لديك ولكن للـ Function
-            const payload = {
-                email: localStorage.getItem("user_email") || "user@example.com",
-                diet: form.dietType || "balanced",
-                servings: 1,
-                time: 20,
-                macros: `${form.calorieTarget} kcal target`,
-                ingredients: "" // نتركها فارغة؛ السيرفر سيتولّى التوليد
-            };
-            const r = await fetch("/.netlify/functions/generateRecipe", {
-                method:"POST",
-                headers:{
-                    "Content-Type":"application/json",
-                    "x-auth-token": localStorage.getItem("auth_token")||"",
-                    "x-session-nonce": localStorage.getItem("session_nonce")||""
-                },
-                body: JSON.stringify(payload)
-            });
-            const jr = await r.json();
-
-            if(!(jr?.ok) || !jr?.recipe){
-                throw new Error(jr?.error || "generateRecipe failed");
-            }
-
-            // تحويل مخطط السيرفر إلى نفس بنية الواجهة (بدون تغيير أسماء الحقول المطلوبة):
-            const rec = jr.recipe; // {title, servings:number, total_time_min:number, macros{protein_g,...}, ingredients:string[], steps:string[]}
-            return {
-                title: String(rec.title||"وصفة"),
-                time: `جاهز في ${rec.total_time_min||20} دقيقة`,
-                servings: `يخدم ${rec.servings||1} شخصًا`,
-                macros: {
-                    calories: String(rec.macros?.calories ?? ""),
-                    protein: String(rec.macros?.protein_g ?? ""),
-                    carbs:   String(rec.macros?.carbs_g ?? ""),
-                    fats:    String(rec.macros?.fat_g ?? "")
-                },
-                ingredients: (Array.isArray(rec.ingredients)? rec.ingredients:[]).map(name => ({ name, quantity: "" })),
-                preparation: (Array.isArray(rec.steps)? rec.steps:[]).map((instruction,i)=>({ title:`الخطوة ${i+1}`, instruction }))
-            };
-        }
-
-        function renderRecipe(data){
-            recipeTitle.textContent = data.title;
-            timeValue.textContent = data.time;
-            servingsValue.textContent = data.servings;
-            caloriesValue.textContent = `${data.macros.calories}`;
-            proteinValue.textContent = `${data.macros.protein} جم`;
-            carbsValue.textContent = `${data.macros.carbs} جم`;
-            fatsValue.textContent = `${data.macros.fats} جم`;
-
-            ingredientsList.innerHTML = '';
-            (data.ingredients||[]).forEach(ing=>{
-                const li = document.createElement('li');
-                li.innerHTML = `<span class="font-bold text-gray-800">${ing.name}</span> <span class="text-gray-500 text-sm mr-2">${ing.quantity?`(${ing.quantity})`:''}</span>`;
-                ingredientsList.appendChild(li);
-            });
-
-            preparationSteps.innerHTML = '';
-            (data.preparation||[]).forEach(step=>{
-                const div = document.createElement('div');
-                div.className = 'prep-step';
-                div.innerHTML = `<div class="step-title">${step.title}</div><p class="text-gray-600 pr-0 text-base">${step.instruction}</p>`;
-                preparationSteps.appendChild(div);
-            });
-
-            rawJson.textContent = JSON.stringify(data, null, 2);
-            recipeOutput.classList.remove('hidden');
-            setTimeout(()=>window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}),100);
-        }
-
-        generateBtn.addEventListener('click', async () => {
-            const kcal = +calorieTargetEl.value;
-            if (!kcal || kcal < 100 || kcal > 2000) {
-                errorMsg.textContent = "يرجى إدخال قيمة سعرات حرارية صالحة بين 100 و 2000.";
-                errorMsg.classList.remove('hidden');
-                return;
-            }
-            generateBtn.disabled = true;
-            loadingIndicator.classList.remove('hidden');
-            errorMsg.classList.add('hidden');
-            recipeOutput.classList.add('hidden');
-            generateBtn.innerHTML = '<div class="w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div> جارٍ التوليد...';
-
-            try{
-                const prompts = buildPrompts({
-                    mealType: mealTypeEl.value,
-                    cuisine: cuisineEl.value,
-                    dietType: dietTypeEl.value,
-                    calorieTarget: calorieTargetEl.value,
-                    commonAllergy: commonAllergyEl.value,
-                    customAllergy: customAllergyEl.value.trim(),
-                    focus: (focusEl.value||"").trim() || "مُبتكرة وعصرية"
-                });
-
-                if(API_KEY){
-                    // المسار الأساسي: تجربة كل إصدارات Gemini
-                    const payload = buildPayload(prompts);
-                    const result = await tryAllModels(payload, API_KEY);
-                    if(result.ok){ renderRecipe(result.data); }
-                    else{
-                        const details = JSON.stringify({ reason:"No valid JSON from any Gemini model", diagnostics: result.diagnostics }, null, 2);
-                        errorMsg.innerHTML = `فشلت عملية إنشاء الوصفة بعد عدة محاولات.<br><pre class="json-block bg-yellow-50 border border-yellow-200 rounded-xl p-3 mt-2 text-xs overflow-x-auto">${details}</pre>`;
-                        errorMsg.classList.remove('hidden');
-                    }
-                }else{
-                    // المسار البديل التلقائي: وظيفة السيرفر (بدون أي إعداد يدوي من المستخدم)
-                    const mapped = await generateViaServer({
-                        dietType: dietTypeEl.value,
-                        calorieTarget: calorieTargetEl.value
-                    });
-                    renderRecipe(mapped);
-                }
-            }catch(err){
-                errorMsg.innerHTML = `حدث خطأ غير متوقع.<br><pre class="json-block bg-red-50 border border-red-200 rounded-xl p-3 mt-2 text-xs overflow-x-auto">${String(err && err.message || err)}</pre>`;
-                errorMsg.classList.remove('hidden');
-            }finally{
-                generateBtn.disabled = false;
-                loadingIndicator.classList.add('hidden');
-                generateBtn.textContent = 'توليد الوصفة الآن';
-            }
-        });
-    </script>
+    <!-- استيراد ملف app.js الخاص بك -->
+    <script src="app.js"></script>
 </body>
 </html>

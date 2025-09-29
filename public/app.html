@@ -349,6 +349,20 @@
       resetView(); generate();
     });
   </script>
+  <script>
+  (function(){
+    try{
+      const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
+      if(!sess || !sess.auth_token || !sess.session_nonce){
+        // الرجوع لتسجيل الدخول لو لا توجد جلسة
+        window.location.replace("login.html");
+      }
+    }catch(_){
+      window.location.replace("login.html");
+    }
+  })();
+</script>
+
 </body>
 </html>
 

@@ -1,270 +1,214 @@
-// Netlify Function: generateRecipe
-// هذا الإصدار مُعدَّل لأغراض التشخيص: تم تعطيل المصادقة وحفظ التاريخ (GitHub).
+/* WasfaOne Frontend - Unified Logic (Revised for Safe DOM Access) */
 
-const OWNER = process.env.GITHUB_REPO_OWNER; // موجود فقط للتصريح عن المتغير
-const REPO = process.env.GITHUB_REPO_NAME;   // موجود فقط للتصريح عن المتغير
-const GH_TOKEN = process.env.GITHUB_TOKEN;   // موجود فقط للتصريح عن المتغير
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || ""; 
+// تحديد نقطة النهاية للاتصال بالدالة الخلفية (Netlify Function)
+const API_ENDPOINT = "/.netlify/functions/generateRecipe";
 
-const GH_API = "https://api.github.com"; // لم يعد يُستخدم
+// الإعلان عن المتغيرات العليا (لكن لن يتم تعيين قيمها إلا في setupEventListeners)
+let mealTypeEl, cuisineEl, dietTypeEl, calorieTargetEl, commonAllergyEl, customAllergyEl, focusEl;
+let generateBtn, loadingIndicator, errorMsg, statusMsg, recipeOutput;
+let recipeTitle, timeValue, servingsValue, caloriesValue, proteinValue, carbsValue, fatsValue, ingredientsList, preparationSteps, rawJson;
 
-// تم تبسيط دالة المصادقة للسماح بالوصول دائماً في وضع التشخيص
-async function auth(event){
-  const email = "guest_for_diagnosis@example.com";
-  // لن نستخدم أي منطق GitHub هنا
-  return { ok:true, email, user: {} }; 
+// 1. Helper لعرض حالة النظام أو الأخطاء
+function showStatus(message, isError = false) {
+    if (!statusMsg || !errorMsg) return; // حماية إضافية
+    statusMsg.textContent = message;
+    statusMsg.classList.remove('hidden');
+    if (isError) {
+        statusMsg.classList.remove('text-blue-600');
+        statusMsg.classList.add('text-red-600');
+        errorMsg.textContent = message;
+        errorMsg.classList.remove('hidden');
+    } else {
+        statusMsg.classList.remove('text-red-600');
+        statusMsg.classList.add('text-blue-600');
+        errorMsg.classList.add('hidden');
+    }
 }
 
-// تم تعطيل جميع دوال GitHub
-
-function sanitizeEmail(email){ return (email||"").toLowerCase().replace(/[^a-z0-9]+/g,"_"); }
-
-function stableHash(obj){
-  const s = JSON.stringify(obj, Object.keys(obj).sort());
-  let h = 5381; for(let i=0;i<s.length;i++){ h=((h<<5)+h)+s.charCodeAt(i); h|=0; }
-  return (h>>>0).toString(16);
-}
-
-function validateRecipeSchema(rec){
-  const baseKeys = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
-  if(typeof rec!=="object" || rec===null) return { ok:false, error:"not_object" };
-  for(const k of baseKeys){ if(!(k in rec)) return { ok:false, error:`missing_${k}` }; }
-  if(typeof rec.title!=="string") return { ok:false, error:"title_type" };
-  if(typeof rec.servings!=="number") return { ok:false, error:"servings_type" };
-  if(typeof rec.total_time_min!=="number") return { ok:false, error:"time_type" };
-  if(!rec.macros || typeof rec.macros!=="object") return { ok:false, error:"macros_type" };
-  for(const m of ["protein_g","carbs_g","fat_g","calories"]){ if(typeof rec.macros[m] !== "number") return { ok:false, error:`macro_${m}` }; }
-  if(!Array.isArray(rec.ingredients) || rec.ingredients.some(x=>typeof x!=="string")) return { ok:false, error:"ingredients_type" };
-  if(!Array.isArray(rec.steps) || rec.steps.some(x=>typeof x!=="string")) return { ok:false, error:"steps_type" };
-  if(rec.lang!=="ar" && rec.lang!=="en") return { ok:false, error:"lang_invalid" };
-  return { ok:true };
-}
-
-function buildPrompt(input){
-  const { diet, servings, time, macros, ingredients } = input;
-  
-  let dietConstraints = `النظام الغذائي: ${diet}.`;
-  if (diet.includes("د. محمد سعيد")) {
-      dietConstraints = `
-        **يجب أن تلتزم بدقة بمتطلبات نظام د. محمد سعيد (نظام كيتوني معدّل):**
-        - خالية تماماً من الكربوهيدرات المرتفعة والسكريات.
-        - خالية تماماً من الجلوتين، اللاكتوز، الليكتين، البقوليات والزيوت المهدرجة.
-        - مسموح فقط بالدهون الصحية (مثل زيت الزيتون، الأفوكادو).
-        - مسموح فقط بالأجبان الدسمة من أصل حيواني والزبادي اليوناني.
-      `;
-  }
-  
-  const ingredientsConstraint = ingredients || "بدون";
-  const macrosConstraint = macros || "بدون";
-  
-  return `أنت مساعد طاهٍ محترف. أعد وصفة طعام باللغة العربية فقط وبنية JSON STRICT دون أي شرح خارج JSON.
-  
-المتطلبات الحتمية:
-- نفس البنية دائمًا بالمفاتيح: title (نص), servings (رقم صحيح), total_time_min (رقم صحيح), macros:{protein_g (رقم صحيح),carbs_g (رقم صحيح),fat_g (رقم صحيح),calories (رقم صحيح)}, ingredients[] (مصفوفة نصوص), steps[] (مصفوفة نصوص), lang (ar).
-- يجب أن تكون جميع قيَم الماكروز والسعرات الحرارية والوقت والحصص أرقامًا صحيحة.
-- lang="ar".
-- ${dietConstraints} عدد الحصص: ${servings}. الوقت الأقصى (للتوليد التلقائي): ${time} دقيقة.
-- يجب أن تكون المكونات المتوفرة (أو القيود المطلوبة): ${ingredientsConstraint}.
-- يجب أن تكون الماكروز المستهدفة: ${macrosConstraint}.
-- **الأهم:** يجب أن تكون المكونات في مصفوفة 'ingredients' مفصلة بكميات وأسماء مثل: "150 جرام (كوب واحد) دقيق لوز"
-
-أعِد JSON فقط بلا شروحات ولا Markdown.`;
-}
-
-async function callGeminiOnce(url, body){
-  const maxRetries = 3;
-  for (let i = 0; i < maxRetries; i++) {
-      try {
-          const r = await fetch(url, { 
-              method:"POST", 
-              headers:{ "Content-Type":"application/json" }, 
-              body: JSON.stringify(body) 
-          });
-          
-          const jr = await r.json();
-
-          if(!r.ok) {
-              const errorMessage = jr.error?.message || `HTTP Error ${r.status}`;
-              if (r.status === 429 && i < maxRetries - 1) {
-                  const delay = Math.pow(2, i) * 1000 + Math.random()*1000;
-                  await new Promise(r => setTimeout(r, delay));
-                  continue;
-              }
-              // إرجاع كود الخطأ ورسالة الخطأ من API
-              return { ok:false, code:r.status, text:null, error: errorMessage };
-          }
-          
-          const text = (((jr.candidates||[])[0]||{}).content||{}).parts?.map(p=>p.text).join("") || "";
-          return { ok:true, code:200, text };
-
-      } catch (e) {
-          if (i < maxRetries - 1) {
-              const delay = Math.pow(2, i) * 1000 + Math.random()*1000;
-              await new Promise(r => setTimeout(r, delay));
-              continue;
-          }
-          return { ok:false, code:500, text: null, error: e.message };
-      }
-  }
-}
-
-async function callGemini(prompt){
-  if(!GEMINI_API_KEY) return { ok:false, reason:"no_key", code: 401 };
-
-  const schema = {
-      type: "OBJECT",
-      properties: {
-          title: { type: "STRING" },
-          servings: { type: "NUMBER" },
-          total_time_min: { type: "NUMBER" },
-          macros: {
-              type: "OBJECT",
-              properties: {
-                  protein_g: { type: "NUMBER" },
-                  carbs_g: { type: "NUMBER" },
-                  fat_g: { type: "NUMBER" },
-                  calories: { type: "NUMBER" }
-              },
-              required: ["protein_g", "carbs_g", "fat_g", "calories"]
-          },
-          ingredients: { type: "ARRAY", items: { type: "STRING" } },
-          steps: { type: "ARRAY", items: { type: "STRING" } },
-          lang: { type: "STRING" }
-      },
-      required: ["title", "servings", "total_time_min", "macros", "ingredients", "steps", "lang"]
-  };
-
-  const body = {
-    contents: [{ role:"user", parts:[{ text: prompt }]}],
-    generationConfig: { 
-        temperature: 0.7,
-        topP: 1, 
-        topK: 1, 
-        maxOutputTokens: 2048,
-        responseMimeType: "application/json",
-        responseSchema: schema
-    },
-    safetySettings: []
-  };
-
-  const modelName = "gemini-2.5-flash-preview-05-20";
-  const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-  
-  let aiRes = await callGeminiOnce(apiUrl, body);
-
-  if (!aiRes.ok) { return aiRes; }
-  
-  return aiRes;
-}
-
-function tryParseJsonFromText(t){
-  if(!t) return null;
-  let s = t.trim().replace(/^```json\s*/i,'').replace(/```$/,'').trim();
-  const first = s.indexOf("{"); const last = s.lastIndexOf("}");
-  if(first !== -1 && last !== -1) s = s.slice(first, last+1);
-  try{ return JSON.parse(s); }catch(e){ 
-    console.error("JSON Parse failed:", e, "Text:", t);
-    return null; 
-  }
-}
-
-function fallbackRecipe(input){
-  const s = Number(input.servings)||1;
-  const t = 30;
-  const constraints = (input.ingredients? String(input.ingredients).split(/[،,]/).map(x=>x.trim()).filter(Boolean) : []);
-  const baseIng = constraints.length? constraints : ["صدر دجاج (200 جرام)","أرز أبيض مطبوخ (150 جرام)","بروكلي (100 جرام)","زيت زيتون (1 ملعقة صغيرة)","ملح","فلفل"];
-  const targetCaloriesMatch = (input.macros || "").match(/(\d+)\s*سعرة/);
-  const targetCalories = targetCaloriesMatch ? Number(targetCaloriesMatch[1]) : 600;
-
-  return {
-    title: `وجبة ${input.diet||"متوازنة"} سريعة (وصفة افتراضية)`,
-    servings: s,
-    total_time_min: t,
-    macros: { protein_g: Math.round(targetCalories*0.35/4/s), carbs_g: Math.round(targetCalories*0.35/4/s), fat_g: Math.round(targetCalories*0.3/9/s), calories: targetCalories },
-    ingredients: baseIng,
-    steps: [
-      "قم بتتبيل المكونات الرئيسية (مثل الدجاج) بالملح والفلفل.",
-      "اشوِ البروتين أو اطهِه حتى النضج التام.",
-      "سخّن الأرز والخضار وقدم الوجبة كاملة.",
-      "قسّم الوجبة إلى حصص متساوية (${s} حصص)."
-    ],
-    lang: "ar"
-  };
-}
-
-exports.handler = async (event) => {
-  try{
-    if(event.httpMethod === "OPTIONS") return { statusCode: 204 };
-    if(event.httpMethod !== "POST") return { statusCode: 405, body: JSON.stringify({ ok:false, error:"method_not_allowed" }) };
-
-    // Auth (معطلة حالياً لأغراض التشخيص)
-    const a = await auth(event);
+// 2. دالة العرض - تتوقع نفس بنية JSON التي تعيدها الدالة الخلفية
+function renderRecipe(data) {
+    // يجب أن تكون البنية كما هي متوقعة من generateRecipe.js
+    if (!data || !data.title || !data.macros || !data.ingredients || !data.steps) {
+        showStatus("فشل في تحليل البنية. راجع سجلات الخادم.", true);
+        return;
+    }
     
-    // Input
-    const body = JSON.parse(event.body||"{}");
-    const input = {
-      email: a.email,
-      diet: String(body.diet||"عادي/متوازن"), 
-      servings: Number(body.servings||1), 
-      time: Number(body.time||30), 
-      macros: String(body.macros||"500 سعرة حرارية"), 
-      ingredients: String(body.ingredients||"وصفة متوازنة") 
+    errorMsg.classList.add('hidden');
+    
+    recipeTitle.textContent = data.title;
+    timeValue.textContent = `${data.total_time_min} دقيقة`;
+    servingsValue.textContent = `${data.servings} حصة`;
+
+    // عرض الماكروز
+    caloriesValue.textContent = `${data.macros.calories || 'N/A'}`;
+    proteinValue.textContent = `${data.macros.protein_g || 'N/A'} جم`;
+    carbsValue.textContent = `${data.macros.carbs_g || 'N/A'} جم`;
+    fatsValue.textContent = `${data.macros.fat_g || 'N/A'} جم`;
+
+    // عرض المكونات
+    ingredientsList.innerHTML = '';
+    data.ingredients.forEach(ingredient => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="text-gray-700">${ingredient}</span>`;
+        ingredientsList.appendChild(li);
+    });
+
+    // عرض الخطوات
+    preparationSteps.innerHTML = '';
+    data.steps.forEach((step, index) => {
+        const div = document.createElement('div');
+        div.className = 'prep-step';
+        div.innerHTML = `
+            <div class="step-title">${index + 1}. ${step.length > 50 ? step.substring(0, 50) + '...' : step}</div> 
+            <p class="text-gray-600 pr-0 text-base">${step}</p>
+        `;
+        preparationSteps.appendChild(div);
+    });
+
+    rawJson.textContent = JSON.stringify(data, null, 2);
+
+    recipeOutput.classList.remove('hidden');
+    setTimeout(() => { 
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }); 
+    }, 100);
+}
+
+// 3. دالة الاتصال بالدالة الخلفية
+async function fetchRecipe() {
+    // جمع المدخلات
+    const mealType = mealTypeEl.value;
+    const cuisine = cuisineEl.value;
+    const dietType = dietTypeEl.value;
+    const calorieTarget = calorieTargetEl.value;
+    const commonAllergy = commonAllergyEl.value;
+    const customAllergy = customAllergyEl.value.trim();
+    const focus = focusEl.value.trim() || "مُبتكرة وعصرية";
+    
+    // تجميع قيود النظام الغذائي والحساسيات لإرسالها كجزء من input.diet و input.ingredients
+    let dietConstraints = "";
+    if (dietType === "نظام د. محمد سعيد") {
+        dietConstraints = ` (${dietType}) يجب أن تكون خالية تماماً من الكربوهيدرات المرتفعة، السكريات، الجلوتين، اللاكتوز، الليكتين، البقوليات والزيوت المهدرجة. مسموح فقط بالدهون الصحية والأجبان الدسمة الحيوانية والزبادي اليوناني.`;
+    } else {
+        dietConstraints = ` (${dietType})`;
+    }
+
+    let allergyConstraint = "";
+    const allergies = [];
+    if (commonAllergy !== "لا يوجد") allergies.push(commonAllergy);
+    if (customAllergy) allergies.push(customAllergy);
+    if (allergies.length > 0) {
+        allergyConstraint = ` **خالية تمامًا من (حساسية):** ${allergies.join(' و ')}.`;
+    }
+
+    const ingredientsString = `الوجبة: ${mealType} - المطبخ: ${cuisine}. التركيز: ${focus}. ${allergyConstraint}`;
+    
+    const payload = {
+        diet: dietType + dietConstraints,
+        servings: 1, 
+        time: 30, 
+        macros: `${calorieTarget} سعرة حرارية`,
+        ingredients: ingredientsString
     };
+
+    try {
+        const r = await fetch(API_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            // ملاحظة: تم إزالة x-auth-token و x-session-nonce ليتوافق مع generateRecipe.js إصدار التشخيص
+            body: JSON.stringify(payload)
+        });
+        
+        if (!r.ok && r.status !== 200) { 
+             throw new Error(`فشل الاتصال بالخادم: كود HTTP ${r.status}`);
+        }
+        
+        const jr = await r.json();
+        
+        if (jr.recipe) {
+             if (jr.note) {
+                 // عرض رسالة الخطأ الدقيقة من الدالة الخلفية (إذا كانت وصفة افتراضية بسبب فشل Gemini)
+                 showStatus(jr.note, true);
+             }
+             return jr.recipe;
+        } else {
+            // هذا الخطأ يجب أن يحدث فقط إذا لم يكن هناك وصفة ولا ملاحظة!
+            const errorNote = jr.error || "خطأ غير محدد من الخادم الخلفي (لم يتم إرجاع وصفة).";
+            throw new Error(errorNote);
+        }
+    } catch (error) {
+        if (error.message.includes("المفتاح (GEMINI_API_KEY) مفقود")) {
+             throw new Error("فشل الذكاء الاصطناعي: المفتاح السري (GEMINI_API_KEY) مفقود أو غير مهيأ في بيئة التشغيل الخلفية.");
+        }
+        throw new Error(`فشلت عملية إنشاء الوصفة بعد عدة محاولات. (خطأ الشبكة: ${error.message})`);
+    }
+}
+
+// 4. ربط الزر بالدالة - وتعيين العناصر هنا
+function setupEventListeners() {
+    // ----------------------------------------------------
+    // تعيين قيم المتغيرات بعد التأكد من تحميل DOM
+    // ----------------------------------------------------
+    mealTypeEl = document.getElementById('mealType');
+    cuisineEl = document.getElementById('cuisine');
+    dietTypeEl = document.getElementById('dietType');
+    calorieTargetEl = document.getElementById('calorieTarget');
+    commonAllergyEl = document.getElementById('commonAllergy');
+    customAllergyEl = document.getElementById('customAllergy');
+    focusEl = document.getElementById('focus');
+
+    generateBtn = document.getElementById('generateBtn');
+    loadingIndicator = document.getElementById('loadingIndicator');
+    errorMsg = document.getElementById('errorMsg');
+    statusMsg = document.getElementById('statusMsg'); 
+    recipeOutput = document.getElementById('recipeOutput');
+
+    recipeTitle = document.getElementById('recipeTitle');
+    timeValue = document.getElementById('timeValue');
+    servingsValue = document.getElementById('servingsValue');
+    caloriesValue = document.getElementById('caloriesValue');
+    proteinValue = document.getElementById('proteinValue');
+    carbsValue = document.getElementById('carbsValue');
+    fatsValue = document.getElementById('fatsValue');
+    ingredientsList = document.getElementById('ingredientsList');
+    preparationSteps = document.getElementById('preparationSteps');
+    rawJson = document.getElementById('rawJson');
     
-    let aiReason = null; 
-
-    // *************** التحقق من المفتاح ***************
-    if (!GEMINI_API_KEY) {
-        const msg = "فشل الذكاء الاصطناعي: المفتاح (GEMINI_API_KEY) مفقود في إعدادات البيئة (Backend).";
-        return { statusCode: 200, body: JSON.stringify({ 
-            ok:true, 
-            cached:false, 
-            recipe: fallbackRecipe(input), 
-            note: msg 
-        }) };
+    // إذا لم يتم العثور على أي عنصر رئيسي، لن نقوم بتسجيل الأحداث
+    if (!generateBtn || !mealTypeEl || !calorieTargetEl) {
+        console.error("Critical Error: One or more essential elements (e.g., generateBtn, mealTypeEl) not found in HTML.");
+        return;
     }
-    // **********************************************
-
-    // Cache (معطلة حالياً)
-    let recipe = null;
-    let usedAI = false;
-
-    const prompt = buildPrompt(input);
-    const aiRes = await callGemini(prompt);
+    // ----------------------------------------------------
     
-    if(!aiRes.ok){
-        console.error("Gemini API call failed:", aiRes.code, aiRes.error || "Unknown Error");
-        aiReason = aiRes.error || `خطأ HTTP غير محدد (كود: ${aiRes.code})`;
-    }
+    generateBtn.addEventListener('click', async () => {
+        if (!calorieTargetEl.value || +calorieTargetEl.value < 100 || +calorieTargetEl.value > 2000) {
+            showStatus("يرجى إدخال قيمة سعرات حرارية صالحة بين 100 و 2000.", true);
+            return;
+        }
+        
+        generateBtn.disabled = true;
+        loadingIndicator.classList.remove('hidden');
+        generateBtn.innerHTML = '<div class="w-5 h-5 border-2 border-dashed rounded-full loader ml-2"></div> جارٍ التوليد...';
+        showStatus("جاري توليد الوصفة بالذكاء الاصطناعي... قد يستغرق الأمر بعض الوقت.", false);
+        recipeOutput.classList.add('hidden'); 
 
-    if(aiRes.ok){
-      const parsed = tryParseJsonFromText(aiRes.text);
-      if(parsed) { recipe = parsed; usedAI = true; }
-    }
+        try {
+            const recipe = await fetchRecipe();
+            renderRecipe(recipe);
+            // إذا لم يكن هناك رسالة خطأ مُحددة من generateRecipe.js، نفترض النجاح
+            if (!statusMsg.textContent.includes("فشل") && !statusMsg.textContent.includes("خطأ")) {
+                showStatus("تم توليد الوصفة بنجاح.", false);
+            }
+        } catch (error) {
+            // في حالة خطأ شبكة أو خطأ غير متوقع
+            showStatus(error.message, true);
+        } finally {
+            generateBtn.disabled = false;
+            loadingIndicator.classList.add('hidden');
+            generateBtn.innerHTML = 'توليد الوصفة الآن';
+        }
+    });
+}
 
-    if(!recipe){
-      // إذا فشل الاستدعاء أو التحليل، أعد سبب الخطأ الدقيق
-      const msg = `فشل توليد الوصفة بالذكاء الاصطناعي. السبب: ${aiReason || 'فشل في تحليل استجابة AI.'} يتم عرض وصفة افتراضية.`;
-      recipe = fallbackRecipe(input);
-      // لن يتم حفظ الوصفة هنا
-      return { statusCode: 200, body: JSON.stringify({ ok:true, cached:false, recipe, note: msg }) };
-    }
-
-    // Validate schema
-    const v = validateRecipeSchema(recipe);
-    if(!v.ok){
-      console.error("Generated recipe failed schema validation:", v.error);
-      recipe = fallbackRecipe(input);
-      const msg = `تم توليد وصفة لكنها لم تتبع البنية المطلوبة (${v.error}). يتم عرض وصفة افتراضية.`;
-      return { statusCode: 200, body: JSON.stringify({ ok:true, cached:false, recipe, note: msg }) };
-    }
-
-    // لن يتم حفظ التاريخ في هذا الإصدار التشخيصي
-    // if(OWNER && REPO && GH_TOKEN) { ... }
-
-    return { statusCode:200, body: JSON.stringify({ ok:true, cached:false, recipe }) };
-  }catch(err){
-    const msg = "تعذر توليد الوصفة حاليًا بسبب خطأ داخلي. يرجى مراجعة سجلات الخادم.";
-    return { statusCode: 200, body: JSON.stringify({ ok:true, cached:false, recipe: fallbackRecipe({ diet:"متوازنة", servings:1, time:30, macros:"500 سعرة حرارية" }) , note: msg }) };
-  }
-};
+// تشغيل الكود بمجرد تحميل الصفحة بالكامل
+document.addEventListener("DOMContentLoaded", setupEventListeners);

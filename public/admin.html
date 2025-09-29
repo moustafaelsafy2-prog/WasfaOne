@@ -108,30 +108,76 @@
       </div>
     </section>
 
-    <!-- ============ تبويب الإعدادات (نموذج مبسّط) ============ -->
+    <!-- ============ تبويب الإعدادات (كامل حسب settings.json) ============ -->
     <section id="tab-settings" class="tab">
       <div class="grid">
         <div class="card">
           <h2 class="mb" style="font-size:1.15rem;font-weight:800">الإعدادات العامة</h2>
-          <p class="hint mb">حقول مرجعية — اربطها بوظيفة السيرفر لديك إن وجدت.</p>
-          <form id="settingsForm" class="grid grid-2">
+          <div class="hint mb">تحرير <code>data/settings.json</code>: الشعار، بيانات التواصل، الأنظمة الغذائية، الصور، النص البديل.</div>
+
+          <!-- Branding -->
+          <h3 class="mb" style="font-size:1rem;font-weight:700">الهوية (Branding)</h3>
+          <form id="brandingForm" class="grid grid-3 mb">
             <div>
-              <label class="hint">رسالة واجهة الدخول</label>
-              <input name="login_banner" class="input" placeholder="Welcome message" />
+              <label class="hint">الاسم (AR)</label>
+              <input name="site_name_ar" class="input" />
             </div>
             <div>
-              <label class="hint">واتساب الدعم</label>
-              <input name="support_whatsapp" class="input" placeholder="e.g. +9715xxxxxxxx" />
+              <label class="hint">الاسم (EN)</label>
+              <input name="site_name_en" class="input" />
             </div>
             <div>
-              <label class="hint">قفل جهاز واحد</label>
-              <select name="device_lock" class="select">
-                <option value="on">تشغيل</option>
-                <option value="off">إيقاف</option>
-              </select>
+              <label class="hint">رابط الشعار (Logo URL)</label>
+              <input name="logo_url" class="input" />
             </div>
-            <div><button type="submit" class="btn btn-primary">حفظ الإعدادات</button></div>
           </form>
+
+          <!-- Contact -->
+          <h3 class="mb" style="font-size:1rem;font-weight:700">التواصل (Contact)</h3>
+          <form id="contactForm" class="grid grid-3 mb">
+            <div>
+              <label class="hint">رقم الهاتف المعروض</label>
+              <input name="phone_display" class="input" />
+            </div>
+            <div>
+              <label class="hint">رابط واتساب</label>
+              <input name="whatsapp_link" class="input" />
+            </div>
+            <div>
+              <label class="hint">البريد</label>
+              <input name="email" type="email" class="input" />
+            </div>
+            <div>
+              <label class="hint">Instagram</label>
+              <input name="instagram" class="input" />
+            </div>
+            <div>
+              <label class="hint">TikTok</label>
+              <input name="tiktok" class="input" />
+            </div>
+            <div>
+              <label class="hint">YouTube</label>
+              <input name="youtube" class="input" />
+            </div>
+          </form>
+
+          <!-- Diet systems -->
+          <h3 class="mb" style="font-size:1rem;font-weight:700">الأنظمة الغذائية</h3>
+          <div class="hint">أضف/عدّل عناصر القائمة (AR/EN + وصف).</div>
+          <div id="dietsList" class="mb"></div>
+          <button id="addDietBtn" class="btn">+ إضافة نظام غذائي</button>
+
+          <!-- Images -->
+          <h3 class="mb mt" style="font-size:1rem;font-weight:700">الصور (URLs)</h3>
+          <div id="imagesList" class="mb"></div>
+
+          <!-- Images meta (alts) -->
+          <h3 class="mb mt" style="font-size:1rem;font-weight:700">Alt للنصوص البديلة</h3>
+          <div id="imagesMetaList" class="mb"></div>
+
+          <div class="mt">
+            <button id="saveSettingsBtn" class="btn btn-primary">حفظ الإعدادات</button>
+          </div>
         </div>
       </div>
     </section>
@@ -187,6 +233,14 @@
     }
 
     // ============ Helpers ============
+    function el(tag, attrs={}, children=[]) {
+      const e = document.createElement(tag);
+      Object.entries(attrs).forEach(([k,v])=>{
+        if(k==='class') e.className = v; else if(k==='text') e.textContent=v; else e.setAttribute(k,v);
+      });
+      children.forEach(c=> e.appendChild(c));
+      return e;
+    }
     async function api(path, method='GET', body){
       await promptAdminKey();
       const res = await fetch('/.netlify/functions/' + path, {
@@ -323,14 +377,158 @@
       }catch(err){ alert('فشل حفظ المستخدم: '+ err.message); }
     });
 
-    // Settings (placeholder submit only)
-    document.getElementById('settingsForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      alert('تم حفظ الإعدادات محليًا (ربط API الفعلي غير مفعّل في هذه النسخة).');
+    // Settings loading & saving
+    let currentSettings = null;
+
+    async function loadSettings(){
+      try{
+        const { settings } = await api('adminSettings');
+        currentSettings = settings || {};
+        renderBranding();
+        renderContact();
+        renderDiets();
+        renderImages();
+        renderImagesMeta();
+      }catch(err){ alert('فشل تحميل الإعدادات: '+err.message); }
+    }
+
+    function renderBranding(){
+      const f = document.getElementById('brandingForm');
+      const b = currentSettings.branding || {};
+      f.site_name_ar.value = b.site_name_ar || '';
+      f.site_name_en.value = b.site_name_en || '';
+      f.logo_url.value = b.logo_url || '';
+    }
+    function renderContact(){
+      const f = document.getElementById('contactForm');
+      const c = currentSettings.contact || {};
+      f.phone_display.value = c.phone_display || '';
+      f.whatsapp_link.value = c.whatsapp_link || '';
+      f.email.value = c.email || '';
+      const s = (c.social || {});
+      f.instagram.value = s.instagram || '';
+      f.tiktok.value = s.tiktok || '';
+      f.youtube.value = s.youtube || '';
+    }
+
+    function dietItemRow(d){
+      const wrap = el('div', { class:'card', style:'margin:.5rem 0;' });
+      wrap.appendChild(el('div', { class:'grid grid-3' }, [
+        el('div',{},[el('label',{class:'hint',text:'ID'}), el('input',{class:'input','data-k':'id', value: d.id||''})]),
+        el('div',{},[el('label',{class:'hint',text:'الاسم (AR)'}), el('input',{class:'input','data-k':'name_ar', value: d.name_ar||''})]),
+        el('div',{},[el('label',{class:'hint',text:'Name (EN)'}), el('input',{class:'input','data-k':'name_en', value: d.name_en||''})]),
+      ]));
+      wrap.appendChild(el('div', { class:'grid' }, [
+        el('div',{},[el('label',{class:'hint',text:'الوصف (AR)'}), el('textarea',{class:'input','data-k':'description_ar'},[])]),
+        el('div',{},[el('label',{class:'hint',text:'Description (EN)'}), el('textarea',{class:'input','data-k':'description_en'},[])]),
+      ]));
+      wrap.querySelector('[data-k="description_ar"]').value = d.description_ar||'';
+      wrap.querySelector('[data-k="description_en"]').value = d.description_en||'';
+      const tools = el('div', { class:'mt' }, [
+        el('button',{class:'btn btn-danger',text:'حذف'})
+      ]);
+      tools.querySelector('button').addEventListener('click',()=>{ wrap.remove(); });
+      wrap.appendChild(tools);
+      return wrap;
+    }
+
+    function renderDiets(){
+      const host = document.getElementById('dietsList'); host.innerHTML='';
+      (currentSettings.diet_systems||[]).forEach(d=> host.appendChild(dietItemRow(d)));
+      document.getElementById('addDietBtn').onclick = ()=>{
+        host.appendChild(dietItemRow({ id:'', name_ar:'', name_en:'', description_ar:'', description_en:'' }));
+      };
+    }
+
+    function imagesRow(k,v){
+      const row = el('div', { class:'grid grid-3', style:'margin:.4rem 0;' }, [
+        el('input',{class:'input','data-k':'key', value:k}),
+        el('input',{class:'input','data-k':'val', value:v}),
+        el('button',{class:'btn btn-danger',text:'حذف'})
+      ]);
+      row.querySelector('button').addEventListener('click',()=> row.remove());
+      return row;
+    }
+    function renderImages(){
+      const host = document.getElementById('imagesList'); host.innerHTML='';
+      const imgs = currentSettings.images || {};
+      Object.keys(imgs).forEach(k=> host.appendChild(imagesRow(k, imgs[k])));
+      const add = el('button',{class:'btn',text:'+ إضافة صورة'});
+      add.addEventListener('click',()=> host.appendChild(imagesRow('', '')));
+      host.appendChild(add);
+    }
+
+    function metaRow(k, ar, en){
+      const row = el('div', { class:'grid grid-3', style:'margin:.4rem 0;' }, [
+        el('input',{class:'input','data-k':'key', value:k}),
+        el('input',{class:'input','data-k':'ar', value:ar||''}),
+        el('input',{class:'input','data-k':'en', value:en||''})
+      ]);
+      return row;
+    }
+    function renderImagesMeta(){
+      const host = document.getElementById('imagesMetaList'); host.innerHTML='';
+      const meta = currentSettings.images_meta || {};
+      Object.keys(meta).forEach(k=> host.appendChild(metaRow(k, meta[k]?.alt_ar, meta[k]?.alt_en)));
+      const add = el('button',{class:'btn',text:'+ إضافة Alt'});
+      add.addEventListener('click',()=> host.appendChild(metaRow('', '', '')));
+      host.appendChild(add);
+    }
+
+    function collectSettings(){
+      // branding
+      const b = document.getElementById('brandingForm');
+      const branding = {
+        site_name_ar: b.site_name_ar.value.trim(),
+        site_name_en: b.site_name_en.value.trim(),
+        logo_url: b.logo_url.value.trim()
+      };
+      // contact
+      const cf = document.getElementById('contactForm');
+      const contact = {
+        phone_display: cf.phone_display.value.trim(),
+        whatsapp_link: cf.whatsapp_link.value.trim(),
+        email: cf.email.value.trim(),
+        social: {
+          instagram: cf.instagram.value.trim(),
+          tiktok: cf.tiktok.value.trim(),
+          youtube: cf.youtube.value.trim()
+        }
+      };
+      // diets
+      const dietsHost = document.getElementById('dietsList');
+      const diet_systems = Array.from(dietsHost.querySelectorAll('.card')).map(card=>{
+        const get = (sel)=> card.querySelector(`[data-k="${sel}"]`).value.trim();
+        return { id:get('id'), name_ar:get('name_ar'), name_en:get('name_en'), description_ar:get('description_ar'), description_en:get('description_en') };
+      }).filter(d=> d.id);
+      // images
+      const images = {};
+      document.querySelectorAll('#imagesList [data-k="key"]').forEach((kInput, i)=>{
+        const v = document.querySelectorAll('#imagesList [data-k="val"]')[i];
+        const key = kInput.value.trim(); const val = v.value.trim();
+        if(key && val) images[key] = val;
+      });
+      // meta
+      const images_meta = {};
+      document.querySelectorAll('#imagesMetaList [data-k="key"]').forEach((kInput, i)=>{
+        const ar = document.querySelectorAll('#imagesMetaList [data-k="ar"]')[i];
+        const en = document.querySelectorAll('#imagesMetaList [data-k="en"]')[i];
+        const key = kInput.value.trim();
+        if(key) images_meta[key] = { alt_ar: ar.value.trim(), alt_en: en.value.trim() };
+      });
+      return { branding, contact, diet_systems, images, images_meta };
+    }
+
+    document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
+      try{
+        const payload = collectSettings();
+        await api('adminSettings','PUT', payload);
+        await loadSettings();
+        alert('تم حفظ الإعدادات');
+      }catch(err){ alert('فشل حفظ الإعدادات: '+ err.message); }
     });
 
-    // initial
-    document.addEventListener('DOMContentLoaded', loadUsers);
+    document.addEventListener('DOMContentLoaded', ()=>{ loadUsers(); loadSettings(); });
   })();
   </script>
 </body>

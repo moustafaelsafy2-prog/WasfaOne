@@ -1,1 +1,14 @@
-[{ "email": "demo@example.com" }]
+[
+  {
+    "email": "demo@example.com",
+    "password": "123456",
+    "name": "Demo User",
+    "status": "active",
+    "start_date": "2025-09-01",
+    "end_date": "2026-09-01",
+    "device_fingerprint": null,
+    "session_nonce": null,
+    "auth_token": null,
+    "lock_reason": null
+  }
+]

@@ -14,32 +14,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <style>
-    /* Custom styles to work with the existing JS */
     body {
-        font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji","Segoe UI Emoji";
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
+      font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans, Ubuntu, Cantarell, Helvetica Neue, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     }
-    
-    /* Active state for tab buttons */
-    nav.tabs button.active {
-      background-color: #ef4444; /* red-500 */
-      color: white;
-      box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    }
-    
-    /* Tab content visibility */
-    section.tab {
-      display: none;
-    }
-    section.tab.active {
-      display: block;
-    }
-    
-    /* The JS relies on this utility class */
-    .hidden {
-      display: none;
-    }
+    nav.tabs button.active { background-color:#ef4444; color:#fff; box-shadow:0 1px 2px 0 rgb(0 0 0 / 0.05) }
+    section.tab { display:none } section.tab.active { display:block }
+    .hidden { display:none }
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -51,10 +32,10 @@
       <p class="text-sm text-slate-500 mt-1">أدخل كلمة مرور الأدمن عند الطلب — تُحفظ محليًا (LocalStorage).</p>
       <nav class="tabs mt-4" id="tabs">
         <div class="flex flex-wrap items-center gap-2">
-            <button data-tab="tab-users" class="active rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">المستخدمون</button>
-            <button data-tab="tab-settings" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">الإعدادات</button>
-            <button data-tab="tab-recipes" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">الوصفات</button>
-            <button data-tab="tab-logs" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">السجلات</button>
+          <button data-tab="tab-users" class="active rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">المستخدمون</button>
+          <button data-tab="tab-settings" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">الإعدادات</button>
+          <button data-tab="tab-recipes" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">الوصفات</button>
+          <button data-tab="tab-logs" class="rounded-full py-2 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors">السجلات</button>
         </div>
       </nav>
     </div>
@@ -71,7 +52,6 @@
 
           <!-- Create User Form -->
           <form id="createUserForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
-            <!-- Form fields -->
             <div><input required name="name" placeholder="الاسم" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
             <div><input required name="email" placeholder="البريد الإلكتروني" type="email" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
             <div><input required name="password" placeholder="كلمة السر" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
@@ -84,15 +64,13 @@
             <div><label class="block text-sm font-medium text-slate-600 mb-1">تاريخ البداية</label><input name="start_date" type="date" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
             <div><label class="block text-sm font-medium text-slate-600 mb-1">تاريخ النهاية</label><input name="end_date" type="date" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm" /></div>
             <div class="md:col-span-2 lg:col-span-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-2">
-                <label class="flex items-center gap-3 text-sm text-slate-600">
-                    <input type="checkbox" name="upsert" class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"/>
-                    <span>
-                        حدِّث المستخدم بدلًا من الإنشاء (إذا كان البريد موجودًا)
-                    </span>
-                </label>
-                <button class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all" type="submit">
-                    حفظ المستخدم
-                </button>
+              <label class="flex items-center gap-3 text-sm text-slate-600">
+                <input type="checkbox" name="upsert" class="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"/>
+                <span>حدِّث المستخدم بدلًا من الإنشاء (إذا كان البريد موجودًا)</span>
+              </label>
+              <button class="w-full sm:w-auto inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all" type="submit">
+                حفظ المستخدم
+              </button>
             </div>
           </form>
 
@@ -104,17 +82,15 @@
                 <table class="min-w-full divide-y divide-slate-200">
                   <thead class="bg-slate-50">
                     <tr>
-                      <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الاسم</th>
-                      <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البريد</th>
-                      <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الحالة</th>
-                      <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البداية</th>
-                      <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">النهاية</th>
-                      <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">عمليات</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الاسم</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البريد</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الحالة</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البداية</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">النهاية</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">عمليات</th>
                     </tr>
                   </thead>
-                  <tbody id="usersTbody" class="divide-y divide-slate-100 bg-white">
-                    <!-- JS will populate this -->
-                  </tbody>
+                  <tbody id="usersTbody" class="divide-y divide-slate-100 bg-white"></tbody>
                 </table>
               </div>
             </div>
@@ -125,59 +101,59 @@
 
     <!-- ============ Settings Tab ============ -->
     <section id="tab-settings" class="tab">
-        <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
-            <h2 class="text-xl font-bold text-slate-800">الإعدادات العامة</h2>
-            <p class="text-sm text-slate-500 mt-1">تحرير <code>data/settings.json</code>: الشعار، بيانات التواصل، الأنظمة الغذائية، الصور، والنص البديل.</p>
-            
-            <div class="space-y-8 mt-6">
-                <!-- Branding -->
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">الهوية (Branding)</h3>
-                    <form id="brandingForm" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">الاسم (AR)</label><input name="site_name_ar" class="block w-full rounded-lg border-slate-300" /></div>
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">الاسم (EN)</label><input name="site_name_en" class="block w-full rounded-lg border-slate-300" /></div>
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">رابط الشعار (Logo URL)</label><input name="logo_url" class="block w-full rounded-lg border-slate-300" /></div>
-                    </form>
-                </div>
-                
-                <!-- Contact -->
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">التواصل (Contact)</h3>
-                    <form id="contactForm" class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">رقم الهاتف المعروض</label><input name="phone_display" class="block w-full rounded-lg border-slate-300" /></div>
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">رابط واتساب</label><input name="whatsapp_link" class="block w-full rounded-lg border-slate-300" /></div>
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">البريد</label><input name="email" type="email" class="block w-full rounded-lg border-slate-300" /></div>
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">Instagram</label><input name="instagram" class="block w-full rounded-lg border-slate-300" /></div>
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">TikTok</label><input name="tiktok" class="block w-full rounded-lg border-slate-300" /></div>
-                        <div><label class="block text-sm font-medium text-slate-600 mb-1">YouTube</label><input name="youtube" class="block w-full rounded-lg border-slate-300" /></div>
-                    </form>
-                </div>
-                
-                <!-- Diet systems -->
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-2 border-b border-slate-200 pb-3">الأنظمة الغذائية</h3>
-                    <p class="text-sm text-slate-500 mb-4">أضف/عدّل عناصر القائمة (AR/EN + وصف).</p>
-                    <div id="dietsList" class="space-y-4"></div>
-                    <button id="addDietBtn" class="mt-4 inline-flex items-center rounded-md border border-transparent bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all">+ إضافة نظام غذائي</button>
-                </div>
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
+        <h2 class="text-xl font-bold text-slate-800">الإعدادات العامة</h2>
+        <p class="text-sm text-slate-500 mt-1">تحرير <code>data/settings.json</code>: الشعار، بيانات التواصل، الأنظمة الغذائية، الصور، والنص البديل.</p>
+        
+        <div class="space-y-8 mt-6">
+          <!-- Branding -->
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">الهوية (Branding)</h3>
+            <form id="brandingForm" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">الاسم (AR)</label><input name="site_name_ar" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">الاسم (EN)</label><input name="site_name_en" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">رابط الشعار (Logo URL)</label><input name="logo_url" class="block w-full rounded-lg border-slate-300" /></div>
+            </form>
+          </div>
+          
+          <!-- Contact -->
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">التواصل (Contact)</h3>
+            <form id="contactForm" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">رقم الهاتف المعروض</label><input name="phone_display" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">رابط واتساب</label><input name="whatsapp_link" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">البريد</label><input name="email" type="email" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">Instagram</label><input name="instagram" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">TikTok</label><input name="tiktok" class="block w-full rounded-lg border-slate-300" /></div>
+              <div><label class="block text-sm font-medium text-slate-600 mb-1">YouTube</label><input name="youtube" class="block w-full rounded-lg border-slate-300" /></div>
+            </form>
+          </div>
+          
+          <!-- Diet systems -->
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 mb-2 border-b border-slate-200 pb-3">الأنظمة الغذائية</h3>
+            <p class="text-sm text-slate-500 mb-4">أضف/عدّل عناصر القائمة (AR/EN + وصف).</p>
+            <div id="dietsList" class="space-y-4"></div>
+            <button id="addDietBtn" class="mt-4 inline-flex items-center rounded-md bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all">+ إضافة نظام غذائي</button>
+          </div>
 
-                <!-- Images -->
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">الصور (URLs)</h3>
-                    <div id="imagesList" class="space-y-2"></div>
-                </div>
+          <!-- Images -->
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">الصور (URLs)</h3>
+            <div id="imagesList" class="space-y-2"></div>
+          </div>
 
-                <!-- Images meta (alts) -->
-                <div>
-                    <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">النصوص البديلة للصور (Alt)</h3>
-                    <div id="imagesMetaList" class="space-y-2"></div>
-                </div>
-            </div>
-
-            <div class="mt-8 border-t border-slate-200 pt-6">
-                <button id="saveSettingsBtn" class="inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all">حفظ كل الإعدادات</button>
-            </div>
+          <!-- Images meta (alts) -->
+          <div>
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b border-slate-200 pb-3">النصوص البديلة للصور (Alt)</h3>
+            <div id="imagesMetaList" class="space-y-2"></div>
+          </div>
         </div>
+
+        <div class="mt-8 border-t border-slate-200 pt-6">
+          <button id="saveSettingsBtn" class="inline-flex items-center justify-center rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all">حفظ كل الإعدادات</button>
+        </div>
+      </div>
     </section>
 
     <!-- ============ Recipes Tab ============ -->
@@ -186,7 +162,7 @@
         <h2 class="text-xl font-bold text-slate-800 mb-2">الوصفات</h2>
         <p class="text-sm text-slate-500">قسم استعراضي — أدرج/أوصل بوظائفك الخاصة إذا كانت متوفّرة.</p>
         <div id="recipesEmpty" class="mt-6 text-center py-10 border-2 border-dashed border-slate-200 rounded-lg">
-            <p class="text-slate-500">لا توجد عناصر للعرض حاليًا.</p>
+          <p class="text-slate-500">لا توجد عناصر للعرض حاليًا.</p>
         </div>
       </div>
     </section>
@@ -201,7 +177,7 @@
     </section>
   </main>
 
-  <!-- UNCHANGED JAVASCRIPT LOGIC -->
+  <!-- JAVASCRIPT -->
   <script>
   (function(){
     // ============ Tab switching ============
@@ -264,13 +240,27 @@
       }catch(err){ alert('فشل تحميل المستخدمين: '+ err.message); }
     }
     
-    // Classes for styled elements
+    // Styled classes
     const rowInputClass = "block w-full text-sm bg-white rounded-md border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 disabled:bg-slate-50 disabled:text-slate-500";
     const btnClass = "inline-flex items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all";
     const btnPrimaryClass = "inline-flex items-center justify-center rounded-md border border-transparent bg-red-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all";
     const btnDangerClass = "inline-flex items-center justify-center rounded-md border border-transparent bg-red-800 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-red-900 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all";
     const btnMutedClass = "inline-flex items-center justify-center rounded-md border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all";
 
+    // NEW: inline password editor (per-row)
+    function buildPasswordEditor(){
+      const wrap = document.createElement('div');
+      wrap.className = "mt-2 p-3 bg-slate-50 border border-slate-200 rounded-lg hidden";
+      wrap.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr,1fr,auto] gap-2 items-center">
+          <input type="password" placeholder="كلمة السر الجديدة" class="${rowInputClass} js-pass1" />
+          <input type="password" placeholder="تأكيد كلمة السر" class="${rowInputClass} js-pass2" />
+          <button class="${btnPrimaryClass} js-pass-save">حفظ كلمة السر</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">لن يتم تغيير أي حقول أخرى. سيُرسل فقط <span class="font-semibold">email + password</span> عبر طلب PUT.</p>
+      `;
+      return wrap;
+    }
 
     function rowTemplate(u){
       const tr = document.createElement('tr');
@@ -287,16 +277,26 @@
         <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="start_date" type="date" value="${u.start_date||''}" /></td>
         <td class="px-4 py-3 align-middle"><input class="${rowInputClass}" name="end_date" type="date" value="${u.end_date||''}" /></td>
         <td class="px-4 py-3 align-middle">
-            <div class="flex items-center flex-wrap gap-2">
-                <button class="${btnClass} js-edit">تعديل</button>
-                <button class="${btnPrimaryClass} js-save hidden">حفظ</button>
-                <button class="${btnMutedClass} js-cancel hidden">إلغاء</button>
-                <button class="${btnClass} js-reset">إعادة ربط</button>
-                <button class="${btnDangerClass} js-delete">حذف</button>
-            </div>
+          <div class="flex items-center flex-wrap gap-2">
+            <button class="${btnClass} js-edit">تعديل</button>
+            <button class="${btnPrimaryClass} js-save hidden">حفظ</button>
+            <button class="${btnMutedClass} js-cancel hidden">إلغاء</button>
+            <button class="${btnClass} js-reset">إعادة ربط</button>
+            <button class="${btnDangerClass} js-delete">حذف</button>
+            <button class="${btnClass} js-pass-toggle">كلمة السر</button>
+          </div>
+          <!-- Password editor -->
+          <div class="js-pass-wrap"></div>
         </td>`;
       toggleRowEdit(tr, false);
+
+      // mount password editor container
+      const passWrapHost = tr.querySelector('.js-pass-wrap');
+      const passEditor = buildPasswordEditor();
+      passWrapHost.appendChild(passEditor);
+
       attachRowHandlers(tr);
+      attachPasswordHandlers(tr, passEditor);
       return tr;
     }
 
@@ -312,8 +312,11 @@
     function collectRow(tr){
       const get = (n)=> tr.querySelector(`[name="${n}"]`)?.value ?? null;
       return {
-        email: get('email'), name: get('name'), status: tr.querySelector('[name="status"]').value,
-        start_date: get('start_date') || null, end_date: get('end_date') || null
+        email: get('email'),
+        name: get('name'),
+        status: tr.querySelector('[name="status"]').value,
+        start_date: get('start_date') || null,
+        end_date: get('end_date') || null
       };
     }
 
@@ -340,36 +343,78 @@
       });
     }
 
+    // NEW: handlers for password edit
+    function attachPasswordHandlers(tr, editor){
+      const toggleBtn = tr.querySelector('.js-pass-toggle');
+      const panel = editor;
+      const p1 = () => panel.querySelector('.js-pass1');
+      const p2 = () => panel.querySelector('.js-pass2');
+      const saveBtn = () => panel.querySelector('.js-pass-save');
+
+      toggleBtn.addEventListener('click', ()=>{
+        panel.classList.toggle('hidden');
+        if(!panel.classList.contains('hidden')) { p1().focus(); }
+      });
+
+      saveBtn().addEventListener('click', async ()=>{
+        const passA = (p1().value || '').trim();
+        const passB = (p2().value || '').trim();
+        if(!passA || passA.length < 6){ alert('الرجاء إدخال كلمة سر لا تقل عن 6 أحرف.'); return; }
+        if(passA !== passB){ alert('كلمتا السر غير متطابقتين.'); return; }
+        try{
+          const email = tr.dataset.email;
+          await api('adminUsers','PUT', { email, password: passA });
+          p1().value = ''; p2().value = '';
+          panel.classList.add('hidden');
+          alert('تم تحديث كلمة السر بنجاح.');
+        }catch(err){
+          alert('فشل تحديث كلمة السر: ' + err.message);
+        }
+      });
+    }
+
     function renderUsers(list){
       currentUsers = Array.isArray(list)? list: [];
       tbody.innerHTML = '';
       currentUsers.forEach(u => tbody.appendChild(rowTemplate(u)));
     }
 
+    // Create new user
     document.getElementById('createUserForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
       const form = e.currentTarget;
       const fd = new FormData(form);
       const email = (fd.get('email')||'').toString().trim().toLowerCase();
       const body = {
-        name: (fd.get('name')||'').toString().trim(), email,
-        password: (fd.get('password')||'').toString(), status: (fd.get('status')||'active').toString(),
-        start_date: fd.get('start_date')||null, end_date: fd.get('end_date')||null,
-        device_fingerprint: null, session_nonce: null, lock_reason: null
+        name: (fd.get('name')||'').toString().trim(),
+        email,
+        password: (fd.get('password')||'').toString(),
+        status: (fd.get('status')||'active').toString(),
+        start_date: fd.get('start_date')||null,
+        end_date: fd.get('end_date')||null,
+        device_fingerprint: null,
+        session_nonce: null,
+        lock_reason: null
       };
       const upsert = fd.get('upsert') === 'on';
       const exists = currentUsers.some(u => (u.email||'').toLowerCase() === email);
       try{
         if(exists && !upsert){
-          alert('هذا البريد موجود مسبقًا. ضع علامة "حدّث المستخدم بدلًا من الإنشاء" أو غيّر البريد.'); return;
+          alert('هذا البريد موجود مسبقًا. ضع علامة "حدّث المستخدم بدلًا من الإنشاء" أو غيّر البريد.');
+          return;
         }
-        if(exists && upsert){ await api('adminUsers','PUT', body); } else { await api('adminUsers','POST', body); }
+        if(exists && upsert){
+          await api('adminUsers','PUT', body);
+        } else {
+          await api('adminUsers','POST', body);
+        }
         form.reset();
         await loadUsers();
         alert('تم الحفظ');
       }catch(err){ alert('فشل حفظ المستخدم: '+ err.message); }
     });
 
+    // ===== Settings (unchanged functionality) =====
     let currentSettings = null;
     async function loadSettings(){
       try{
@@ -389,7 +434,6 @@
       const s = (c.social || {}); f.instagram.value = s.instagram || ''; f.tiktok.value = s.tiktok || ''; f.youtube.value = s.youtube || '';
     }
     
-    // Re-styled template functions for settings
     const inputClass = "block w-full rounded-md border-slate-300 text-sm";
     const labelClass = "block text-xs font-medium text-slate-500 mb-1";
     const textareaClass = inputClass + " min-h-[80px]";

@@ -15,33 +15,33 @@
     }
   },
   "diets": [
-    {
-      "id": "keto",
-      "name_ar": "كيتو",
-      "name_en": "Keto",
-      "description_ar": "نظام غذائي منخفض الكربوهيدرات.",
-      "description_en": "Low-carb, high-fat diet."
-    },
-    {
-      "id": "mediterranean",
-      "name_ar": "المتوسطي",
-      "name_en": "Mediterranean",
-      "description_ar": "نظام يعتمد على الخضار وزيت الزيتون.",
-      "description_en": "Based on vegetables and olive oil."
-    }
+    { "id": "balanced", "name_ar": "عادي/متوازن", "description_ar": "خيار عام متوازن." },
+    { "id": "dr_mohamed_rules", "name_ar": "نظام د. محمد سعيد", "description_ar": "قواعد رسمية مع ضبط تلقائي." },
+    { "id": "keto", "name_ar": "كيتو", "description_ar": "نظام غذائي منخفض الكربوهيدرات." },
+    { "id": "mediterranean", "name_ar": "المتوسطي", "description_ar": "نظام يعتمد على الخضار وزيت الزيتون." },
+    { "id": "paleo", "name_ar": "باليو (Paleo)", "description_ar": "أطعمة كاملة وتجنب المُصنّع." },
+    { "id": "whole30", "name_ar": "Whole30", "description_ar": "30 يومًا من أطعمة كاملة." },
+    { "id": "dash", "name_ar": "DASH (قلب صحي)", "description_ar": "خفض الصوديوم ودعم القلب." },
+    { "id": "lowcarb", "name_ar": "منخفض الكربوهيدرات", "description_ar": "تقليل الكربوهيدرات تدريجيًا." },
+    { "id": "lowfat", "name_ar": "منخفض الدهون", "description_ar": "تقليل إجمالي الدهون." },
+    { "id": "lowsodium", "name_ar": "منخفض الصوديوم", "description_ar": "تقليل الملح لتحكم الضغط." },
+    { "id": "low_gi", "name_ar": "منخفض المؤشر الجلايسيمي (سكري)", "description_ar": "للتحكم بالسكر." },
+    { "id": "vegetarian", "name_ar": "نباتي (Vegetarian)", "description_ar": "بدون لحوم." },
+    { "id": "vegan", "name_ar": "فيجن (Vegan)", "description_ar": "خالي من كل المنتجات الحيوانية." },
+    { "id": "pescatarian", "name_ar": "بسكاتاريان (نباتي مع أسماك)", "description_ar": "نباتي مع الأسماك." },
+    { "id": "gluten_free", "name_ar": "خالي من الجلوتين", "description_ar": "بدون جلوتين." },
+    { "id": "lactose_free", "name_ar": "خالي من اللاكتوز", "description_ar": "بدون مشتقات الألبان." },
+    { "id": "high_protein", "name_ar": "عالي البروتين", "description_ar": "رفع حصة البروتين." },
+    { "id": "high_fiber", "name_ar": "عالي الألياف", "description_ar": "غني بالألياف." },
+    { "id": "athlete_gain", "name_ar": "رياضي/زيادة كتلة عضلية", "description_ar": "سعرات كافية ونِسَب بنائية." },
+    { "id": "halal", "name_ar": "حلال", "description_ar": "مطابق للمعايير الشرعية." }
   ],
   "images": {
     "hero": "https://example.com/hero.jpg",
     "banner": "https://example.com/banner.jpg"
   },
   "alts": {
-    "hero": {
-      "ar": "صورة رئيسية",
-      "en": "Hero image"
-    },
-    "banner": {
-      "ar": "صورة بانر",
-      "en": "Banner image"
-    }
+    "hero": { "ar": "صورة رئيسية", "en": "Hero image" },
+    "banner": { "ar": "صورة بانر", "en": "Banner image" }
   }
 }

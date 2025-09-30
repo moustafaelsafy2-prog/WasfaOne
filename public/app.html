@@ -47,9 +47,23 @@
     .banner{border:1px dashed #b45309;background:#fff7e6;color:#92400e}
     .banner.red{border-color:#b91c1c;background:#ffecec;color:#7f1d1d}
     select,input[type="number"],input[type="text"]{min-height:48px}
+
+    /* زر الخروج مثبت في الزاوية وفق اتجاه الصفحة */
+    .logout-fab{
+      position:fixed;
+      inset-inline-start:16px; /* يحترم RTL/LTR */
+      inset-block-start:16px;
+      z-index:60;
+    }
   </style>
 </head>
 <body class="p-4 md:p-8">
+  <!-- زر تسجيل الخروج في الأعلى بالزاوية -->
+  <button id="logoutBtn" onclick="logout()" class="logout-fab inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-800 text-white font-bold shadow hover:brightness-95">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 11-6 0v-1m6-10V5a3 3 0 10-6 0v1"/></svg>
+    <span>تسجيل الخروج</span>
+  </button>
+
   <!-- Toast -->
   <div id="toast" class="toast"></div>
 
@@ -58,14 +72,6 @@
     <div class="card mb-8">
       <h1 class="text-4xl md:text-5xl font-black text-center">مجلة الوصفة الذكية</h1>
       <p class="text-center text-[var(--muted)] mt-2 mb-4">تنسيق مجلة — إشارات ضوئية للتغذية فقط — بدون صور.</p>
-
-      <!-- إضافة زر تسجيل الخروج فقط -->
-      <div class="text-center my-4">
-        <button id="logoutBtn" onclick="logout()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 text-white font-bold shadow hover:brightness-95">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 11-6 0v-1m6-10V5a3 3 0 10-6 0v1"/></svg>
-          <span>تسجيل الخروج</span>
-        </button>
-      </div>
 
       <div class="divider"></div>
 
@@ -213,12 +219,6 @@
     const API_ENDPOINT="/.netlify/functions/generateRecipe";
     const $=id=>document.getElementById(id);
 
-    // ===== (إضافة جديدة) تسجيل الخروج =====
-    function logout(){
-      try{ localStorage.removeItem("wasfa_session"); }catch(_){}
-      window.location.replace("login.html");
-    }
-
     // inputs
     const mealType=$('mealType'), cuisine=$('cuisine'), dietType=$('dietType'),
           calorieTarget=$('calorieTarget'), commonAllergy=$('commonAllergy'),
@@ -333,7 +333,7 @@
       try{
         const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
         if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
-        const payload={ mealType:mealType.value, cuisine:cuisine.value, dietType:dietType.value, caloriesTarget:Number(calorieTarget.value)||500, allergies, lang:"ar" };
+        const payload={ mealType:mealType.value, cuisine:cuisine.value, dietType:dietType.value, caloriesTarget(Number(calorieTarget.value)||500), allergies, lang:"ar" };
         const data=await callAPI(payload);
         const view=map(data.recipe);
         render(view, data.note, data.warning);
@@ -380,6 +380,12 @@
           window.location.replace("login.html");
         }
       }catch(_){ window.location.replace("login.html"); }
+    }
+
+    // ===== (إضافة جديدة) دالة تسجيل الخروج =====
+    function logout(){
+      try{ localStorage.removeItem("wasfa_session"); }catch(_){}
+      window.location.replace("login.html");
     }
 
     resetView();

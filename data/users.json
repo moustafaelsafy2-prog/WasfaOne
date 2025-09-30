@@ -6,8 +6,8 @@
     "status": "active",
     "start_date": "2025-09-01",
     "end_date": "2026-09-01",
-    "device_fingerprint": "bc63f02d015230831139cbcdfd73d8b46d4ef6cd9f578815a6a874a3af597d16",
-    "session_nonce": "6e55ce4a-7bff-447e-8358-7e93e7cd0709",
+    "device_fingerprint": null,
+    "session_nonce": null,
     "auth_token": "8fcce444-5e75-4656-af0e-4aea43392fb8",
     "lock_reason": null
   },

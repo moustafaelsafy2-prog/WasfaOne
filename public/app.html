@@ -66,6 +66,10 @@
           <span class="font-extrabold">الأيام المتبقية:</span>
           <span id="upRemain" class="font-black text-emerald-700">—</span>
         </div>
+        <div id="upEndWrap" class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--line)] bg-white shadow hidden">
+          <span class="font-extrabold">ينتهي في:</span>
+          <span id="upEnd" class="font-bold text-[var(--muted)]">—</span>
+        </div>
       </div>
       <!-- الأزرار -->
       <div class="flex items-center gap-2">
@@ -128,7 +132,6 @@
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">النظام الغذائي</label>
-          <!-- سيتم استبدال العناصر تلقائيًا من settings.json العام -->
           <select id="dietType" class="w-full border rounded-md p-3">
             <option selected>عادي/متوازن</option>
             <option>نظام د. محمد سعيد</option>
@@ -246,7 +249,8 @@
     // profile + top buttons
     const logoutBtn = $('logoutBtn'), printBtn = $('printBtn'),
           userProfile = $('userProfile'), upName = $('upName'),
-          upRemain = $('upRemain'), upRemainWrap = $('upRemainWrap');
+          upRemain = $('upRemain'), upRemainWrap = $('upRemainWrap'),
+          upEnd = $('upEnd'), upEndWrap = $('upEndWrap');
 
     /* ===== Toast ===== */
     function pushToast(text,type="info",ms=3500){
@@ -370,49 +374,81 @@
         if(!res.ok) throw new Error("settings_fetch_failed");
         const s = await res.json();
 
-        // دعم مخططين: diets (عام) أو diet_systems (رسمي)
         const diets = Array.isArray(s?.diets) ? s.diets :
                       Array.isArray(s?.diet_systems) ? s.diet_systems : [];
 
         if (diets.length){
-          // إعادة بناء قائمة الأنظمة من الإعدادات
           dietType.innerHTML = diets.map(d=>`<option value="${d.id||d.name_ar||d.name_en||''}">${d.name_ar||d.name_en||d.id}</option>`).join("");
-          // ملاحظة توضيحية (أول نظام)
           const first = diets[0];
           const desc = first?.description_ar || "";
           dietHelp.textContent = desc ? `مثال (${first.name_ar}): ${desc}` : "";
         }
       }catch(_){
-        // نتجاهل الفشل ونبقي القيم الافتراضية
+        // إبقاء القيم الافتراضية
       }
     }
 
-    // ===== ملف العميل =====
-    function daysRemaining(endISO){
-      try{
-        const end = new Date(endISO + 'T23:59:59');
-        const today = new Date();
-        const diff = Math.ceil((end - today)/(1000*60*60*24));
-        return isNaN(diff) ? null : diff;
-      }catch(_){ return null; }
+    /* ====== حساب الأيام المتبقية (UTC-safe) ======
+       - نتوقع end date بصيغة YYYY-MM-DD
+       - نحسب الفرق باليوم دون تأثير المنطقة الزمنية
+    */
+    function parseYMDToUTCEnd(s){
+      if(typeof s!=="string") return null;
+      const m = s.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!m) return null;
+      const y=+m[1], mo=+m[2], d=+m[3];
+      // نهاية اليوم بالتوقيت العالمي لضمان الشمول حتى 23:59:59
+      return new Date(Date.UTC(y, mo-1, d, 23, 59, 59));
     }
+    function startOfTodayUTC(){
+      const now=new Date();
+      return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0,0,0));
+    }
+    function daysRemaining(endISO){
+      const endUTC = parseYMDToUTCEnd(endISO);
+      if(!endUTC) return null;
+      const todayUTC = startOfTodayUTC();
+      const diffMs = endUTC - todayUTC;
+      const MS_PER_DAY = 86400000;
+      const raw = Math.ceil(diffMs / MS_PER_DAY);
+      return raw < 0 ? 0 : raw; // لا نعيد أرقام سالبة
+    }
+    function formatDateISO(iso){
+      const m = (iso||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return m ? `${m[3]}/${m[2]}/${m[1]}` : iso || "—";
+    }
+
+    // ===== ملف العميل =====
     function renderProfile(){
       try{
         const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
         if(!sess) return;
+
         const nm = sess.name || sess.email || "—";
         upName.textContent = nm;
-        // إن وُجد end_date نعرض الأيام المتبقية، خلاف ذلك نخفي فقط القيمة
-        if(sess.end_date){
-          const rem = daysRemaining(sess.end_date);
-          if(rem!==null){
-            upRemain.textContent = rem >= 0 ? rem : 0;
+
+        // نجرب عدة مفاتيح شائعة لتاريخ الانتهاء
+        const endISO = sess.end_date || sess.subscription_end || sess.endDate || sess.subscriptionEnd || null;
+
+        if(endISO){
+          const rem = daysRemaining(endISO);
+          // إن أمكن حساب الأيام نعرضها، وإلا نعرض تاريخ الانتهاء
+          if(rem !== null){
+            upRemain.textContent = rem;
+            upRemainWrap.classList.remove('hidden');
+            upEnd.textContent = formatDateISO(endISO);
+            upEndWrap.classList.remove('hidden');
           }else{
             upRemainWrap.classList.add('hidden');
+            upEnd.textContent = formatDateISO(endISO);
+            upEndWrap.classList.remove('hidden');
           }
         }else{
+          // لا نملك تاريخًا: نخفي الأيام ونخفي خانة التاريخ
           upRemainWrap.classList.add('hidden');
+          upEndWrap.classList.add('hidden');
         }
+
         userProfile.classList.remove('hidden');
       }catch(_){}
     }
@@ -435,9 +471,7 @@
       }catch(_){}
       window.location.replace("login.html");
     }
-    function handlePrint(){
-      window.print();
-    }
+    function handlePrint(){ window.print(); }
 
     resetView();
     document.addEventListener('DOMContentLoaded', ()=>{

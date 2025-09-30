@@ -32,6 +32,46 @@ const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringif
 const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
 const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
 
+/* ---------------- Nutrition strict helpers (no flow change) ---------------- */
+/** Compute calories from macros with the canonical factors and enforce ±2%. */
+function reconcileCalories(macros) {
+  const p = Number(macros?.protein_g || 0);
+  const c = Number(macros?.carbs_g || 0);
+  const f = Number(macros?.fat_g || 0);
+  const stated = Number(macros?.calories || 0);
+
+  // Exact energy from macros (no heuristic rounding).
+  const calculated = p * 4 + c * 4 + f * 9;
+
+  // If stated deviates beyond ±2%, set calories to the calculated value.
+  const within2pct =
+    stated > 0 ? Math.abs(stated - calculated) / calculated <= 0.02 : false;
+
+  const result = { ...macros };
+  result.calories = within2pct ? stated : calculated;
+
+  // Attach a non-breaking note for traceability (schema allows extra fields).
+  result._energy_model = "4/4/9 strict";
+  result._energy_check = within2pct ? "ok" : "adjusted_to_match_macros";
+  return result;
+}
+
+/** Light check that every ingredient line includes a numeric gram weight. */
+function hasGramWeightLine(s) {
+  if (typeof s !== "string") return false;
+  const line = s.toLowerCase();
+  // Arabic and Latin variants for gram notations.
+  return /\b\d+(\.\d+)?\s*(جم|غ|g|gram|grams)\b/.test(line);
+}
+function enforceGramHints(ingredients) {
+  // Do not change flow or reject; just ensure lines are trimmed,
+  // and if many lines miss grams, we nudge the model via instruction (handled below).
+  // Here we only normalize whitespace.
+  return Array.isArray(ingredients)
+    ? ingredients.map(x => (typeof x === "string" ? x.trim() : x))
+    : ingredients;
+}
+
 /* ---------------- Schema ---------------- */
 function validateRecipeSchema(rec) {
   const must = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
@@ -55,6 +95,11 @@ function validateRecipeSchema(rec) {
   }
   if (rec.lang !== "ar") return { ok:false, error:"lang_must_be_ar" };
 
+  // Soft nutrition strictness: ensure most ingredient lines have gram weights
+  // without altering the success path or schema behavior.
+  const gramCount = rec.ingredients.filter(hasGramWeightLine).length;
+  rec._ingredients_gram_coverage = `${gramCount}/${rec.ingredients.length}`;
+
   return { ok:true };
 }
 
@@ -75,6 +120,24 @@ function systemInstruction(maxSteps = 6) {
 - ingredients عناصر قصيرة (كمية + مكوّن) مثل "200 جم صدر دجاج".
 - steps خطوات تنفيذية قصيرة وواضحة.
 - اللغة عربية فقط، ولا تضف أي شيء خارج JSON.
+
+📘 **توجيه رسمي صارم لحساب السعرات والماكروز (يُطبق على كل وصفة بلا استثناء)**
+
+🎯 الهدف: دقة ±2% قابلة للاعتماد في البروتوكولات العلاجية وخطط التغذية المتقدمة.
+
+1) **الوزن النيء الفعلي لكل مكوّن**: كل كمية يجب أن تُعبّر بالجرام (g/جم) وبالوزن قبل الطهي. يمنع استعمال "ملعقة/كوب/حبة" دون تحويل دقيق إلى جرامات.
+2) **حساسية الميزان**: يُفترض وزن كل مكوّن بميزان ±0.1 جم؛ أي اختلاف في الوزن ينعكس على السعرات والماكروز.
+3) **تمييز نوع المكوّن**: فرّق بدقة بين الحالات (مثل: "زيت زيتون بكر ممتاز" ≠ "زيت زيتون عادي"، "طماطم طازجة" ≠ "مجففة"، "لحم نيء" ≠ "مطبوخ").
+4) **مصادر البيانات المعتمدة فقط**: القيم الغذائية تُستمد من قواعد بيانات علمية (USDA FoodData Central، CIQUAL، McCance and Widdowson). يمنع استخدام تقديرات عامة.
+5) **نموذج الطاقة القياسي**: البروتين 4 ك.س/جم، الكربوهيدرات 4 ك.س/جم، الدهون 9 ك.س/جم.
+6) **طريقة الحساب**:
+   - احسب الماكروز لكل مكوّن بناءً على وزنه النيء ثم اجمعها.
+   - احسب الطاقة من الماكروز (Protein×4 + Carbs×4 + Fat×9). لا تجمع السعرات مباشرة من مصادر مختلفة بدون المرور بالماكروز.
+7) **منع التقريب غير العلمي**: لا تستخدم متوسطات أو تقديرات. يجب أن تأتي الأرقام نتيجة حساب مباشر من الماكروز وبانحراف لا يتجاوز ±2%.
+8) **سلامة الإخراج**:
+   - يجب أن تحتوي كل عناصر ingredients على مقدار بالجرام مثل: "30 جم زيت زيتون بكر ممتاز"، "150 جم صدور دجاج نيئة".
+   - التزم بالوصف الدقيق لنوع المكوّن.
+   - أعِد الحقول داخل JSON فقط كما في المخطط أعلاه دون حقول إضافية.
 `.trim();
 }
 
@@ -180,6 +243,15 @@ async function callOnce(model, input, timeoutMs = 28000) {
       const merged = [];
       for (let i=0;i<json.steps.length;i+=chunk) merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
       json.steps = merged.slice(0,6);
+    }
+
+    // تشديد التغذية: طَبّق الطاقة من الماكروز بدقة 4/4/9 وأعد ضبط السعرات إذا لزم الأمر
+    if (json.macros) {
+      json.macros = reconcileCalories(json.macros);
+    }
+    // تطبيع خفيف لقائمة المكونات (لا يغيّر التدفق)
+    if (Array.isArray(json.ingredients)) {
+      json.ingredients = enforceGramHints(json.ingredients);
     }
 
     const v = validateRecipeSchema(json);

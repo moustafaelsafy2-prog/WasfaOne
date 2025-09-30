@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>تسجيل الدخول • WasfaOne</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts for a better look -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
@@ -13,61 +13,189 @@
     /* Using Cairo font for better Arabic typography */
     body {
       font-family: 'Cairo', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background-image: url('https://images.unsplash.com/photo-1554147090-e1221a04a025?q=80&w=2070&auto=format&fit=crop');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+    }
+
+    /* Animation for the title */
+    .animated-gradient-text {
+      background-image: linear-gradient(-225deg, #f87171 0%, #ffffff 50%, #fca5a5 100%);
+      background-size: 200% auto;
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: text-flow 3s linear infinite;
+    }
+
+    @keyframes text-flow {
+      to {
+        background-position: 200% center;
+      }
+    }
+    
+    /* Page load animation */
+    .animate-on-load {
+        animation: slideUpFadeIn 0.8s ease-out forwards;
+        opacity: 0;
+    }
+    
+    @keyframes slideUpFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Spinner for login button */
+    .spinner {
+        border: 2px solid #fff;
+        border-top: 2px solid transparent;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
   </style>
 </head>
-<!-- Added a professional gradient background and flex layout to center content -->
-<body class="bg-gradient-to-br from-gray-100 to-gray-200 text-slate-900 min-h-screen flex flex-col justify-between">
-
-  <!-- Header -->
-  <header class="w-full max-w-4xl mx-auto flex items-center justify-between p-4 sm:p-6">
-    <div class="flex items-center gap-3">
-      <img id="login-logo" class="h-10 w-10" alt="Logo" src="https://placehold.co/40x40/ef4444/white?text=W" />
-      <div class="font-bold text-2xl text-slate-800">WasfaOne</div>
-    </div>
-    <button id="lang-toggle" class="px-4 py-2 rounded-lg bg-white/60 hover:bg-white/90 backdrop-blur-sm shadow-sm transition-all duration-300 font-semibold text-sm text-slate-700">EN</button>
-  </header>
+<body class="text-slate-800">
 
   <!-- Main Content Wrapper -->
-  <div class="flex-grow flex items-center justify-center p-4">
+  <div class="min-h-screen flex flex-col justify-center items-center p-4 bg-black/20 backdrop-blur-sm">
+    
     <div class="w-full max-w-md">
-      <!-- Login Form with enhanced styling -->
-      <main class="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl border border-gray-200/80">
-        <h1 class="text-3xl font-bold mb-6 text-center text-slate-800">تسجيل الدخول</h1>
-        <form id="login-form" class="space-y-4">
-          <!-- Improved input fields -->
-          <input id="email" class="w-full bg-gray-50 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-shadow" placeholder="البريد الإلكتروني" type="email" required />
-          <input id="password" class="w-full bg-gray-50 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-shadow" placeholder="كلمة المرور" type="password" required />
-          <!-- Improved login button -->
-          <button class="bg-red-500 hover:bg-red-600 text-white rounded-lg px-4 py-3 w-full font-bold text-base shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105" type="submit">دخــول</button>
+      <!-- Logo and Title -->
+      <header class="text-center mb-8 animate-on-load" style="animation-delay: 0.2s;">
+        <div class="inline-flex items-center gap-3">
+          <img id="login-logo" class="h-14 w-14 rounded-full shadow-lg" alt="Logo" src="https://placehold.co/60x60/ef4444/white?text=W" />
+          <h1 class="font-bold text-4xl text-shadow-lg animated-gradient-text">WasfaOne</h1>
+        </div>
+      </header>
+
+      <!-- "Glassmorphism" styled card for a modern look -->
+      <main class="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-white/50 w-full animate-on-load" style="animation-delay: 0.4s;">
+        <h2 class="text-3xl font-bold mb-8 text-center text-slate-900">تسجيل الدخول</h2>
+        <form id="login-form" class="space-y-6">
+          
+          <!-- Email input with icon -->
+          <div class="relative">
+            <span class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-gray-400">
+                <path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" />
+                <path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" />
+              </svg>
+            </span>
+            <input id="email" class="w-full bg-gray-50 border border-gray-300 text-slate-800 placeholder-gray-500 rounded-lg pr-12 pl-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition" placeholder="البريد الإلكتروني" type="email" required />
+          </div>
+
+          <!-- Password input with icon and visibility toggle -->
+          <div class="relative">
+            <span class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-gray-400">
+                <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
+              </svg>
+            </span>
+            <input id="password" class="w-full bg-gray-50 border border-gray-300 text-slate-800 placeholder-gray-500 rounded-lg pr-12 pl-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition" placeholder="كلمة المرور" type="password" required />
+            <button type="button" id="toggle-password" class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500 hover:text-gray-700">
+              <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
+                <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.18l.88-1.405a.825.825 0 011.086-.318L5.11 9.42a.825.825 0 010 1.16l-2.48 1.55a.825.825 0 01-1.086-.318l-.88-1.405zm18.672 0a1.651 1.651 0 000-1.18l-.88-1.405a.825.825 0 00-1.086-.318L14.89 9.42a.825.825 0 000 1.16l2.48 1.55a.825.825 0 001.086-.318l.88-1.405z" clip-rule="evenodd" />
+              </svg>
+              <svg id="eye-slash-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden">
+                  <path d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.18l-.88-1.405a.825.825 0 00-1.086-.318l-2.48 1.55a.825.825 0 000 1.16l-2.016 1.26a4.028 4.028 0 01-4.7-4.7l1.26-2.016a.825.825 0 001.16 0l1.55-2.48a.825.825 0 00-.318-1.086L7.8 2.064A10.012 10.012 0 003.28 2.22zM7.5 10a2.5 2.5 0 005 0 2.5 2.5 0 00-5 0z" />
+                  <path d="M9.913 4.043a10.01 10.01 0 012.396 2.064l.88 1.405a.825.825 0 01-.318 1.086l-1.55 2.48a.825.825 0 01-1.16 0l-1.26 2.016a4.028 4.028 0 004.7 4.7l-2.016 1.26a.825.825 0 01-1.16 0l-2.48 1.55a.825.825 0 01-1.086-.318l-.88-1.405a1.651 1.651 0 010-1.18 10.029 10.029 0 013.3-4.38z" />
+              </svg>
+            </button>
+          </div>
+          
+          <div class="text-right">
+              <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="text-sm text-red-600 hover:underline">نسيت كلمة المرور؟</a>
+          </div>
+
+          <!-- Enhanced login button -->
+          <button id="login-button" class="bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-3 w-full font-bold text-base shadow-lg hover:shadow-red-500/40 transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center" type="submit">
+            <span id="button-text">دخــول</span>
+            <div id="button-spinner" class="spinner hidden"></div>
+          </button>
+          
           <div id="login-error" class="text-red-600 text-sm hidden pt-1 text-center"></div>
         </form>
       </main>
 
-      <!-- Subscription section with improved styling -->
-      <section class="mt-8">
-        <div class="border border-gray-200/80 rounded-2xl p-4 text-sm bg-white/80 backdrop-blur-sm shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span class="text-center sm:text-right text-slate-700">للاشتراك أو التجديد: <strong class="font-semibold text-slate-900">00971502061209</strong> — واتساب/اتصال</span>
-          <a href="https://wa.me/971502061209" class="px-5 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 whitespace-nowrap" target="_blank" rel="noopener">تواصل عبر واتساب</a>
-        </div>
-      </section>
+       <!-- Footer -->
+      <footer class="mt-8 text-center text-sm text-white/80 animate-on-load" style="animation-delay: 0.6s;">
+        <a href="privacy.html" class="underline hover:text-red-300 transition-colors">سياسة الخصوصية</a>
+      </footer>
     </div>
   </div>
 
-
-  <!-- Footer -->
-  <footer class="w-full max-w-4xl mx-auto p-6 text-center text-sm text-slate-500">
-    <a href="privacy.html" class="underline hover:text-red-500 transition-colors">سياسة الخصوصية</a>
-  </footer>
-
   <!-- Login script remains unchanged -->
   <script src="login.js"></script>
-  <!-- Simple script to add placeholder logo if not loaded -->
+
+  <!-- New scripts for interactivity -->
   <script>
+    // Placeholder logo script
     const logo = document.getElementById('login-logo');
     if (logo && !logo.src) {
-        logo.src = 'https://placehold.co/40x40/ef4444/white?text=W';
+        logo.src = 'https://placehold.co/60x60/ef4444/white?text=W';
     }
+
+    // Password visibility toggle
+    const togglePassword = document.getElementById('toggle-password');
+    const passwordInput = document.getElementById('password');
+    const eyeIcon = document.getElementById('eye-icon');
+    const eyeSlashIcon = document.getElementById('eye-slash-icon');
+
+    togglePassword.addEventListener('click', function() {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        eyeIcon.classList.toggle('hidden');
+        eyeSlashIcon.classList.toggle('hidden');
+    });
+
+    // Login form submission handler
+    const loginForm = document.getElementById('login-form');
+    const loginButton = document.getElementById('login-button');
+    const buttonText = document.getElementById('button-text');
+    const buttonSpinner = document.getElementById('button-spinner');
+
+    loginForm.addEventListener('submit', function(e) {
+        // This is a demo. In a real app, you would prevent default
+        // and handle the form submission with AJAX.
+        // For this demo, we'll just show the spinner for 2 seconds.
+        e.preventDefault();
+
+        // Show spinner and disable button
+        buttonText.classList.add('hidden');
+        buttonSpinner.classList.remove('hidden');
+        loginButton.disabled = true;
+        loginButton.classList.add('cursor-not-allowed', 'opacity-75');
+        
+        // Simulate a network request
+        setTimeout(() => {
+            // Restore button state
+            buttonText.classList.remove('hidden');
+            buttonSpinner.classList.add('hidden');
+            loginButton.disabled = false;
+            loginButton.classList.remove('cursor-not-allowed', 'opacity-75');
+
+            // Here you would typically handle the login response
+            // For demo, we'll just log to console.
+            console.log("Login attempt finished.");
+        }, 2000);
+    });
+
   </script>
 </body>
 </html>
+

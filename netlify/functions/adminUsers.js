@@ -30,38 +30,37 @@ function resp(status, obj) {
 async function ghGetJson(path) {
   const url = `${BASE_URL}${path}?ref=${encodeURIComponent(GITHUB_REF)}`;
   const r = await fetch(url, { headers: baseHeaders });
-  if (r.status === 404) return { data: [], sha: null }; // ملف غير موجود بعد
-  if (!r.ok) throw new Error(`GH_GET_${r.status}`);
+  if (!r.ok) {
+    throw new Error(`gh_get_failed_${r.status}`);
+  }
   const j = await r.json();
-  const txt = Buffer.from(j.content || "", "base64").toString("utf8");
-  return { data: txt ? JSON.parse(txt) : [], sha: j.sha };
+  const content = Buffer.from(j.content || "", "base64").toString("utf-8");
+  let data = null;
+  try {
+    data = JSON.parse(content);
+  } catch (_) {
+    data = null;
+  }
+  return { data, sha: j.sha || null };
 }
 
-async function ghPutJson(path, nextData, message, sha) {
+async function ghPutJson(path, data, message, sha) {
   const url = `${BASE_URL}${path}`;
   const body = {
-    message,
-    content: Buffer.from(JSON.stringify(nextData, null, 2), "utf8").toString("base64"),
+    message: message || `update ${path}`,
+    content: Buffer.from(JSON.stringify(data, null, 2), "utf-8").toString("base64"),
     branch: GITHUB_REF,
   };
-  if (sha) body.sha = sha; // لو الملف موجود نمرر sha، وإلا GitHub ينشئه
-  const r = await fetch(url, {
-    method: "PUT",
-    headers: baseHeaders,
-    body: JSON.stringify(body),
-  });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`GH_PUT_${r.status}:${t.slice(0,200)}`);
-  }
-  return r.json();
+  if (sha) body.sha = sha;
+  const r = await fetch(url, { method: "PUT", headers: baseHeaders, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`gh_put_failed_${r.status}`);
+  return await r.json();
 }
 
 exports.handler = async (event) => {
   try {
-    if (event.httpMethod === "OPTIONS") return { statusCode: 204 };
+    const method = event.httpMethod || "GET";
 
-    // تحقق من الإعدادات
     if (!ADMIN_PASSWORD || !GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
       return resp(500, { ok: false, error: "config_missing" });
     }
@@ -73,75 +72,67 @@ exports.handler = async (event) => {
       event.headers["x-admin-key".toLowerCase()];
     if (key !== ADMIN_PASSWORD) return resp(401, { ok: false, error: "unauthorized" });
 
-    const method = event.httpMethod;
-    const action = (event.queryStringParameters?.action || "").toLowerCase();
-    const body = event.body ? JSON.parse(event.body) : {};
+    const { data: users = [], sha } = await ghGetJson(USERS_PATH);
 
     if (method === "GET") {
-      const { data } = await ghGetJson(USERS_PATH);
-      return resp(200, { ok: true, users: Array.isArray(data) ? data : [] });
+      return resp(200, { ok: true, users });
     }
 
-    // حمل الحالة الحالية
-    const { data: users, sha } = await ghGetJson(USERS_PATH);
+    let body = {};
+    try {
+      body = JSON.parse(event.body || "{}");
+    } catch (e) {
+      body = {};
+    }
 
     if (method === "POST") {
-      if (action === "resetdevice") {
+      const action = body.action;
+
+      // إعادة تعيين القفل (بصمة/جلسة) لمستخدم معيّن
+      if (action === "reset_lock") {
         const email = (body.email || "").toLowerCase();
         const idx = users.findIndex(u => (u.email || "").toLowerCase() === email);
         if (idx === -1) return resp(404, { ok: false, error: "not_found" });
+
         users[idx].device_fingerprint = null;
         users[idx].session_nonce = null;
-        await ghPutJson(USERS_PATH, users, `admin: reset device ${email}`, sha);
+        await ghPutJson(USERS_PATH, users, `admin: reset lock ${email}`, sha);
         return resp(200, { ok: true, user: users[idx] });
       }
 
-      // إنشاء مستخدم
-      const required = ["email", "password", "name"];
-      for (const r of required) if (!body[r]) return resp(400, { ok: false, error: `missing_${r}` });
+      // إنشاء/تحديث مستخدم
+      if (action === "upsert") {
+        const u = body.user || {};
+        const email = (u.email || "").toLowerCase();
 
-      const email = String(body.email).toLowerCase();
-      if (users.some(u => (u.email || "").toLowerCase() === email)) {
-        return resp(409, { ok: false, error: "exists" });
+        if (!email || !u.pass) {
+          return resp(400, { ok: false, error: "bad_request" });
+        }
+
+        const current = users.find(x => (x.email || "").toLowerCase() === email);
+        const nextUser = {
+          email,
+          name: u.name || "",
+          pass: u.pass || "",
+          role: u.role || "user",
+          enabled: !!u.enabled,
+          start_date: u.start_date || null,
+          end_date: u.end_date || null,
+          device_fingerprint: u.device_fingerprint || null,
+          lock_reason: u.lock_reason || null,
+        };
+
+        if (current) {
+          Object.assign(current, { ...nextUser });
+        } else {
+          users.push(nextUser);
+        }
+
+        await ghPutJson(USERS_PATH, users, `admin: upsert ${email}`, sha);
+        return resp(200, { ok: true, user: nextUser });
       }
 
-      const nu = {
-        email,
-        password: String(body.password),
-        name: String(body.name),
-        status: body.status || "active",
-        start_date: body.start_date || null,
-        end_date: body.end_date || null,
-        device_fingerprint: null,
-        session_nonce: null,
-        lock_reason: body.lock_reason || null,
-      };
-
-      users.push(nu);
-      await ghPutJson(USERS_PATH, users, `admin: create ${email}`, sha);
-      return resp(201, { ok: true, user: nu });
-    }
-
-    if (method === "PUT") {
-      const email = (body.email || "").toLowerCase();
-      const idx = users.findIndex(u => (u.email || "").toLowerCase() === email);
-      if (!email || idx === -1) return resp(404, { ok: false, error: "not_found" });
-
-      const current = users[idx];
-      const next = {
-        ...current,
-        name: body.name ?? current.name,
-        status: body.status ?? current.status,
-        start_date: body.start_date ?? current.start_date,
-        end_date: body.end_date ?? current.end_date,
-      };
-      if (typeof body.password === "string" && body.password.trim() !== "") {
-        next.password = body.password;
-      }
-
-      users[idx] = next;
-      await ghPutJson(USERS_PATH, users, `admin: update ${email}`, sha);
-      return resp(200, { ok: true, user: next });
+      return resp(400, { ok: false, error: "unknown_action" });
     }
 
     if (method === "DELETE") {

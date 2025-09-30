@@ -32,36 +32,32 @@ function resp(status, obj) {
 async function ghGetJson(path) {
   const url = `${BASE_URL}${path}?ref=${encodeURIComponent(GITHUB_REF)}`;
   const r = await fetch(url, { headers: baseHeaders });
-  if (!r.ok) {
-    throw new Error(`gh_get_failed_${r.status}`);
-  }
+  if (r.status === 404) return { data: null, sha: null };
+  if (!r.ok) throw new Error(`GH_GET_${r.status}`);
   const j = await r.json();
-  const content = Buffer.from(j.content || "", "base64").toString("utf-8");
-  let data = null;
-  try {
-    data = JSON.parse(content);
-  } catch (_) {
-    data = null;
-  }
-  return { data, sha: j.sha || null };
+  const txt = Buffer.from(j.content || "", "base64").toString("utf8");
+  return { data: txt ? JSON.parse(txt) : null, sha: j.sha };
 }
 
-async function ghPutJson(path, data, message, sha) {
+async function ghPutJson(path, nextData, message, sha) {
   const url = `${BASE_URL}${path}`;
   const body = {
-    message: message || `update ${path}`,
-    content: Buffer.from(JSON.stringify(data, null, 2), "utf-8").toString("base64"),
+    message,
+    content: Buffer.from(JSON.stringify(nextData, null, 2), "utf8").toString("base64"),
     branch: GITHUB_REF,
   };
   if (sha) body.sha = sha;
   const r = await fetch(url, { method: "PUT", headers: baseHeaders, body: JSON.stringify(body) });
-  if (!r.ok) throw new Error(`gh_put_failed_${r.status}`);
-  return await r.json();
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`GH_PUT_${r.status}:${t.slice(0,200)}`);
+  }
+  return r.json();
 }
 
 exports.handler = async (event) => {
   try {
-    const method = event.httpMethod || "GET";
+    if (event.httpMethod === "OPTIONS") return { statusCode: 204 };
 
     if (!ADMIN_PASSWORD || !GITHUB_TOKEN || !GITHUB_REPO_OWNER || !GITHUB_REPO_NAME) {
       return resp(500, { ok: false, error: "config_missing" });
@@ -76,50 +72,64 @@ exports.handler = async (event) => {
       return resp(401, { ok: false, error: "unauthorized" });
     }
 
+    const method = event.httpMethod;
+    const body = event.body ? JSON.parse(event.body) : {};
+
+    // إرجاع الإعدادات الحالية (خاصة بالأدمن)
     if (method === "GET") {
-      const { data: settings = {}, sha } = await ghGetJson(SETTINGS_PATH);
-      return resp(200, { ok: true, settings, sha });
+      const { data } = await ghGetJson(SETTINGS_PATH);
+      const defaults = {
+        branding: { site_name_ar: "WasfaOne", site_name_en: "WasfaOne", logo_url: "" },
+        contact: { phone_display: "", whatsapp_link: "", email: "", social: {} },
+        diet_systems: [],
+        images: {},
+        images_meta: {}
+      };
+      return resp(200, { ok: true, settings: data || defaults });
     }
 
-    if (method === "POST") {
-      let body = {};
-      try {
-        body = JSON.parse(event.body || "{}");
-      } catch (e) {
-        body = {};
-      }
-      const next = body.settings || {};
-
-      // قراءة النسخ الحالية
-      const { data: current = {}, sha } = await ghGetJson(SETTINGS_PATH);
-      const { data: currentPublic = {}, sha: shaPublic } = await ghGetJson(PUBLIC_SETTINGS_PATH);
-
-      // دمج آمن للإعدادات
-      const merged = {
-        ...current,
-        ...next,
-        contact: { ...(current.contact || {}), ...(next.contact || {}) },
-        brand: {
-          ...(current.brand || {}),
-          ...(next.brand || {}),
-          logo: { ...(current.brand?.logo || {}), ...(next.brand?.logo || {}) },
-          hero: { ...(current.brand?.hero || {}), ...(next.brand?.hero || {}) },
-        },
-        text: { ...(current.text || {}), ...(next.text || {}) },
-        legal: { ...(current.legal || {}), ...(next.legal || {}) },
+    if (method === "PUT") {
+      // حفظ الإعدادات الرسمية
+      const next = {
+        branding: body.branding || {},
+        contact: body.contact || {},
+        diet_systems: Array.isArray(body.diet_systems) ? body.diet_systems : [],
+        images: body.images || {},
+        images_meta: body.images_meta || {}
       };
 
-      // حفظ settings.json (الخاص)
-      await ghPutJson(SETTINGS_PATH, merged, `admin: update data/settings.json`, sha);
+      // 1) تحديث الملف الرسمي: data/settings.json
+      const { sha } = await ghGetJson(SETTINGS_PATH);
+      await ghPutJson(SETTINGS_PATH, next, `admin: update settings.json`, sha);
 
-      // تحديث نسخة public/data/settings.json (فرونت)
+      // 2) إنتاج نسخة عامة تقرؤها الواجهات: public/data/settings.json
+      //    نحافظ على توافق قديم إن وُجد: حقل diets= diet_systems، مع نقل بسيط للحقول.
       const publicSchema = {
-        default_lang: merged.default_lang || "ar",
-        contact: merged.contact || {},
-        brand: merged.brand || {},
-        text: merged.text || {},
-        legal: merged.legal || {},
+        branding: next.branding || {},
+        contact: {
+          phone_display: next.contact?.phone_display || "",
+          whatsapp_link: next.contact?.whatsapp_link || "",
+          email: next.contact?.email || "",
+          social: next.contact?.social || {}
+        },
+        // الحقل العام الذي ستستعمله الواجهات مباشرة
+        diets: (next.diet_systems || []).map(d => ({
+          id: d.id || "",
+          name_ar: d.name_ar || "",
+          name_en: d.name_en || "",
+          description_ar: d.description_ar || "",
+          description_en: d.description_en || ""
+        })),
+        images: next.images || {},
+        alts: Object.fromEntries(
+          Object.entries(next.images_meta || {}).map(([k, v]) => [k, {
+            ar: v?.alt_ar || "",
+            en: v?.alt_en || ""
+          }])
+        )
       };
+
+      const { sha: shaPublic } = await ghGetJson(PUBLIC_SETTINGS_PATH);
       await ghPutJson(
         PUBLIC_SETTINGS_PATH,
         publicSchema,

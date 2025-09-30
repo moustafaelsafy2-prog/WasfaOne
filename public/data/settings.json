@@ -15,33 +15,174 @@
     }
   },
   "diets": [
-    { "id": "balanced", "name_ar": "عادي/متوازن", "description_ar": "خيار عام متوازن." },
-    { "id": "dr_mohamed_rules", "name_ar": "نظام د. محمد سعيد", "description_ar": "قواعد رسمية مع ضبط تلقائي." },
-    { "id": "keto", "name_ar": "كيتو", "description_ar": "نظام غذائي منخفض الكربوهيدرات." },
-    { "id": "mediterranean", "name_ar": "المتوسطي", "description_ar": "نظام يعتمد على الخضار وزيت الزيتون." },
-    { "id": "paleo", "name_ar": "باليو (Paleo)", "description_ar": "أطعمة كاملة وتجنب المُصنّع." },
-    { "id": "whole30", "name_ar": "Whole30", "description_ar": "30 يومًا من أطعمة كاملة." },
-    { "id": "dash", "name_ar": "DASH (قلب صحي)", "description_ar": "خفض الصوديوم ودعم القلب." },
-    { "id": "lowcarb", "name_ar": "منخفض الكربوهيدرات", "description_ar": "تقليل الكربوهيدرات تدريجيًا." },
-    { "id": "lowfat", "name_ar": "منخفض الدهون", "description_ar": "تقليل إجمالي الدهون." },
-    { "id": "lowsodium", "name_ar": "منخفض الصوديوم", "description_ar": "تقليل الملح لتحكم الضغط." },
-    { "id": "low_gi", "name_ar": "منخفض المؤشر الجلايسيمي (سكري)", "description_ar": "للتحكم بالسكر." },
-    { "id": "vegetarian", "name_ar": "نباتي (Vegetarian)", "description_ar": "بدون لحوم." },
-    { "id": "vegan", "name_ar": "فيجن (Vegan)", "description_ar": "خالي من كل المنتجات الحيوانية." },
-    { "id": "pescatarian", "name_ar": "بسكاتاريان (نباتي مع أسماك)", "description_ar": "نباتي مع الأسماك." },
-    { "id": "gluten_free", "name_ar": "خالي من الجلوتين", "description_ar": "بدون جلوتين." },
-    { "id": "lactose_free", "name_ar": "خالي من اللاكتوز", "description_ar": "بدون مشتقات الألبان." },
-    { "id": "high_protein", "name_ar": "عالي البروتين", "description_ar": "رفع حصة البروتين." },
-    { "id": "high_fiber", "name_ar": "عالي الألياف", "description_ar": "غني بالألياف." },
-    { "id": "athlete_gain", "name_ar": "رياضي/زيادة كتلة عضلية", "description_ar": "سعرات كافية ونِسَب بنائية." },
-    { "id": "halal", "name_ar": "حلال", "description_ar": "مطابق للمعايير الشرعية." }
+    {
+      "id": "balanced",
+      "name_ar": "عادي/متوازن",
+      "name_en": "Balanced",
+      "description_ar": "خيار عام متوازن يناسب أغلب الحالات.",
+      "description_en": "General balanced option suitable for most cases."
+    },
+    {
+      "id": "نظام د. محمد سعيد",
+      "name_ar": "نظام د. محمد سعيد",
+      "name_en": "Dr. Mohamed Saeed System",
+      "description_ar": "التزام صارم ≤ 5جم كربوهيدرات صافية/حصة. ممنوع السكريات والمُحلّيات والمصنّعات والإضافات الصناعية والزيوت المكررة. المسموح: زيت زيتون بكر، زبدة/سمن طبيعي، أفوكادو، مكسرات نيئة.",
+      "description_en": "Strict: ≤5g net carbs/serving. No sugars/sweeteners, processed meats/soups/sauces, artificial additives, or refined vegetable oils. Allowed: extra-virgin olive oil, butter/ghee, avocado, raw nuts.",
+      "rules_ar": [
+        "الكربوهيدرات الصافية لكل حصة ≤ 5 جم",
+        "ممنوع السكريات والمُحلّيات: سكر أبيض/بني، عسل، شراب الذرة/الجلوكوز/الفركتوز، والمحليات الصناعية",
+        "ممنوع المصنّعات: لانشون، نقانق، سلامي، بسطرمة، المرق البودرة/المكعبات، الصلصات التجارية غير المنزلية",
+        "ممنوع الإضافات الصناعية: MSG/جلوتامات، نيتريت/نترات، ألوان ونكهات صناعية، مستحلبات",
+        "ممنوع الزيوت النباتية المكررة/المهدرجة: كانولا، صويا، ذرة، بذر العنب، vegetable oil",
+        "الدهون المسموحة: زيت زيتون بكر، زبدة/سمن طبيعي، أفوكادو، مكسرات نيئة"
+      ],
+      "banned_keywords": [
+        "سكر", "sugar", "عسل", "honey", "دبس", "شراب", "سيرب", "glucose", "fructose", "corn syrup", "hfcs",
+        "لانشون", "نقانق", "سلامي", "بسطرمة", "مرتديلا", "مصنع", "معلبات", "مرق", "مكعبات",
+        "msg", "جلوتامات", "glutamate", "نتريت", "نترات", "ملون", "نكهات صناعية", "مواد حافظة", "مستحلب",
+        "مهدرج", "مارجرين", "زيت كانولا", "زيت ذرة", "زيت صويا", "بذر العنب", "vegetable oil",
+        "دقيق أبيض", "طحين أبيض", "نشا الذرة", "cornstarch", "خبز", "مكرونة", "رز أبيض", "سكر بني"
+      ]
+    },
+    {
+      "id": "keto",
+      "name_ar": "كيتو",
+      "name_en": "Keto",
+      "description_ar": "نظام غذائي منخفض الكربوهيدرات وعالي الدهون.",
+      "description_en": "Low-carb, high-fat diet."
+    },
+    {
+      "id": "mediterranean",
+      "name_ar": "المتوسطي (Mediterranean)",
+      "name_en": "Mediterranean",
+      "description_ar": "نظام يعتمد على الخضار والأسماك وزيت الزيتون.",
+      "description_en": "Vegetable- and olive oil–forward with fish."
+    },
+    {
+      "id": "paleo",
+      "name_ar": "باليو (Paleo)",
+      "name_en": "Paleo",
+      "description_ar": "أطعمة كاملة وتجنب المُصنّع.",
+      "description_en": "Whole foods; avoids processed items."
+    },
+    {
+      "id": "whole30",
+      "name_ar": "Whole30",
+      "name_en": "Whole30",
+      "description_ar": "30 يومًا من أطعمة كاملة بلا سكريات مضافة.",
+      "description_en": "30 days of whole foods; no added sugar."
+    },
+    {
+      "id": "dash",
+      "name_ar": "DASH (قلب صحي)",
+      "name_en": "DASH",
+      "description_ar": "خفض الصوديوم ودعم صحة القلب.",
+      "description_en": "Lower sodium; heart-health focus."
+    },
+    {
+      "id": "lowcarb",
+      "name_ar": "منخفض الكربوهيدرات",
+      "name_en": "Low-Carb",
+      "description_ar": "تقليل الكربوهيدرات تدريجيًا.",
+      "description_en": "Gradual carb reduction."
+    },
+    {
+      "id": "lowfat",
+      "name_ar": "منخفض الدهون",
+      "name_en": "Low-Fat",
+      "description_ar": "تقليل إجمالي الدهون.",
+      "description_en": "Lower overall fat intake."
+    },
+    {
+      "id": "lowsodium",
+      "name_ar": "منخفض الصوديوم",
+      "name_en": "Low-Sodium",
+      "description_ar": "تقليل الملح للتحكم في الضغط.",
+      "description_en": "Lower salt for BP control."
+    },
+    {
+      "id": "low_gi",
+      "name_ar": "منخفض المؤشر الجلايسيمي (سكري)",
+      "name_en": "Low GI (Diabetes)",
+      "description_ar": "اختيار كربوهيدرات منخفضة المؤشر.",
+      "description_en": "Low-glycemic carbs focus."
+    },
+    {
+      "id": "vegetarian",
+      "name_ar": "نباتي (Vegetarian)",
+      "name_en": "Vegetarian",
+      "description_ar": "بدون لحوم.",
+      "description_en": "No meat."
+    },
+    {
+      "id": "vegan",
+      "name_ar": "فيجن (Vegan)",
+      "name_en": "Vegan",
+      "description_ar": "خالي من كل المنتجات الحيوانية.",
+      "description_en": "Free of all animal products."
+    },
+    {
+      "id": "pescatarian",
+      "name_ar": "بسكاتاريان (نباتي مع أسماك)",
+      "name_en": "Pescatarian",
+      "description_ar": "نباتي مع السماح بالأسماك.",
+      "description_en": "Vegetarian plus fish."
+    },
+    {
+      "id": "gluten_free",
+      "name_ar": "خالي من الجلوتين",
+      "name_en": "Gluten-Free",
+      "description_ar": "بدون جلوتين.",
+      "description_en": "No gluten."
+    },
+    {
+      "id": "lactose_free",
+      "name_ar": "خالي من اللاكتوز",
+      "name_en": "Lactose-Free",
+      "description_ar": "بدون مشتقات الألبان المحتوية على لاكتوز.",
+      "description_en": "No lactose-containing dairy."
+    },
+    {
+      "id": "high_protein",
+      "name_ar": "عالي البروتين",
+      "name_en": "High-Protein",
+      "description_ar": "رفع حصة البروتين لتحقيق الشبع والبناء.",
+      "description_en": "Higher protein for satiety and building."
+    },
+    {
+      "id": "high_fiber",
+      "name_ar": "عالي الألياف",
+      "name_en": "High-Fiber",
+      "description_ar": "غني بالألياف لتحسين الهضم.",
+      "description_en": "Fiber-rich for digestion."
+    },
+    {
+      "id": "athlete_gain",
+      "name_ar": "رياضي/زيادة كتلة عضلية",
+      "name_en": "Athlete / Muscle Gain",
+      "description_ar": "سعرات كافية ونِسَب داعمة للنمو.",
+      "description_en": "Adequate calories with growth macros."
+    },
+    {
+      "id": "halal",
+      "name_ar": "حلال",
+      "name_en": "Halal",
+      "description_ar": "مطابق للمعايير الشرعية.",
+      "description_en": "Compliant with halal standards."
+    }
   ],
   "images": {
     "hero": "https://example.com/hero.jpg",
     "banner": "https://example.com/banner.jpg"
   },
   "alts": {
-    "hero": { "ar": "صورة رئيسية", "en": "Hero image" },
-    "banner": { "ar": "صورة بانر", "en": "Banner image" }
+    "hero": {
+      "ar": "صورة رئيسية",
+      "en": "Hero image"
+    },
+    "banner": {
+      "ar": "صورة بانر",
+      "en": "Banner image"
+    }
   }
 }

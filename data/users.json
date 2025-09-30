@@ -22,5 +22,16 @@
     "session_nonce": "0531c9d2-d75d-469b-b591-5c8890ca85b9",
     "lock_reason": null,
     "auth_token": "bcbaa248-2a50-473e-960f-237e68ebf9d8"
+  },
+  {
+    "email": "mohanad@gmail.com",
+    "password": "123456",
+    "name": "Mohanad",
+    "status": "active",
+    "start_date": "2025-09-29",
+    "end_date": "2026-09-30",
+    "device_fingerprint": null,
+    "session_nonce": null,
+    "lock_reason": null
   }
 ]

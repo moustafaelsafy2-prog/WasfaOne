@@ -104,7 +104,7 @@ function validateRecipeSchema(rec) {
 }
 
 /* ---------------- Prompting ---------------- */
-function systemInstruction(maxSteps = 6) {
+function systemInstruction(maxSteps = 8) {
   return `
 أنت شيف محترف. أعد **JSON فقط** حسب هذا المخطط، بدون أي نص خارجه:
 {

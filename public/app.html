@@ -56,13 +56,16 @@
   <div class="wrap">
     <!-- Header + Form -->
     <div class="card mb-8">
-      <!-- زر تسجيل الخروج (إضافة فقط دون تغيير الباقي) -->
-      <div class="flex justify-end mb-2">
-        <button id="logoutBtn" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-bold">تسجيل الخروج</button>
-      </div>
-
       <h1 class="text-4xl md:text-5xl font-black text-center">مجلة الوصفة الذكية</h1>
       <p class="text-center text-[var(--muted)] mt-2 mb-4">تنسيق مجلة — إشارات ضوئية للتغذية فقط — بدون صور.</p>
+
+      <!-- إضافة زر تسجيل الخروج فقط -->
+      <div class="text-center my-4">
+        <button id="logoutBtn" onclick="logout()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-800 text-white font-bold shadow hover:brightness-95">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 11-6 0v-1m6-10V5a3 3 0 10-6 0v1"/></svg>
+          <span>تسجيل الخروج</span>
+        </button>
+      </div>
 
       <div class="divider"></div>
 
@@ -210,6 +213,12 @@
     const API_ENDPOINT="/.netlify/functions/generateRecipe";
     const $=id=>document.getElementById(id);
 
+    // ===== (إضافة جديدة) تسجيل الخروج =====
+    function logout(){
+      try{ localStorage.removeItem("wasfa_session"); }catch(_){}
+      window.location.replace("login.html");
+    }
+
     // inputs
     const mealType=$('mealType'), cuisine=$('cuisine'), dietType=$('dietType'),
           calorieTarget=$('calorieTarget'), commonAllergy=$('commonAllergy'),
@@ -223,15 +232,6 @@
           recipeTitle=$('recipeTitle'), timeValue=$('timeValue'),
           servingsValue=$('servingsValue'), ingList=$('ingredientsList'),
           stepsBox=$('preparationSteps'), tlWrap=$('tl-wrap');
-
-    /* ===== زر تسجيل الخروج (إضافة فقط) ===== */
-    const logoutBtn = $('logoutBtn');
-    if (logoutBtn){
-      logoutBtn.addEventListener('click', ()=>{
-        localStorage.removeItem("wasfa_session");
-        window.location.replace("login.html");
-      });
-    }
 
     /* ===== Toast ===== */
     function pushToast(text,type="info",ms=3500){

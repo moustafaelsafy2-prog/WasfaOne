@@ -48,17 +48,17 @@
     .banner.red{border-color:#b91c1c;background:#ffecec;color:#7f1d1d}
     select,input[type="number"],input[type="text"]{min-height:48px}
 
-    /* زر الخروج مثبت في الزاوية وفق اتجاه الصفحة */
+    /* زر تسجيل الخروج مثبت ويحترم RTL/LTR */
     .logout-fab{
       position:fixed;
-      inset-inline-start:16px; /* يحترم RTL/LTR */
+      inset-inline-start:16px;
       inset-block-start:16px;
       z-index:60;
     }
   </style>
 </head>
 <body class="p-4 md:p-8">
-  <!-- زر تسجيل الخروج في الأعلى بالزاوية -->
+  <!-- زر الخروج في أعلى الزاوية -->
   <button id="logoutBtn" onclick="logout()" class="logout-fab inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-800 text-white font-bold shadow hover:brightness-95">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 11-6 0v-1m6-10V5a3 3 0 10-6 0v1"/></svg>
     <span>تسجيل الخروج</span>
@@ -274,19 +274,32 @@
       ].map(p=>`<div class="tl-pill ${p.c}"><span class="name">${p.n}</span><span class="grams">${p.g}</span><span class="flag">${p.f}</span></div>`).join("");
     }
 
+    // === (مهم) تطابق تام مع مخطط استجابة الخادم ===
     function map(rec){
+      // time قد يكون رقم دقائق أو نص جاهز من الخادم
+      const timeText = typeof rec.time === "number"
+        ? `جاهز في ${rec.time} دقيقة`
+        : String(rec.time || "—");
+
+      const macros = rec?.macros || {};
+      const ingredients = Array.isArray(rec?.ingredients) ? rec.ingredients : [];
+      const prep = Array.isArray(rec?.preparation) ? rec.preparation : [];
+
       return {
-        title: rec.title,
-        time: `جاهز في ${rec.total_time_min} دقيقة`,
-        servingsText: `${rec.servings} حصة`,
+        title: rec.title || "",
+        time: timeText,
+        servingsText: `${rec.servings || 1} حصة`,
         macros: {
-          calories:+rec.macros.calories||0,
-          protein:+rec.macros.protein_g||0,
-          carbs:+rec.macros.carbs_g||0,
-          fats:+rec.macros.fat_g||0,
+          calories: +macros.calories || 0,
+          protein: +macros.protein || 0,
+          carbs: +macros.carbs || 0,
+          fats: +macros.fats || 0,
         },
-        ingredients: (rec.ingredients||[]).map(x=>({name:x})),
-        steps: rec.steps||[]
+        ingredients: ingredients.map(x=>({ name: x?.name || "", quantity: x?.quantity || "" })),
+        steps: prep.map(s=>{
+          const t = (s?.title ? (s.title + " — ") : "");
+          return t + (s?.instruction || "");
+        })
       };
     }
 
@@ -316,7 +329,10 @@
       recipeTitle.textContent=view.title;
       timeValue.textContent=view.time;
       servingsValue.textContent=view.servingsText;
-      ingList.innerHTML=view.ingredients.map(i=>`<li>${i.name}</li>`).join("");
+      ingList.innerHTML=view.ingredients.map(i=>{
+        const qty = i.quantity ? `<strong>${i.quantity}</strong> — ` : "";
+        return `<li>${qty}${i.name}</li>`;
+      }).join("");
       const cleanSteps = (Array.isArray(view.steps) ? view.steps : []).map(s => String(s || "").trim()).filter(Boolean);
       stepsBox.innerHTML = cleanSteps.map(s=>`<div class="step"><p>${s}</p></div>`).join("");
       renderTL(view.macros);
@@ -333,7 +349,14 @@
       try{
         const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
         if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
-        const payload={ mealType:mealType.value, cuisine:cuisine.value, dietType:dietType.value, caloriesTarget(Number(calorieTarget.value)||500), allergies, lang:"ar" };
+        const payload={
+          mealType:mealType.value,
+          cuisine:cuisine.value,
+          dietType:dietType.value,
+          caloriesTarget: Number(calorieTarget.value)||500,
+          allergies,
+          lang:"ar"
+        };
         const data=await callAPI(payload);
         const view=map(data.recipe);
         render(view, data.note, data.warning);
@@ -351,7 +374,7 @@
     // ===== تحميل الإعدادات العامة العامة (Public) والتحكم في القائمة =====
     async function loadPublicSettingsAndBind(){
       try{
-        const res = await fetch("data/settings.json?ts="+Date.now(), { cache:"no-store" });
+        const res = await fetch("/data/settings.json?ts="+Date.now(), { cache:"no-store" });
         if(!res.ok) throw new Error("settings_fetch_failed");
         const s = await res.json();
 
@@ -382,7 +405,7 @@
       }catch(_){ window.location.replace("login.html"); }
     }
 
-    // ===== (إضافة جديدة) دالة تسجيل الخروج =====
+    // تسجيل الخروج
     function logout(){
       try{ localStorage.removeItem("wasfa_session"); }catch(_){}
       window.location.replace("login.html");

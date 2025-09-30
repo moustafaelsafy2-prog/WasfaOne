@@ -207,7 +207,7 @@ async function callOnce(model, input, timeoutMs = 28000) {
 
   const body = {
     // v1beta قد يتجاهل responseSchema/MIME إن لم يدعمها — لا تضر
-    systemInstruction: { role: "system", parts: [{ text: systemInstruction(6) }] },
+    systemInstruction: { role: "system", parts: [{ text: systemInstruction(8) }] },
     contents: [{ role: "user", parts: [{ text: userPrompt(input) }] }],
     generationConfig: { temperature: 0.6, topP: 0.9, maxOutputTokens: 1000 },
     safetySettings: []
@@ -236,10 +236,10 @@ async function callOnce(model, input, timeoutMs = 28000) {
     let json = data && typeof data === "object" && data.title ? data : extractJsonFromCandidates(data);
     if (!json) return { ok:false, error:"gemini_returned_non_json" };
 
-    // تطبيع: تأمين اللغة + تقصير الخطوات لحد أقصى 6
+    // تطبيع: تأمين اللغة + تقصير الخطوات لحد أقصى 8
     if (!json.lang) json.lang = "ar";
-    if (Array.isArray(json.steps) && json.steps.length > 6) {
-      const chunk = Math.ceil(json.steps.length / 6);
+    if (Array.isArray(json.steps) && json.steps.length > 8) {
+      const chunk = Math.ceil(json.steps.length / 8);
       const merged = [];
       for (let i=0;i<json.steps.length;i+=chunk) merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
       json.steps = merged.slice(0,6);

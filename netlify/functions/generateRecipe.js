@@ -1,7 +1,7 @@
 // netlify/functions/generateRecipe.js
 // UAE-ready — Arabic JSON schema, strict energy reconciliation (4/4/9),
 // Dr. Mohamed Saeed soft-repair path, and now: full diet profiles + custom macros support + user-available ingredients.
-// تحديث التحليات: "حلويات" بطعم حلو مسموح بستيفيا طبيعية نقية بحدود ضيقة (إن كان النظام يسمح) وخالية من الإضافات الصناعية.
+// تنويع ذكي حسب المطبخ + إصلاح منطق "الحلويات": سكر ستيفيا طبيعي نقي مسموح بحدود ضيقة (إن كان النظام يسمح) وخالٍ من الإضافات الصناعية.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -88,6 +88,34 @@ function validateRecipeSchema(rec) {
   return { ok:true };
 }
 
+/* ---------------- Cuisine Variety Guides (prompt-time diversification) ---------------- */
+const CUISINE_GUIDES = {
+  "شرق أوسطي": `
+- اختر في كل مرة أسلوبًا مختلفًا من: لبناني/سوري، فلسطيني/أردني، عراقي، خليجي، حجازي، حضرمي، يمني، حجازي-تركي تزاوجي.
+- أمثلة تقنيات: شَيّ/تحمير بالسمن، طاجن، كبسة/مندي (لغير الحلويات)، تتبيل ليموني-ثومي (للوصفات المالحة فقط)، تحميص بالطحينة أو دبس الرمان (بحرص على الكارب).
+- للحلويات: قوام كريمي/مقرمش (سميد غير مسموح بالأنظمة منخفضة الكارب)، بدائل: لوز مطحون/جوز هند ناعم/كريمة/كاكاو خام/توت منخفض السكر، ستيفيا طبيعية نقية فقط بحدود ضيقة حيث يسمح النظام.
+`.trim(),
+  "متوسطي (Mediterranean)": `
+- نوّع بين يوناني/إسباني/إيطالي-ريفي/فرنسي-بروفنسالي/تركي-إيجه.
+- تقنيات: خبز بالفرن، سوتيه بزيت الزيتون البكر، تتبيل بالأعشاب والحمضيات.
+- حلويات: زبادي كثيف/ماسكرپوني خفيف/لوز مطحون/توت؛ ستيفيا طبيعية نقية بقدر محدود إن سمح النظام.
+`.trim(),
+  "مطبخ مصري": `
+- نوّع بين أكلات ريفية/إسكندرانية/صعيدية/قاهرية منزلية.
+- تجنّب الأرز/الخبز/المكرونة في الأنظمة منخفضة الكارب، واستخدم بدائل (قرنبيط مبشور/كوسا).
+- حلويات: قوام كريمي ومكسرات محمّصة خفيفة؛ ستيفيا طبيعية نقية فقط وبلا إضافات صناعية.
+`.trim(),
+  "هندي": `
+- بدّل بين شمالي/جنوبي/كجراتي/بنغالي مع ضبط البهارات والكارب.
+- تجنّب السكريات والدقيق الأبيض؛ استخدم بهارات دافئة للحلويات فقط (هيل/قرفة/فانيلا) دون بهارات حادة (كمون/كركم) في الحلويات.
+`.trim(),
+  "أمريكي": `
+- ستايلات: مشاوي، داينر منزلي، كاليفورني صحي.
+- حلويات: تشيزكيك خفيف/موس شوكولاتة كاكاو خام/كوب كيك لوز؛ ستيفيا نقية فقط وبحدود ضيقة.
+`.trim()
+  // يمكن توسيع اللائحة، وأي مطبخ غير موجود يُعامل بتوجيه عام متنوع.
+};
+
 /* ---------------- Diet Profiles (constraints injected into the prompt) ---------------- */
 const DIET_PROFILES = {
   dr_mohamed_saeed: `
@@ -101,103 +129,111 @@ const DIET_PROFILES = {
 - هدف صافي كربوهيدرات منخفض جدًا (≤ 10–12 جم/حصة) مع بروتين متوسط ودهون صحية كمصدر طاقة أساسي.
 - يُفضَّل: لحوم/أسماك/بيض، خضار غير نشوية، زيوت عالية الجودة (EVOO/أفوكادو/زبدة)، مكسرات وبذور باعتدال.
 - يُمنَع: الحبوب والسكريات والنشويات العالية والدرنيات والدقيق الأبيض.
-- الطعم: تتبيل دهني عطري (ثوم، زعتر، بابريكا، ليمون) دون رفع الكارب.
-- الحلويات: يُسمح **بستيفيا طبيعية نقية فقط وبحدود ضيقة** وخالية من إضافات صناعية، ويُمنع أي محليات أخرى.
+- الحلويات: **مسموح ستيفيا طبيعية نقية فقط وبحدود ضيقة** وخالية من الإضافات الصناعية.
   `.trim(),
   high_protein: `
 - البروتين مرتفع (≥ 25–35% من الطاقة) مع ضبط الكارب والدهون لتوازن السعرات.
-- ركّز على بروتينات خالية من الدهون/منخفضة الدهون (صدر دجاج، تونة بالماء، زبادي عالي البروتين)، مع خضار وألياف.
-- الطهي: شواء/قلي هوائي/سوتيه خفيف؛ تتبيلات حمضية (ليمون/خل) وأعشاب لرفع النكهة دون دهون إضافية كبيرة.
 - الحلويات: إن طُلبت ضمن السعرات، استخدم ستيفيا طبيعية نقية فقط وبقدر محدود وبدون إضافات صناعية.
   `.trim(),
   high_protein_keto: `
 - صافي كارب منخفض جدًا كالكيتو مع رفع البروتين وتقليل الدهون لتعويض السعرات.
-- اختر قطعًا خالية من الدهون وأضف دهونًا قليلة عالية الجودة فقط لضبط الماكروز.
 - الحلويات: ستيفيا طبيعية نقية بحدود ضيقة فقط، وخالية من أي إضافات صناعية.
   `.trim(),
   low_carb: `
-- نطاق الكارب 15–35 جم/حصة؛ بروتين أعلى وألياف مرتفعة للامتلاء.
-- بدائل نشويات: قرنبيط/كوسا/بروكلي بدل الأرز/المعكرونة؛ فواكه منخفضة سكر عند الحاجة.
+- نطاق الكارب 15–35 جم/حصة؛ بروتين أعلى وألياف مرتفعة.
 - الحلويات: مسموحة بستيفيا طبيعية نقية بكمية ضئيلة فقط، دون سكريات مضافة أو إضافات صناعية.
   `.trim(),
   atkins: `
-- مراحل منخفضة الكارب مع تركيز على بروتين ودهون صحية وخضار غير نشوية.
-- يُمنَع السكر والدقيق الأبيض؛ يُسمح بمنتجات ألبان كاملة الدسم باعتدال حسب المرحلة.
+- منخفض الكارب بمراحل؛ يُمنع السكر والدقيق الأبيض.
 - الحلويات: ستيفيا طبيعية نقية فقط وبقدر محدود وخالية من الإضافات الصناعية.
   `.trim(),
   lchf: `
-- كارب منخفض ودهون مرتفعة الجودة مع بروتين كافٍ؛ اعتمد EVOO/أفوكادو/مكسرات.
+- كارب منخفض ودهون مرتفعة الجودة؛
 - الحلويات: ستيفيا طبيعية نقية بكمية صغيرة فقط؛ لا محليات صناعية أو خلطات مضافة.
   `.trim(),
   psmf: `
-- حمية إنقاص سريع: بروتين عالٍ جدًا مع دهون وكارب ضئيلين للغاية.
-- الحلويات: عمومًا غير مفضلة، وإن طُلبت فتكون ستيفيا طبيعية نقية بكمية ضئيلة للغاية ودون أي إضافات صناعية.
+- بروتين عالٍ جدًا مع دهون وكارب ضئيلين للغاية.
+- الحلويات: عمومًا غير مفضلة، وإن طُلبت فتكون ستيفيا طبيعية نقية بكمية ضئيلة جدًا ودون أي إضافات صناعية.
   `.trim(),
   low_fat: `
-- الدهون ≤ 20–30% من الطاقة؛ استخدم طرق طهي قليلة الدهون.
-- الحلويات: تسمح بستيفيا طبيعية نقية بحدود ضيقة بدل السكر، وتجنّب المضافات الصناعية.
+- الدهون ≤ 20–30% من الطاقة؛
+- الحلويات: ستيفيا طبيعية نقية بحدود ضيقة بدل السكر، وتجنّب المضافات الصناعية.
   `.trim(),
   balanced: `
-- توزيع تقريبي 40/30/30 (كارب/بروتين/دهون) بأطعمة كاملة.
+- 40/30/30 تقريبي بأطعمة كاملة؛
 - الحلويات: يُسمح بستيفيا طبيعية نقية بقدر محدود؛ لا سكريات مضافة ولا إضافات صناعية.
   `.trim(),
   mediterranean: `
-- زيت الزيتون البكر، خضار، بقوليات، حبوب كاملة، أسماك.
-- الحلويات: ركّز على فواكه ومكسرات؛ يمكن ستيفيا طبيعية نقية بحدود ضيقة وخالية من الإضافات الصناعية.
+- زيت الزيتون البكر، خضار، بقوليات، حبوب كاملة، أسماك؛
+- الحلويات: ركّز على فواكه منخفضة السكر ومكسرات؛ يمكن ستيفيا طبيعية نقية بحدود ضيقة وخالية من الإضافات الصناعية.
   `.trim(),
   vegan: `
-- نباتي 100% بلا لحوم/بيض/ألبان/عسل.
+- نباتي 100%؛
 - الحلويات: ستيفيا نباتية (مستخلص طبيعي نقي) بكمية صغيرة فقط، وتجنّب الخلطات ذات الإضافات الصناعية.
   `.trim(),
   flexitarian: `
-- نباتي غالبًا مع حصص حيوانية عالية الجودة عند الحاجة.
+- نباتي غالبًا مع حصص حيوانية عالية الجودة عند الحاجة؛
 - الحلويات: ستيفيا طبيعية نقية بحدود ضيقة وخالية من الإضافات الصناعية.
   `.trim(),
   intermittent_fasting: `
-- لا قيود نوعية صارمة؛ وجبة متوازنة ضمن نافذة الأكل.
+- لا قيود نوعية صارمة؛
 - الحلويات: إن لزم، ستيفيا طبيعية نقية بكمية ضئيلة فقط وبلا إضافات صناعية.
   `.trim(),
   carb_cycling: `
-- اضبط الوجبة على يوم منخفض/مرتفع الكارب.
+- أيام منخفضة/مرتفعة الكارب؛
 - الحلويات: ستيفيا طبيعية نقية بكمية صغيرة (أيام منخفضة الكارب)، وتجنّب المضافات الصناعية.
   `.trim(),
   dash: `
-- خفض الصوديوم، ورفع الخضار والفواكه، ألبان قليلة الدسم.
+- خفض الصوديوم، رفع الخضار والفواكه؛
 - الحلويات: ستيفيا طبيعية نقية بحدود ضيقة بدل السكر، خالية من الإضافات الصناعية.
   `.trim(),
   anti_inflammatory: `
-- أوميغا-3، كركم وزنجبيل، خفض السكريات والزيوت المكررة.
+- أوميغا-3 وتوابل مضادة للالتهاب؛
 - الحلويات: ستيفيا طبيعية نقية فقط وبكمية قليلة؛ لا محليات صناعية أو إضافات.
   `.trim(),
   low_fodmap: `
-- تجنّب مكونات عالية FODMAP.
+- بدائل منخفضة FODMAP؛
 - الحلويات: ستيفيا طبيعية نقية غالبًا مناسبة؛ تجنّب خلطات تحتوي سكر كحولي/إضافات صناعية.
   `.trim(),
   elimination: `
-- استبعد مسبّبات التحسس المحددة؛ مكوّنات أحادية المصدر.
+- استبعاد مسبّبات التحسس؛
 - الحلويات: ستيفيا طبيعية نقية فقط وبكمية محدودة، بدون إضافات صناعية.
   `.trim(),
   renal: `
-- راقب الصوديوم والبوتاسيوم والفوسفور؛ بروتين معتدل.
+- راقب الصوديوم والبوتاسيوم والفوسفور؛
 - الحلويات: ستيفيا طبيعية نقية بكمية ضئيلة؛ تجنّب بدائل عالية البوتاسيوم أو إضافات صناعية.
   `.trim(),
   liver: `
-- خفّض السكريات والدهون المتحولة/المشبعة؛ ارفع الألياف وأوميغا-3.
+- خفض السكريات والدهون المتحولة/المشبعة؛
 - الحلويات: ستيفيا طبيعية نقية بكمية صغيرة فقط، وخالية من أي إضافات صناعية.
   `.trim(),
   pcos: `
-- تحسّن حساسية الإنسولين: كارب منخفض/متوسط جيد الجودة، بروتين كافٍ.
+- تحسين حساسية الإنسولين؛
 - الحلويات: ستيفيا طبيعية نقية بكمية محدودة، وتجنّب المحليات الصناعية.
   `.trim(),
   diabetes: `
-- تحكّم صارم بالكارب وجودته؛ ألياف عالية وبروتين كافٍ.
+- تحكّم صارم بالكارب وجودته؛
 - الحلويات: مسموح **ستيفيا طبيعية نقية فقط وبحدود ضيقة**، واحسب الكارب القابل للهضم بدقة. ممنوع الإضافات الصناعية.
   `.trim(),
   metabolic_syndrome: `
-- قلّل السكريات والكارب المكرر؛ ارفع الألياف والدهون غير المشبعة.
+- خفض السكريات والكارب المكرر؛
 - الحلويات: ستيفيا طبيعية نقية بكمية صغيرة فقط وخالية من الإضافات الصناعية.
   `.trim()
 };
+
+/* ---------------- Dessert sanity & diversity checks ---------------- */
+const DESSERT_SAVORY_BANNED = [
+  "لحم","دجاج","ديك رومي","لحم مفروم","سمك","تونة","سجق","نقانق","سلامي","بسطرمة","مرق",
+  "ثوم","بصل","كركم","كمون","كزبرة ناشفة","بهارات كبسة","بهارات برياني","بهارات مشكلة","شطة","صلصة صويا","معجون طماطم"
+];
+
+function isDessert(mealType) {
+  return /حلويات|تحلية|dessert/i.test(String(mealType||""));
+}
+function dessertLooksIllogical(recipe) {
+  const ing = (recipe?.ingredients||[]).join(" ").toLowerCase();
+  return DESSERT_SAVORY_BANNED.some(k => ing.includes(k.toLowerCase()));
+}
 
 /* ---------------- Prompting ---------------- */
 function systemInstruction(maxSteps = 8) {
@@ -213,23 +249,17 @@ function systemInstruction(maxSteps = 8) {
   "lang": "ar"
 }
 
-قواعد إلزامية غير قابلة للتجاوز:
-1) اللغة: العربية الفصحى فقط، أسلوب احترافي موجز، بلا حشو أو شرح خارج JSON.
-2) القياسات: **كل المكونات بالجرام 100%** (وزن نيّئ). ممنوع "كوب/ملعقة/رشة/حبة/½" إلخ. حوِّل دائمًا إلى جرام بدقة (أقرب 1 جم). اذكر الزيوت والتوابل أيضًا بجرام.
-3) الطاقة من الماكروز فقط (4/4/9): احسب السعرات = (protein_g×4 + carbs_g×4 + fat_g×9). يجب أن يطابق الحقل calories هذا المجموع بدقة ±2%. عند التعارض اضبط calories ليطابق الحساب.
-4) الالتزام بالقيود: طبّق **حرفيًا** أي تعليمات/أنظمة غذائية/حساسيات تأتي في رسالة المستخدم (بما فيها قيود د. محمد سعيد إن طُلبت). لا تستخدم أي مكوّن محظور ولا تتجاوز حدود الكارب المطلوبة.
-5) المكونات: عناصر قصيرة بالشكل "200 جم صدر دجاج". سمِّ النوع بدقة (مثل: "زيت زيتون بكر ممتاز"، "رز بسمتي نيّئ"). لا أسماء علامات تجارية، ولا مكوّنات عامة مبهمة.
-6) الخطوات: صيغة أمر عملية، بلا تكرار، ≤ ${maxSteps} خطوات. لا تُدخل أي مكونات غير مذكورة في قائمة ingredients. لا خطوات فارغة أو عامة مثل "حضّر المكوّنات".
-7) الجودة والتنوّع واللذّة: وصفات **غير مكررة** ومميّزة ضمن المطبخ/النظام المطلوب. اجعل النكهة لذيذة (تحمير/تحميص، تتبيل حمضي/أعشاب، توازن ملحي/حمضي) دون كسر القيود.
-8) الحلويات ("حلويات" بدل "تحلية"): يجب أن تكون بطعم حلو ممتع وقوام مرضٍ. يُسمح باستخدام **ستيفيا طبيعية نقية فقط وبحدود ضيقة** وخالية من أي إضافات صناعية (ممنوعة في نظام د. محمد سعيد)، مع التزام صارم بالسعرات والماكروز.
-9) الاتساق: أرقام الماكروز أعداد فقط (بدون وحدات). لا تعليقات، لا نص خارج JSON، لا أسطر تفسيرية.
-10) المصادر الغذائية: اعتمد قيمًا من قواعد معترف بها (USDA/CIQUAL/McCance) لتقدير الماكروز؛ لا تقديرات عشوائية.
-
-شكل العناصر:
-- ingredients: مصفوفة سلاسل بنمط "الكمية بالجرام + اسم المكوّن".
-- steps: جُمل تنفيذية قصيرة مرتّبة منطقيًا من التحضير إلى التقديم.
-
-أعد الإخراج وفق المخطط أعلاه حرفيًا وبالعربية فقط.
+قواعد إلزامية:
+1) العربية الفصحى فقط وبلا أي نص خارج JSON.
+2) كل المقادير بالجرام (وزن نيّئ) بما فيها الزيوت/التوابل. لا "كوب/ملعقة/حبة" أبداً.
+3) السعرات = 4/4/9 من الماكروز وبدقة ±2% كحد أقصى؛ عند التعارض اضبط calories لتطابق الحساب.
+4) التزم حرفيًا بالقيود (النظام الغذائي/الحساسيات/المكوّنات المتاحة). لا مكوّن محظور ولا تجاوز للحدود.
+5) ingredients بصيغة "الجرام + المكوّن" مع وصف نوعي دقيق (EVOO/بسمتي نيّئ…).
+6) steps أوامر عملية واضحة، ≤ ${maxSteps}، ولا تضف مكوّنات غير مذكورة.
+7) اللذّة والتنويع: نكهات متوازنة (حامض/مالح/عطري) وتقنيات طهو تعمّق النكهة دون كسر القيود. لا تكرار للوصفات الشائعة؛ اختر أسلوبًا مختلفًا كل مرة ضمن المطبخ.
+8) الحلويات ("حلويات"): طعم حلو وقوام ممتع. يُسمح بستيفيا **طبيعية نقية فقط** وبحدود ضيقة وخالية من الإضافات الصناعية، وممنوعة في نظام د. محمد سعيد. لا توابل مالحة/حادة ولا بروتينات لحم/دجاج/سمك.
+9) الماكروز أرقام فقط، ولا تعليقات خارج JSON.
+10) اعتمد جداول غذائية معتمدة (USDA/CIQUAL/McCance) للتقدير، لا تقديرات عشوائية.
 `.trim();
 }
 
@@ -244,7 +274,9 @@ function userPrompt(input) {
     focus = "",
     availableIngredients = [],
     __repair = false,
-    __repair_available = false
+    __repair_available = false,
+    __repair_dessert = false,
+    __repair_diversity = false
   } = input || {};
 
   const avoid = (Array.isArray(allergies) && allergies.length) ? allergies.join(", ") : "لا شيء";
@@ -261,21 +293,45 @@ function userPrompt(input) {
 
   const availableLine = available.length
     ? `المكوّنات المتاحة لدى المستخدم (اختياري): ${available.join(", ")}.
-- استخدم هذه المكوّنات كأساس الوصفة قدر الإمكان. يجب تضمينها جميعًا في ingredients مع أوزان جرام دقيقة.
-- لا تضف مكوّنات إضافية إلا للضرورة التقنية أو لضبط الماكروز (مثل: ماء، ملح، فلفل، توابل، زيت زيتون بكر).
-- إن تعذر تحقيق النظام الغذائي بهذه القائمة، عدّل الأوزان واقترح أقل قدر من الإضافات الضرورية فقط.`
+- استخدم هذه المكوّنات كأساس الوصفة قدر الإمكان. يجب تضمينها جميعًا في ingredients بأوزان جرام دقيقة.
+- لا تضف مكوّنات إضافية إلا للضرورة التقنية أو لضبط الماكروز (ماء/ملح/فلفل/توابل/زيت زيتون بكر).
+- إن تعذر الالتزام بالقائمة، عدّل الأوزان واقترح أقل قدر من الإضافات الضرورية فقط.`
     : "";
 
-  const dessertLine = /حلويات|تحلية|dessert/i.test(String(mealType))
-    ? `تعليمات الحلويات: اجعل الوصفة بطعم حلو ممتع وقوام مرضٍ ضمن السعرات والقيود. يُسمح باستخدام **ستيفيا طبيعية نقية فقط وبحدود ضيقة** وخالية من أي إضافات صناعية. **ملاحظة:** ستيفيا ممنوعة مع "نظام د. محمد سعيد".`
+  // تنويع المطبخ: مرّر دليلاً موجزًا وتوجيهًا بعدم التكرار + بذرة تنويع
+  const guide = CUISINE_GUIDES[cuisine] || `
+- نوّع الأساليب داخل هذا المطبخ (تقنيات/أقاليم/نكهات) وتجنّب تكرار نفس الطبق أو العنوان.
+- سمِّ العنوان بصيغة فريدة تتضمن التقنية أو النكهة الأساسية (مثال: "دجاج مشوي بالأعشاب الليمونية").`;
+
+  const diversitySeed = Math.floor(Date.now() / 60000) % 9973; // بذرة تتغير كل دقيقة
+  const diversityLines = `
+[تنويع صارم]
+- لا تكرر نفس الطبق/العنوان/التركيبة مع نفس المطبخ بين المحاولات.
+- اختر كل مرة تقنية/منطقة/نكهة مختلفة من دليل المطبخ أدناه.
+- اجعل العنوان فريدًا ويصف التقنية/النكهة الأساسية.
+- diversity_seed=${diversitySeed}
+[دليل المطبخ]
+${guide}
+`.trim();
+
+  const dessertLine = isDessert(mealType)
+    ? `تعليمات الحلويات: اجعل الوصفة بطعم حلو وقوام ممتع ضمن السعرات والقيود. يُسمح باستخدام **ستيفيا طبيعية نقية فقط وبحدود ضيقة** وخالية من أي إضافات صناعية. **ملاحظة:** ستيفيا ممنوعة مع "نظام د. محمد سعيد". ممنوع اللحوم/الدواجن/الأسماك والثوم/البصل والتوابل الحادة في الحلويات.`
     : "";
 
   const repairLine = __repair && isDrMoh
-    ? "الإخراج السابق خالف قيود د. محمد سعيد. أعد توليد وصفة تلتزم حرفيًا بالبنود أعلاه، مع ضمان ≤ 5 جم كربوهيدرات/حصة."
+    ? "إصلاح: الإخراج السابق خالف قيود د. محمد سعيد. أعِد التوليد مع ≤ 5 جم كارب/حصة ودون أي محليات بما فيها ستيفيا."
     : "";
 
   const repairAvailLine = __repair_available && available.length
-    ? "الإخراج السابق لم يضمّن كل المكونات المتاحة. أعد التوليد واضمن إدراجها جميعًا بأوزان جرام وبشكل منطقي في الوصفة."
+    ? "إصلاح: الإخراج السابق لم يضمّن كل المكونات المتاحة. أعِد التوليد وأدرجها جميعًا بأوزان جرام وبشكل منطقي."
+    : "";
+
+  const repairDessertLine = __repair_dessert && isDessert(mealType)
+    ? "إصلاح: الحلويات السابقة غير منطقية (تحوي بروتينات لحم/توابل حادة أو افتقرت للطعم الحلو). أعِد التوليد بوصفة حلويات منطقية بطعم حلو، قوام ممتع، وبدون أي عناصر مالحة/حادة."
+    : "";
+
+  const repairDiversityLine = __repair_diversity
+    ? "إصلاح تنويع: لا تعِد نفس الطبق أو العنوان. اختر أسلوبًا مختلفًا ومواد وتتبيلة مختلفة ضمن نفس المطبخ."
     : "";
 
   const customLine = isCustom && customMacros
@@ -283,10 +339,11 @@ function userPrompt(input) {
     : "";
 
   return `
-أنشئ وصفة ${/حلويات|تحلية|dessert/i.test(String(mealType)) ? "حلويات" : mealType} من مطبخ ${cuisine} لنظام ${isDrMoh ? "نظام د. محمد سعيد" : dietType}.
+أنشئ وصفة ${isDessert(mealType) ? "حلويات" : mealType} من مطبخ ${cuisine} لنظام ${isDrMoh ? "نظام د. محمد سعيد" : dietType}.
 السعرات المستهدفة للحصة: ${Number(caloriesTarget)}.
 حساسيات يجب تجنبها: ${avoid}.
 ${focusLine}
+${diversityLines}
 ${profile}
 ${drRules}
 ${availableLine}
@@ -294,6 +351,8 @@ ${dessertLine}
 ${customLine}
 ${repairLine}
 ${repairAvailLine}
+${repairDessertLine}
+${repairDiversityLine}
 أعد النتيجة كـ JSON فقط حسب المخطط المطلوب وبالعربية.
 `.trim();
 }
@@ -380,7 +439,7 @@ async function callOnce(model, input, timeoutMs = 28000) {
   }
 }
 
-/* ---------------- Dr. Mohamed + Available checks ---------------- */
+/* ---------------- Dr. Mohamed + Available + Dessert/Diversity checks ---------------- */
 const DR_MOH = /محمد\s*سعيد|dr_mohamed_saeed/;
 
 function violatesDrMoh(recipe) {
@@ -393,8 +452,7 @@ function violatesDrMoh(recipe) {
     "msg","جلوتامات","glutamate","نتريت","نترات","ملون","نكهات صناعية","مواد حافظة","مستحلب",
     "مهدرج","مارجرين","زيت كانولا","زيت ذرة","زيت صويا","بذر العنب","vegetable oil",
     "دقيق أبيض","طحين أبيض","نشا الذرة","cornstarch","خبز","مكرونة","رز أبيض","سكر بني",
-    // ستيفيا ممنوعة صراحةً في نظام د. محمد سعيد
-    "ستيفيا"
+    "ستيفيا" // ممنوعة في نظام د. محمد سعيد
   ];
 
   const hasBanned = banned.some(k => ing.includes(k));
@@ -438,47 +496,74 @@ exports.handler = async (event) => {
     : [];
 
   const wantDrMoh = DR_MOH.test(String(input?.dietType || ""));
+  const wantDessert = isDessert(input?.mealType);
 
   const errors = {};
   for (const model of MODEL_POOL) {
+    // محاولة أولى
     const r1 = await callOnce(model, { ...input, customMacros, availableIngredients });
     if (!r1.ok) { errors[model] = r1.error; continue; }
 
-    // Dr. Mohamed enforcement
+    // إصلاح د. محمد سعيد
     if (wantDrMoh && violatesDrMoh(r1.recipe)) {
       const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true });
       if (r2.ok && !violatesDrMoh(r2.recipe)) {
-        // ensure available as well if provided
-        if (includesAllAvailable(r2.recipe, availableIngredients)) {
-          return ok({ recipe: r2.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
-        } else {
-          const r3 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true, __repair_available: true });
-          if (r3.ok && !violatesDrMoh(r3.recipe) && includesAllAvailable(r3.recipe, availableIngredients)) {
-            return ok({ recipe: r3.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
+        // تحقق من المكوّنات المتاحة + منطق الحلويات
+        if (availableIngredients.length && !includesAllAvailable(r2.recipe, availableIngredients)) {
+          const r3a = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true, __repair_available: true });
+          if (r3a.ok && !violatesDrMoh(r3a.recipe) && includesAllAvailable(r3a.recipe, availableIngredients)) {
+            return ok({ recipe: r3a.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
           }
-          return ok({ recipe: (r3.ok ? r3.recipe : r2.recipe), model, warning: "dr_moh_or_available_rules_not_strictly_met" });
         }
+        if (wantDessert && dessertLooksIllogical(r2.recipe)) {
+          const r3b = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true, __repair_dessert: true });
+          if (r3b.ok && !violatesDrMoh(r3b.recipe) && (!wantDessert || !dessertLooksIllogical(r3b.recipe))) {
+            return ok({ recipe: r3b.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
+          }
+        }
+        return ok({ recipe: r2.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
       }
       const fallbackRecipe = r2.ok ? r2.recipe : r1.recipe;
-      // try to satisfy available if provided
-      if (availableIngredients.length && !includesAllAvailable(fallbackRecipe, availableIngredients)) {
-        const rFix = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true });
-        return ok({
-          recipe: rFix.ok ? rFix.recipe : fallbackRecipe,
-          model,
-          warning: "dr_moh_rules_not_strictly_met"
-        });
-      }
       return ok({ recipe: fallbackRecipe, model, warning: "dr_moh_rules_not_strictly_met" });
     }
 
-    // Available-ingredients enforcement (when not in Dr. Mohamed path or after passing it)
+    // تحقق من المكوّنات المتاحة
     if (availableIngredients.length && !includesAllAvailable(r1.recipe, availableIngredients)) {
       const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true });
       if (r2.ok && includesAllAvailable(r2.recipe, availableIngredients)) {
+        // تحقق من منطق الحلويات
+        if (wantDessert && dessertLooksIllogical(r2.recipe)) {
+          const r2b = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true, __repair_dessert: true });
+          if (r2b.ok && includesAllAvailable(r2b.recipe, availableIngredients) && !dessertLooksIllogical(r2b.recipe)) {
+            return ok({ recipe: r2b.recipe, model, note: "aligned_with_available_ingredients" });
+          }
+        }
         return ok({ recipe: r2.recipe, model, note: "aligned_with_available_ingredients" });
       }
-      return ok({ recipe: (r2.ok ? r2.recipe : r1.recipe), model, warning: "available_ingredients_not_fully_used" });
+      // لو فشل، استمر مع r1 لكن أعطِ تحذير
+      if (wantDessert && dessertLooksIllogical(r1.recipe)) {
+        const r2c = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_dessert: true, __repair_diversity: true });
+        if (r2c.ok && (!wantDessert || !dessertLooksIllogical(r2c.recipe))) {
+          return ok({ recipe: r2c.recipe, model, note: "diversified_and_dessert_fixed" });
+        }
+      }
+      return ok({ recipe: r1.recipe, model, warning: "available_ingredients_not_fully_used" });
+    }
+
+    // تحقق من منطق الحلويات + تنويع (عنوان/أسلوب مختلف)
+    if (wantDessert && dessertLooksIllogical(r1.recipe)) {
+      const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_dessert: true });
+      if (r2.ok && !dessertLooksIllogical(r2.recipe)) {
+        return ok({ recipe: r2.recipe, model, note: "dessert_logic_repaired" });
+      }
+    }
+
+    // تنويع إضافي عند تكرار العناوين (استدلال بسيط: عنوان عام جدًا أو مكرر الكلمات)
+    const title = String(r1.recipe?.title||"").trim();
+    const genericTitle = /^(حلوى|حلويات|سلطة|شوربة|طبق|وجبة)\s*$/i.test(title) || (title.split(/\s+/).filter(Boolean).length <= 1);
+    if (genericTitle) {
+      const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_diversity: true });
+      if (r2.ok) return ok({ recipe: r2.recipe, model, note: "diversified_title_style" });
     }
 
     return ok({ recipe: r1.recipe, model });

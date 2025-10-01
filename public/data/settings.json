@@ -14,175 +14,195 @@
       "youtube": "https://youtube.com/@wasfaone"
     }
   },
-  "diets": [
+  "diet_systems": [
     {
-      "id": "balanced",
-      "name_ar": "عادي/متوازن",
-      "name_en": "Balanced",
-      "description_ar": "خيار عام متوازن يناسب أغلب الحالات.",
-      "description_en": "General balanced option suitable for most cases."
-    },
-    {
-      "id": "نظام د. محمد سعيد",
+      "id": "dr_mohamed_saeed",
       "name_ar": "نظام د. محمد سعيد",
-      "name_en": "Dr. Mohamed Saeed System",
-      "description_ar": "التزام صارم ≤ 5جم كربوهيدرات صافية/حصة. ممنوع السكريات والمُحلّيات والمصنّعات والإضافات الصناعية والزيوت المكررة. المسموح: زيت زيتون بكر، زبدة/سمن طبيعي، أفوكادو، مكسرات نيئة.",
-      "description_en": "Strict: ≤5g net carbs/serving. No sugars/sweeteners, processed meats/soups/sauces, artificial additives, or refined vegetable oils. Allowed: extra-virgin olive oil, butter/ghee, avocado, raw nuts.",
-      "rules_ar": [
-        "الكربوهيدرات الصافية لكل حصة ≤ 5 جم",
-        "ممنوع السكريات والمُحلّيات: سكر أبيض/بني، عسل، شراب الذرة/الجلوكوز/الفركتوز، والمحليات الصناعية",
-        "ممنوع المصنّعات: لانشون، نقانق، سلامي، بسطرمة، المرق البودرة/المكعبات، الصلصات التجارية غير المنزلية",
-        "ممنوع الإضافات الصناعية: MSG/جلوتامات، نيتريت/نترات، ألوان ونكهات صناعية، مستحلبات",
-        "ممنوع الزيوت النباتية المكررة/المهدرجة: كانولا، صويا، ذرة، بذر العنب، vegetable oil",
-        "الدهون المسموحة: زيت زيتون بكر، زبدة/سمن طبيعي، أفوكادو، مكسرات نيئة"
-      ],
-      "banned_keywords": [
-        "سكر", "sugar", "عسل", "honey", "دبس", "شراب", "سيرب", "glucose", "fructose", "corn syrup", "hfcs",
-        "لانشون", "نقانق", "سلامي", "بسطرمة", "مرتديلا", "مصنع", "معلبات", "مرق", "مكعبات",
-        "msg", "جلوتامات", "glutamate", "نتريت", "نترات", "ملون", "نكهات صناعية", "مواد حافظة", "مستحلب",
-        "مهدرج", "مارجرين", "زيت كانولا", "زيت ذرة", "زيت صويا", "بذر العنب", "vegetable oil",
-        "دقيق أبيض", "طحين أبيض", "نشا الذرة", "cornstarch", "خبز", "مكرونة", "رز أبيض", "سكر بني"
-      ]
+      "name_en": "Dr. Mohamed Saeed Protocol",
+      "description_ar": "كربوهيدرات صافية ≤ 5 جم/حصة. ممنوع السكريات والمُحليات الصناعية والمصنعات والمواد المضافة (MSG/نترات/نتريت/ألوان/نكهات صناعية) والزيوت النباتية المكررة. مسموح زيت الزيتون البكر، الزبدة/السمن الطبيعي، الأفوكادو، المكسرات النيئة.",
+      "description_en": "Net carbs ≤ 5 g/serving. No sugars, artificial sweeteners, processed meats/additives (MSG/nitrates/nitrites/colors/flavors), or refined seed oils. Allow EVOO, butter/ghee, avocado, raw nuts."
     },
     {
       "id": "keto",
-      "name_ar": "كيتو",
-      "name_en": "Keto",
-      "description_ar": "نظام غذائي منخفض الكربوهيدرات وعالي الدهون.",
-      "description_en": "Low-carb, high-fat diet."
-    },
-    {
-      "id": "mediterranean",
-      "name_ar": "المتوسطي (Mediterranean)",
-      "name_en": "Mediterranean",
-      "description_ar": "نظام يعتمد على الخضار والأسماك وزيت الزيتون.",
-      "description_en": "Vegetable- and olive oil–forward with fish."
-    },
-    {
-      "id": "paleo",
-      "name_ar": "باليو (Paleo)",
-      "name_en": "Paleo",
-      "description_ar": "أطعمة كاملة وتجنب المُصنّع.",
-      "description_en": "Whole foods; avoids processed items."
-    },
-    {
-      "id": "whole30",
-      "name_ar": "Whole30",
-      "name_en": "Whole30",
-      "description_ar": "30 يومًا من أطعمة كاملة بلا سكريات مضافة.",
-      "description_en": "30 days of whole foods; no added sugar."
-    },
-    {
-      "id": "dash",
-      "name_ar": "DASH (قلب صحي)",
-      "name_en": "DASH",
-      "description_ar": "خفض الصوديوم ودعم صحة القلب.",
-      "description_en": "Lower sodium; heart-health focus."
-    },
-    {
-      "id": "lowcarb",
-      "name_ar": "منخفض الكربوهيدرات",
-      "name_en": "Low-Carb",
-      "description_ar": "تقليل الكربوهيدرات تدريجيًا.",
-      "description_en": "Gradual carb reduction."
-    },
-    {
-      "id": "lowfat",
-      "name_ar": "منخفض الدهون",
-      "name_en": "Low-Fat",
-      "description_ar": "تقليل إجمالي الدهون.",
-      "description_en": "Lower overall fat intake."
-    },
-    {
-      "id": "lowsodium",
-      "name_ar": "منخفض الصوديوم",
-      "name_en": "Low-Sodium",
-      "description_ar": "تقليل الملح للتحكم في الضغط.",
-      "description_en": "Lower salt for BP control."
-    },
-    {
-      "id": "low_gi",
-      "name_ar": "منخفض المؤشر الجلايسيمي (سكري)",
-      "name_en": "Low GI (Diabetes)",
-      "description_ar": "اختيار كربوهيدرات منخفضة المؤشر.",
-      "description_en": "Low-glycemic carbs focus."
-    },
-    {
-      "id": "vegetarian",
-      "name_ar": "نباتي (Vegetarian)",
-      "name_en": "Vegetarian",
-      "description_ar": "بدون لحوم.",
-      "description_en": "No meat."
-    },
-    {
-      "id": "vegan",
-      "name_ar": "فيجن (Vegan)",
-      "name_en": "Vegan",
-      "description_ar": "خالي من كل المنتجات الحيوانية.",
-      "description_en": "Free of all animal products."
-    },
-    {
-      "id": "pescatarian",
-      "name_ar": "بسكاتاريان (نباتي مع أسماك)",
-      "name_en": "Pescatarian",
-      "description_ar": "نباتي مع السماح بالأسماك.",
-      "description_en": "Vegetarian plus fish."
-    },
-    {
-      "id": "gluten_free",
-      "name_ar": "خالي من الجلوتين",
-      "name_en": "Gluten-Free",
-      "description_ar": "بدون جلوتين.",
-      "description_en": "No gluten."
-    },
-    {
-      "id": "lactose_free",
-      "name_ar": "خالي من اللاكتوز",
-      "name_en": "Lactose-Free",
-      "description_ar": "بدون مشتقات الألبان المحتوية على لاكتوز.",
-      "description_en": "No lactose-containing dairy."
+      "name_ar": "Ketogenic Diet (كيتو)",
+      "name_en": "Ketogenic Diet",
+      "description_ar": "منخفض جدًا بالكارب (عادةً 20–30 جم صافي/اليوم)، مرتفع الدهون، متوسط البروتين. يركّز على اللحوم، البيض، الأسماك، الزيوت الصحية، والخضار الورقية.",
+      "description_en": "Very low-carb (typically 20–30 g net/day), high fat, moderate protein. Emphasizes meats, eggs, fish, healthy oils, leafy vegetables."
     },
     {
       "id": "high_protein",
-      "name_ar": "عالي البروتين",
-      "name_en": "High-Protein",
-      "description_ar": "رفع حصة البروتين لتحقيق الشبع والبناء.",
-      "description_en": "Higher protein for satiety and building."
+      "name_ar": "High Protein Diet (عالي البروتين)",
+      "name_en": "High Protein Diet",
+      "description_ar": "رفع نسبة البروتين (≥ 25–35% من الطاقة) لدعم الشبع والحفاظ على الكتلة العضلية، مع كارب ودهون متوازنين حسب الهدف.",
+      "description_en": "Elevated protein (≥25–35% energy) to support satiety and lean mass; carbs/fats balanced per goal."
     },
     {
-      "id": "high_fiber",
-      "name_ar": "عالي الألياف",
-      "name_en": "High-Fiber",
-      "description_ar": "غني بالألياف لتحسين الهضم.",
-      "description_en": "Fiber-rich for digestion."
+      "id": "high_protein_keto",
+      "name_ar": "High-Protein Keto (كيتو عالي البروتين)",
+      "name_en": "High-Protein Keto",
+      "description_ar": "نسخة كيتو بكثافة بروتين أعلى مع بقاء الكارب منخفضًا جدًا والدهون كافية لتلبية الطاقة.",
+      "description_en": "Keto with higher protein emphasis while keeping carbs very low; fats sufficient for energy."
     },
     {
-      "id": "athlete_gain",
-      "name_ar": "رياضي/زيادة كتلة عضلية",
-      "name_en": "Athlete / Muscle Gain",
-      "description_ar": "سعرات كافية ونِسَب داعمة للنمو.",
-      "description_en": "Adequate calories with growth macros."
+      "id": "low_carb",
+      "name_ar": "Low-Carb Diet (منخفض الكارب)",
+      "name_en": "Low-Carb Diet",
+      "description_ar": "تقليل الكارب بشكل عام (50–130 جم/اليوم) مع زيادة البروتين والدهون الصحية. مناسب للتحكم بالجلوكوز والشهية.",
+      "description_en": "General carb reduction (50–130 g/day) with higher protein and healthy fats; supports glucose/appetite control."
     },
     {
-      "id": "halal",
-      "name_ar": "حلال",
-      "name_en": "Halal",
-      "description_ar": "مطابق للمعايير الشرعية.",
-      "description_en": "Compliant with halal standards."
+      "id": "atkins",
+      "name_ar": "Atkins Diet (أتكنز)",
+      "name_en": "Atkins Diet",
+      "description_ar": "مراحل تدريجية تبدأ بكارب منخفض جدًا ثم زيادة تدريجية، مع تركيز على البروتين والدهون الصحية والخضار غير النشوية.",
+      "description_en": "Phased approach starting very low-carb then gradual increases; emphasizes protein, healthy fats, non-starchy vegetables."
+    },
+    {
+      "id": "lchf",
+      "name_ar": "LCHF (منخفض الكارب مرتفع الدهون)",
+      "name_en": "LCHF",
+      "description_ar": "خفض للكارب مع رفع الدهون الصحية (زيت زيتون بكر، أفوكادو، مكسرات) وكفاية بروتين.",
+      "description_en": "Low carbs with higher healthy fats (EVOO, avocado, nuts) and adequate protein."
+    },
+    {
+      "id": "psmf",
+      "name_ar": "PSMF (صيام معدل حافظ للبروتين)",
+      "name_en": "PSMF",
+      "description_ar": "سعرات منخفضة جدًا لفترة قصيرة مع بروتين عالٍ للحفاظ على العضلات، وكارب/دهون شبه معدومين؛ يُستخدم تحت إشراف.",
+      "description_en": "Very low-calorie short-term with high protein, minimal carbs/fats; used under supervision."
+    },
+    {
+      "id": "low_fat",
+      "name_ar": "Low-Fat Diet (منخفض الدهون)",
+      "name_en": "Low-Fat Diet",
+      "description_ar": "تقليل الدهون الكلية (≤ 20–30% من الطاقة) مع كارب معقولة وجودة عالية للألياف.",
+      "description_en": "Lower total fat (≤20–30% energy) with reasonable carbs and high-quality fiber."
+    },
+    {
+      "id": "balanced",
+      "name_ar": "Balanced / Zone Diet (متوازن)",
+      "name_en": "Balanced / Zone",
+      "description_ar": "توزيع متوازن للطاقة يقارب 40% كارب، 30% بروتين، 30% دهون مع مكونات كاملة وغنية بالألياف.",
+      "description_en": "Approx. 40/30/30 carbs/protein/fat using whole, fiber-rich foods."
+    },
+    {
+      "id": "mediterranean",
+      "name_ar": "Mediterranean Diet (المتوسطي)",
+      "name_en": "Mediterranean Diet",
+      "description_ar": "خضار وفواكه وحبوب كاملة وبقوليات وزيت زيتون بكر وأسماك؛ تقليل اللحوم الحمراء والسكريات.",
+      "description_en": "Vegetables, fruits, whole grains, legumes, EVOO, fish; limited red meats and sugars."
+    },
+    {
+      "id": "vegan",
+      "name_ar": "Plant-Based / Vegan Diet (نباتي)",
+      "name_en": "Plant-Based / Vegan",
+      "description_ar": "إقصاء كامل للمنتجات الحيوانية؛ يعتمد على البقوليات والحبوب الكاملة والمكسرات والخضار والفاكهة.",
+      "description_en": "Excludes all animal products; relies on legumes, whole grains, nuts, vegetables, fruits."
+    },
+    {
+      "id": "flexitarian",
+      "name_ar": "Flexitarian Diet (نباتي جزئي)",
+      "name_en": "Flexitarian",
+      "description_ar": "غالبًا نباتي مع مرونة في إدخال كميات صغيرة من المنتجات الحيوانية عالية الجودة.",
+      "description_en": "Mostly plant-based with flexible, occasional high-quality animal products."
+    },
+    {
+      "id": "intermittent_fasting",
+      "name_ar": "Intermittent Fasting (الصيام المتقطع)",
+      "name_en": "Intermittent Fasting",
+      "description_ar": "نمط توقيت الوجبات (مثل 16/8) مع جودة مكونات متوازنة ضمن نافذة الأكل.",
+      "description_en": "Meal timing pattern (e.g., 16/8) with balanced, quality foods during the eating window."
+    },
+    {
+      "id": "carb_cycling",
+      "name_ar": "Carb Cycling (تدوير الكارب)",
+      "name_en": "Carb Cycling",
+      "description_ar": "تناوب أيام عالية ومنخفضة الكارب حسب النشاط والتدريب مع ثبات البروتين.",
+      "description_en": "Alternate high/low-carb days around activity/training while keeping protein steady."
+    },
+    {
+      "id": "dash",
+      "name_ar": "DASH Diet",
+      "name_en": "DASH",
+      "description_ar": "مضاد لارتفاع الضغط: تقليل الصوديوم وزيادة الخضار والفواكه والألبان قليلة الدسم والحبوب الكاملة.",
+      "description_en": "Antihypertensive: lower sodium, more vegetables/fruits, low-fat dairy, whole grains."
+    },
+    {
+      "id": "anti_inflammatory",
+      "name_ar": "Anti-Inflammatory Diet (مضاد للالتهاب)",
+      "name_en": "Anti-Inflammatory",
+      "description_ar": "غني بأوميغا-3، خضار ملوّنة، توابل مضادة للالتهاب، تقليل سكريات مضافة وزيوت مكررة.",
+      "description_en": "Rich in omega-3s, colorful produce, anti-inflammatory spices; low added sugars/refined oils."
+    },
+    {
+      "id": "low_fodmap",
+      "name_ar": "Low FODMAP Diet",
+      "name_en": "Low FODMAP",
+      "description_ar": "خفض سكريات FODMAP القابلة للتخمّر لتقليل أعراض القولون العصبي، بمراحل إقصاء ثم إعادة إدراج.",
+      "description_en": "Reduces fermentable FODMAPs to alleviate IBS; elimination then reintroduction phases."
+    },
+    {
+      "id": "elimination",
+      "name_ar": "Elimination Diet (الإقصائي)",
+      "name_en": "Elimination",
+      "description_ar": "إزالة منهجية لأطعمة مشتبه بها لفترة محددة ثم إعادة إدراجها لرصد التحسس/عدم التحمل.",
+      "description_en": "Systematically removes suspected foods, then reintroduces to identify triggers."
+    },
+    {
+      "id": "renal",
+      "name_ar": "Renal Diet (الكلى)",
+      "name_en": "Renal",
+      "description_ar": "تحكم دقيق بالصوديوم والبوتاسيوم والفوسفور والبروتين حسب المرحلة وتوصيات الاختصاصي.",
+      "description_en": "Controls sodium, potassium, phosphorus, and protein per stage/clinical guidance."
+    },
+    {
+      "id": "liver",
+      "name_ar": "Liver-Friendly Diet (نظام الكبد)",
+      "name_en": "Liver-Friendly",
+      "description_ar": "خفض السكريات والدهون المتحولة والدهون المشبعة؛ زيادة الألياف وأوميغا-3، وتجنّب الكحول.",
+      "description_en": "Lower added sugars/trans/saturated fats; higher fiber and omega-3; avoid alcohol."
+    },
+    {
+      "id": "pcos",
+      "name_ar": "PCOS Diet (تكيس المبايض)",
+      "name_en": "PCOS",
+      "description_ar": "تحسين حساسية الإنسولين: كارب منخفض/متوسط بجودة عالية وبروتين كافٍ ودهون صحية.",
+      "description_en": "Improve insulin sensitivity: low/moderate high-quality carbs, adequate protein, healthy fats."
+    },
+    {
+      "id": "diabetes",
+      "name_ar": "Diabetes Diet (سكري)",
+      "name_en": "Diabetes",
+      "description_ar": "تحكم بالكارب وجودة عالية للألياف، توزيع الوجبات لتعزيز استقرار الجلوكوز.",
+      "description_en": "Carb-controlled, high fiber quality; meal distribution for glycemic stability."
+    },
+    {
+      "id": "metabolic_syndrome",
+      "name_ar": "Metabolic Syndrome Diet (متلازمة الأيض)",
+      "name_en": "Metabolic Syndrome",
+      "description_ar": "خفض السكر والكارب المكرر، رفع الألياف والبروتين الخالي من الدهون، دهون غير مشبعة.",
+      "description_en": "Lower sugars/refined carbs; higher fiber, lean protein, unsaturated fats."
+    },
+    {
+      "id": "custom",
+      "name_ar": "مخصص",
+      "name_en": "Custom",
+      "description_ar": "يتيح لك تحديد سعرات الحصة والماكروز يدويًا (بروتين/كارب/دهون) لضبط الوصفة بدقة.",
+      "description_en": "Lets you set per-serving calories and macros (protein/carbs/fat) manually."
     }
   ],
   "images": {
     "hero": "https://example.com/hero.jpg",
     "banner": "https://example.com/banner.jpg"
   },
-  "alts": {
+  "images_meta": {
     "hero": {
-      "ar": "صورة رئيسية",
-      "en": "Hero image"
+      "alt_ar": "صورة رئيسية",
+      "alt_en": "Hero image"
     },
     "banner": {
-      "ar": "صورة بانر",
-      "en": "Banner image"
+      "alt_ar": "صورة بانر",
+      "alt_en": "Banner image"
     }
   }
 }

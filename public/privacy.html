@@ -3,44 +3,292 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>WasfaOne — Privacy</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <title>Wasfa — سياسة الخصوصية</title>
+
+  <!-- Fonts (مطابقة للواجهة العامة) -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- يمكن إبقاء ملف الأنماط لديك إن وُجد -->
   <link rel="stylesheet" href="assets/styles.css">
+
+  <style>
+    :root{
+      --brand:#ef4444;
+      --brand-dark:#dc2626;
+      --ink:#0f172a;
+      --muted:#475569;
+      --soft-bg:#f7f7f9;
+      --line:#e5e7eb;
+      --accent-green:#10b981;
+      --accent-blue:#3b82f6;
+      --accent-amber:#f59e0b;
+    }
+    html{ scroll-behavior:smooth }
+    body{
+      font-family:'Cairo',system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial;
+      background:var(--soft-bg); color:var(--ink);
+    }
+
+    /* Header */
+    .brand-title{
+      background:linear-gradient(135deg,#ef4444 0%,#b91c1c 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .sticky-header{
+      position:sticky; top:0; z-index:40;
+      background:rgba(255,255,255,.85); backdrop-filter: blur(8px);
+      border-bottom:1px solid var(--line);
+    }
+
+    /* Cards & chips (مطابقة لهوية الموقع) */
+    .pro-card{
+      background:linear-gradient(180deg,#fff,#fafafa);
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:0 25px 50px -12px rgba(0,0,0,.08);
+      padding:24px;
+    }
+    .icon-chip{
+      display:inline-grid; place-items:center;
+      width:46px; height:46px; border-radius:12px;
+      background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25);
+      color:var(--brand);
+    }
+    .icon-chip.green{ background:rgba(16,185,129,.12); border-color:rgba(16,185,129,.25); color:#047857 }
+    .icon-chip.blue{ background:rgba(59,130,246,.12); border-color:rgba(59,130,246,.25); color:#1d4ed8 }
+    .icon-chip.amber{ background:rgba(245,158,11,.12); border-color:rgba(245,158,11,.25); color:#b45309 }
+
+    .divider{
+      height:1px; background:linear-gradient(to left,transparent,var(--line),transparent);
+      margin:24px auto;
+    }
+
+    /* CTA button */
+    .cta-button{
+      position:relative; overflow:hidden;
+      display:inline-flex; align-items:center; gap:.5rem;
+      border-radius:14px; padding:12px 22px; font-weight:800;
+      color:#fff; background:var(--brand);
+      box-shadow:0 6px 18px rgba(239,68,68,.25);
+      transition:transform .2s, box-shadow .2s, background .2s;
+    }
+    .cta-button:hover{ background:var(--brand-dark); transform:translateY(-1px); box-shadow:0 10px 26px rgba(239,68,68,.34) }
+    .cta-button::after{
+      content:""; position:absolute; inset:-2px; border-radius:16px; opacity:0; pointer-events:none;
+      background:radial-gradient(120px 120px at var(--mx,50%) var(--my,50%), rgba(255,255,255,.2), transparent 60%);
+      transition:opacity .2s;
+    }
+    .cta-button.is-hovering::after{ opacity:1 }
+  </style>
 </head>
-<body class="bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-100">
-  <header class="flex items-center justify-between p-4 shadow bg-white/70 dark:bg-slate-800/70 backdrop-blur">
-    <div class="flex items-center gap-3">
-      <img id="privacy-logo" src="" alt="Logo" class="h-8 object-contain"/>
-      <span id="privacy-site-name" class="font-extrabold text-xl">WasfaOne</span>
-    </div>
-    <div class="flex items-center gap-2">
-      <a href="index.html" class="text-sm hover:underline" id="privacy-home-link">الرئيسية</a>
-      <button id="lang-toggle" class="px-3 py-1.5 rounded bg-red-500 text-white hover:scale-105 transition text-sm">EN</button>
+<body>
+
+  <!-- Header -->
+  <header class="sticky-header">
+    <div class="max-w-5xl mx-auto flex items-center justify-between p-4">
+      <div class="flex items-center gap-3">
+        <img id="privacy-logo" src="https://placehold.co/36x36/ef4444/ffffff?text=W" alt="Logo" class="h-9 w-9 rounded-xl ring-1 ring-white/60 object-contain"/>
+        <span id="privacy-site-name" class="text-2xl md:text-3xl font-black brand-title">Wasfa</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="index.html" class="text-sm font-bold text-[var(--muted)] hover:text-[var(--brand)]" id="privacy-home-link">الرئيسية</a>
+        <button id="lang-toggle" class="px-3 py-1.5 rounded bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] transition text-sm">EN</button>
+      </div>
     </div>
   </header>
 
-  <div class="w-full bg-slate-100 dark:bg-slate-800 text-center text-sm py-2">
-    <span>للاشتراك أو التجديد: 00971502061209 — </span>
-    <a class="text-green-600 dark:text-green-400 underline" target="_blank" href="https://wa.me/971502061209">واتساب/اتصال</a>
+  <!-- Top notice bar -->
+  <div class="w-full bg-white border-y border-[var(--line)]">
+    <div class="max-w-5xl mx-auto text-center text-sm py-2">
+      <span>للاشتراك أو التجديد: 00971502061209 — </span>
+      <a class="text-green-600 underline" target="_blank" href="https://wa.me/971502061209">واتساب/اتصال</a>
+    </div>
   </div>
 
-  <main class="max-w-4xl mx-auto p-6">
-    <h1 id="privacy-title" class="text-2xl md:text-3xl font-extrabold mb-4">سياسة الخصوصية</h1>
-    <div id="privacy-content" class="leading-8 text-[16px]">
-      <p>
-        لا نجمع بيانات شخصية؛ لا نستخدم قواعد بيانات؛ يتم التخزين عبر GitHub فقط للملفات العامة المطلوبة
-        لتشغيل الخدمة (users.json, settings.json, history). استخدام التطبيق يعني موافقتك على هذه السياسة.
-      </p>
+  <!-- Main -->
+  <main class="max-w-5xl mx-auto p-6 md:p-8">
+    <h1 id="privacy-title" class="text-3xl md:text-4xl font-black mb-2">سياسة الخصوصية</h1>
+    <p class="text-sm text-[var(--muted)] mb-6">آخر تحديث: <span id="privacy-last-update">01 أكتوبر 2025</span></p>
+
+    <section class="pro-card mb-6">
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div class="flex items-start gap-3">
+          <span class="icon-chip"><i data-lucide="user-x" class="w-5 h-5"></i></span>
+          <div>
+            <div class="font-extrabold">لا نجمع بيانات شخصية</div>
+            <p class="text-[var(--muted)] text-sm mt-1">نصمّم Wasfa ليعمل دون طلب معلومات تعريفية كلما أمكن.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <span class="icon-chip blue"><i data-lucide="cookie" class="w-5 h-5"></i></span>
+          <div>
+            <div class="font-extrabold">بدون تتبّع</div>
+            <p class="text-[var(--muted)] text-sm mt-1">لا نستخدم ملفات تعريف ارتباط للتتبّع؛ نعتمد التخزين المحلي للجلسة فقط.</p>
+          </div>
+        </div>
+        <div class="flex items-start gap-3">
+          <span class="icon-chip green"><i data-lucide="shield-check" class="w-5 h-5"></i></span>
+          <div>
+            <div class="font-extrabold">لا نشارك معلومات</div>
+            <p class="text-[var(--muted)] text-sm mt-1">لا نشارك معلوماتك مع أي طرف ثالث.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="divider"></div>
+
+    <!-- المحتوى (مع الحفاظ على نفس المعرّف) -->
+    <div id="privacy-content" class="space-y-6 leading-8 text-[16px]">
+      <!-- نطاق السياسة -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip"><i data-lucide="file-lock-2" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">١) نطاق السياسة</h2>
+        </div>
+        <p class="text-[var(--muted)]">
+          تنطبق هذه السياسة على استخدامك لموقع وأداة <strong>Wasfa</strong>. استخدامك للخدمة يعني موافقتك على ما ورد هنا.
+        </p>
+      </section>
+
+      <!-- ما لا نجمعه -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip blue"><i data-lucide="list-x" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">٢) ما لا نجمعه</h2>
+        </div>
+        <ul class="list-disc pr-6 text-[var(--muted)]">
+          <li>لا نطلب الاسم أو البريد الإلكتروني أو العنوان أو أي معلومات تعريفية مشابهة.</li>
+          <li>لا نستخدم قواعد بيانات تسويقية ولا آليات تعقّب سلوكي.</li>
+          <li>لا نبيع معلومات المستخدمين ولا نؤجرها.</li>
+        </ul>
+      </section>
+
+      <!-- ما قد تتم معالجته تقنياً -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip amber"><i data-lucide="cpu" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">٣) ما قد تتم معالجته تقنيًا لتشغيل الخدمة</h2>
+        </div>
+        <ul class="list-disc pr-6 text-[var(--muted)]">
+          <li><strong>التخزين المحلي على جهازك:</strong> قد نستخدم رموز جلسة/مفاتيح وصول محلية لإبقاء دخولك فعّالًا. يمكنك حذفها من إعدادات المتصفح في أي وقت.</li>
+          <li><strong>بيانات تقنية قياسية:</strong> قد تتولّد معلومات تقنية عامة (نوع المتصفح، نوع الجهاز، وقت الزيارة) لأغراض الأمان والأداء.</li>
+          <li><strong>التواصل الطوعي:</strong> عند مراسلتنا عبر واتساب أو الاتصال الهاتفي، تزودنا بما تختاره من معلومات في رسالتك.</li>
+        </ul>
+      </section>
+
+      <!-- ملفات تعريف الارتباط -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip"><i data-lucide="cookie" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">٤) ملفات تعريف الارتباط والتقنيات المشابهة</h2>
+        </div>
+        <p class="text-[var(--muted)]">
+          لا نعتمد ملفات تعريف ارتباط للتتبّع. نستخدم في الغالب <strong>التخزين المحلي</strong> بالمتصفح للحالة التشغيلية (مثل الجلسة).
+        </p>
+      </section>
+
+      <!-- الأمان -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip green"><i data-lucide="shield" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">٥) الأمان</h2>
+        </div>
+        <p class="text-[var(--muted)]">
+          نلتزم بممارسات أمان مناسبة لطبيعة الخدمة منخفضة البيانات، وننصحك بحماية جهازك وتحديث متصفحك وعدم مشاركة بيانات الدخول.
+        </p>
+      </section>
+
+      <!-- حقوقك -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip blue"><i data-lucide="hand" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">٦) حقوقك وخياراتك</h2>
+        </div>
+        <ul class="list-disc pr-6 text-[var(--muted)]">
+          <li>يمكنك حذف التخزين المحلي من المتصفح لإلغاء الجلسة فورًا.</li>
+          <li>يمكنك اختيار عدم التواصل عبر أي قناة خارجية.</li>
+          <li>يمكنك مراسلتنا لطلب توضيحات إضافية متى شئت.</li>
+        </ul>
+      </section>
+
+      <!-- خصوصية القُصّر -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip amber"><i data-lucide="shield-alert" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">٧) خصوصية القُصّر</h2>
+        </div>
+        <p class="text-[var(--muted)]">
+          الخدمة موجّهة للبالغين. إذا كنت دون السن القانونية في بلدك، فيلزم موافقة ولي الأمر قبل الاستخدام.
+        </p>
+      </section>
+
+      <!-- تحديثات السياسة -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip"><i data-lucide="refresh-ccw" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">٨) تحديثات هذه السياسة</h2>
+        </div>
+        <p class="text-[var(--muted)]">
+          قد نحدّث هذه السياسة عند الحاجة. سنحدّث التاريخ أعلى الصفحة، ويُعد استمرار استخدامك موافقةً على النسخة المُحدّثة.
+        </p>
+      </section>
+
+      <!-- التواصل -->
+      <section class="pro-card">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="icon-chip green"><i data-lucide="phone-call" class="w-5 h-5"></i></span>
+          <h2 class="text-xl md:text-2xl font-extrabold">٩) كيف تتواصل معنا</h2>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="cta-button justify-center">
+            <i data-lucide="message-circle" class="w-5 h-5"></i><span>واتساب الرسمي</span>
+          </a>
+          <a href="tel:00971502061209" class="cta-button justify-center" style="background:#10b981">
+            <i data-lucide="phone" class="w-5 h-5"></i><span>اتصال: 00971502061209</span>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <div class="mt-8 text-center">
+      <a href="index.html" id="privacy-back-home" class="cta-button inline-flex">
+        <i data-lucide="arrow-right" class="w-5 h-5"></i>
+        <span>العودة للرئيسية</span>
+      </a>
     </div>
   </main>
 
-  <footer class="py-6 text-center text-sm text-slate-500">
-    <a class="hover:underline" href="index.html" id="privacy-back-home">العودة للرئيسية</a> ·
-    <span>WasfaOne</span>
+  <!-- Footer -->
+  <footer class="py-8 text-center text-sm text-[var(--muted)]">
+    <span>&copy; 2025 Wasfa. جميع الحقوق محفوظة.</span>
   </footer>
 
+  <!-- Scripts -->
   <script src="assets/app.js"></script>
-  <script> initPrivacyPage(); </script>
+  <script>
+    // مطابقة تأثير الضوء على الأزرار
+    document.querySelectorAll('.cta-button').forEach(btn=>{
+      btn.addEventListener('mousemove', (e)=>{
+        const r = btn.getBoundingClientRect();
+        btn.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        btn.style.setProperty('--my', `${e.clientY - r.top}px`);
+        btn.classList.add('is-hovering');
+      });
+      btn.addEventListener('mouseleave', ()=> btn.classList.remove('is-hovering'));
+    });
+
+    // تفعيل أيقونات
+    lucide.createIcons();
+
+    // تهيئة صفحة الخصوصية إن كانت لديك دالة موجودة مسبقًا
+    if (typeof initPrivacyPage === 'function') { initPrivacyPage(); }
+  </script>
 </body>
 </html>

@@ -6,28 +6,24 @@
 // + authoritative databases (USDA / CIQUAL / McCance).
 // + Arabic normalization, grams-only enforcement, ml→g conversion, anti-injection,
 // + recentTitles de-duplication, dessert positive checks, target-calories guard.
+// *** Hotfix: lock to Google Generative Language API v1 stable + supported models only ***
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+// ✅ استخدم v1 (المستقر) بدل v1beta
+const BASE = "https://generativelanguage.googleapis.com/v1/models";
 
+// ❌ أزلنا موديلات 2.0/التجريبية والقديمة التي كثيرًا ما تُحجب في بعض المناطق
 const MODEL_POOL = [
   "gemini-1.5-pro-latest",
   "gemini-1.5-pro",
-  "gemini-1.5-pro-001",
-  "gemini-pro",
-  "gemini-1.0-pro",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-exp",
-  "gemini-1.5-flash",
-  "gemini-1.5-flash-001",
-  "gemini-1.5-flash-latest"
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-flash"
 ];
-
 
 /* ---------------- HTTP helpers ---------------- */
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
-  "Access-Control-Allow-Origin": "*", // يمكن تضييقها لاحقًا لبيئتك
+  "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "Content-Type, x-auth-token, x-session-nonce",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
@@ -43,10 +39,9 @@ function uniq(arr){ return Array.from(new Set(arr)); }
 
 function normalizeArabic(s){
   if (typeof s !== "string") return "";
-  // إزالة التشكيل والتطويل وتوحيد الألف/الياء/الهاء ومسافات
   return s
-    .replace(/[\u064B-\u0652]/g,"")             // التشكيل
-    .replace(/\u0640/g,"")                      // التطويل
+    .replace(/[\u064B-\u0652]/g,"")
+    .replace(/\u0640/g,"")
     .replace(/[إأآ]/g,"ا")
     .replace(/ى/g,"ي")
     .replace(/ة/g,"ه")
@@ -71,7 +66,7 @@ function reconcileCalories(macros) {
     calories: toNum(macros?.calories)
   };
   const m = normalizeMacros(orig);
-  const calc = Math.round(m.protein_g*4 + m.carbs_g*4 + m.fat_g*9); // kcal integer
+  const calc = Math.round(m.protein_g*4 + m.carbs_g*4 + m.fat_g*9);
   const stated = orig.calories;
   const diff = stated>0 ? Math.abs(stated - calc) : calc;
   const pct = stated>0 ? diff / (calc || 1) : 1;
@@ -93,7 +88,6 @@ const ML_UNITS = /\b(ml|mL|مل)\b/i;
 const G_UNITS  = /\b(جم|غرام|جرام|غ|g|gram|grams)\b/i;
 
 const LIQUID_DENSITIES = {
-  // g per ml (approx); لو رغبت عدّل للقيم الأدق
   "ماء": 1.00, "water":1.00,
   "حليب": 1.03, "milk":1.03,
   "حليب كامل الدسم":1.03, "حليب قليل الدسم":1.03,
@@ -102,12 +96,11 @@ const LIQUID_DENSITIES = {
 };
 
 function convertMlToG(line){
-  // يحوّل "120 مل كريمة" → "121 جم كريمة" تقريبًا (كثافة 1.01)
   const mlMatch = line.match(/(\d+(\.\d+)?)\s*(ml|mL|مل)\b/i);
   if (!mlMatch) return line;
   const ml = parseFloat(mlMatch[1]);
   const norm = normalizeArabic(line);
-  let density = 1.0; // افتراضي ماء
+  let density = 1.0;
   for (const k in LIQUID_DENSITIES){
     if (norm.includes(normalizeArabic(k))){
       density = LIQUID_DENSITIES[k];
@@ -135,7 +128,6 @@ function enforceGramHints(ingredients) {
   for (let raw of ingredients){
     let x = (typeof raw === "string" ? raw.trim() : String(raw||"").trim());
     if (!x) continue;
-    // تحويل ml → g عند الحاجة
     if (ML_UNITS.test(x)) x = convertMlToG(x);
     out.push(x);
   }
@@ -163,7 +155,6 @@ function validateRecipeSchema(rec) {
     return { ok:false, error:"steps_type" };
   if (rec.lang !== "ar") return { ok:false, error:"lang_must_be_ar" };
 
-  // grams-only check
   const allGramLike = rec.ingredients.every(line => lineHasOnlyGrams(line));
   if (!allGramLike) return { ok:false, error:"ingredients_not_all_in_grams" };
 
@@ -303,22 +294,22 @@ const DIET_PROFILES = {
 /* ---------------- Dessert sanity (+ positive sweet signals) ---------------- */
 const DESSERT_SAVORY_BANNED = [
   "لحم","دجاج","ديك رومي","لحم مفروم","سمك","تونة","سجق","نقانق","سلامي","بسطرمة","مرق",
-  "ثوم","بصل","كركم","كمون","كزبره ناشفه","بهارات كبسه","بهارات برياني","بهارات مشكله","شطه","صلصه صويا","معجون طماطم"
+  "ثوم","بصل","كركم","كمون","كزبرة ناشفة","بهارات كبسة","بهارات برياني","بهارات مشكلة","شطة","صلصة صويا","معجون طماطم"
 ];
 const DESSERT_POSITIVE = [
-  "فانيلا","كاكاو","قرفه","هيل","لوز","جوز هند","زبادي","جبن كريمي","ماسكرپوني","توت","فراوله","ستيفيا"
+  "فانيلا","كاكاو","قرفة","هيل","لوز","جوز هند","زبادي","جبن كريمي","ماسكرپوني","توت","فراولة","ستيفيا"
 ];
-function isDessert(mealType){ return /حلويات|تحليه|dessert/i.test(String(mealType||"")); }
+function isDessert(mealType){ return /حلويات|تحلية|dessert/i.test(String(mealType||"")); }
 function dessertLooksIllogical(recipe){
   const ing = normalizeArabic((recipe?.ingredients||[]).join(" "));
   const bad = DESSERT_SAVORY_BANNED.some(k => ing.includes(normalizeArabic(k)));
   const good = DESSERT_POSITIVE.some(k => ing.includes(normalizeArabic(k)));
-  return bad || !good; // يجب وجود إشارة حلاوة مسموحة، وألا توجد محظورات مالحة
+  return bad || !good;
 }
 
 /* ---------------- Available ingredients checks (robust) ---------------- */
 const SYNONYMS = {
-  "طماطم":["بندوره","بندورة","طماطه"],
+  "طماطم":["بندورة","بندوره","طماطة"],
   "باذنجان":["بتنجان"],
   "بطاطس":["بطاطا"],
   "زيت زيتون":["زيت الزيتون","evoo","olive oil"]
@@ -402,7 +393,7 @@ function sanitizeAvailableList(arr){
   if (!Array.isArray(arr)) return [];
   return arr
     .map(s => String(s||""))
-    .map(s => s.replace(/[{}\[\]<>:";]/g," "))  // منع حقن التعليمات
+    .map(s => s.replace(/[{}\[\]<>:";]/g," "))
     .map(s => s.replace(/\s+/g," ").trim())
     .filter(Boolean)
     .slice(0,50);
@@ -522,7 +513,7 @@ async function callOnce(model, input, timeoutMs = 28000) {
   const body = {
     systemInstruction: { role: "system", parts: [{ text: systemInstruction(8) }] },
     contents: [{ role: "user", parts: [{ text: userPrompt(input) }] }],
-    generationConfig: { temperature: 0.6, topP: 0.9, maxOutputTokens: 1000 },
+    generationConfig: { temperature: 0.6, topP: 0.9, maxOutputTokens: 1000 }
   };
 
   const abort = new AbortController();
@@ -547,22 +538,17 @@ async function callOnce(model, input, timeoutMs = 28000) {
     let json = data && typeof data === "object" && data.title ? data : extractJsonFromCandidates(data);
     if (!json) return { ok:false, error:"gemini_returned_non_json" };
 
-    // Normalize steps length
     if (!json.lang) json.lang = "ar";
     if (Array.isArray(json.steps) && json.steps.length > 8) {
-      // نفضّل تقليل العدد بإعادة التوليد لاحقًا، لكن كحماية: ندمج على الأكثر لـ 6
       const chunk = Math.ceil(json.steps.length / 8);
       const merged = [];
       for (let i=0;i<json.steps.length;i+=chunk) merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
       json.steps = merged.slice(0,6);
     }
 
-    // grams-only enforcement (convert ml->g first)
     if (Array.isArray(json.ingredients)) {
       json.ingredients = enforceGramHints(json.ingredients);
     }
-
-    // Strict energy reconciliation (hard write-back)
     if (json.macros) {
       json.macros = reconcileCalories(json.macros);
     }
@@ -591,7 +577,7 @@ function violatesDrMoh(recipe) {
     "msg","جلوتامات","glutamate","نتريت","نترات","ملون","نكهات صناعيه","مواد حافظه","مستحلب",
     "مهدرج","مارجرين","زيت كانولا","زيت ذره","زيت صويا","بذر العنب","vegetable oil",
     "دقيق ابيض","طحين ابيض","نشا الذره","cornstarch","خبز","مكرونه","رز ابيض","سكر بني",
-    "ستيفيا" // ممنوعة في هذا النظام
+    "ستيفيا"
   ];
 
   const hasBanned = banned.some(k => ing.includes(normalizeArabic(k)));
@@ -603,7 +589,7 @@ function energyLooksOff(recipe){
   const m = recipe?.macros||{};
   const p = toNum(m.protein_g), c = toNum(m.carbs_g), f = toNum(m.fat_g), cal = toNum(m.calories);
   const calc = Math.round(p*4 + c*4 + f*9);
-  return Math.abs(calc - cal) > Math.max(8, calc*0.02); // > ±2% أو >8 kcal
+  return Math.abs(calc - cal) > Math.max(8, calc*0.02);
 }
 
 /* ---------------- Handler ---------------- */
@@ -616,7 +602,6 @@ exports.handler = async (event) => {
   try { input = JSON.parse(event.body || "{}"); }
   catch { return bad(400, "invalid_json_body"); }
 
-  // Validate custom macros if dietType === custom
   const isCustom = String(input?.dietType || "") === "custom";
   let customMacros = null;
   if (isCustom) {
@@ -627,11 +612,8 @@ exports.handler = async (event) => {
     customMacros = { protein_g: p, carbs_g: c, fat_g: f };
   }
 
-  // Available ingredients (optional) + recent titles
   const availableIngredients = sanitizeAvailableList(
-    Array.isArray(input?.availableIngredients)
-      ? input.availableIngredients
-      : []
+    Array.isArray(input?.availableIngredients) ? input.availableIngredients : []
   );
   const recentTitles = Array.isArray(input?.recentTitles)
     ? input.recentTitles.map(s => String(s||"").trim()).filter(Boolean).slice(0,8)
@@ -646,34 +628,29 @@ exports.handler = async (event) => {
     let r1 = await callOnce(model, { ...input, customMacros, availableIngredients, recentTitles });
     if (!r1.ok) { errors[model] = r1.error; continue; }
 
-    // Dr. Mohamed enforcement
     if (wantDrMoh && violatesDrMoh(r1.recipe)) {
       const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, recentTitles, __repair: true, __repair_energy: true });
       if (r2.ok && !violatesDrMoh(r2.recipe)) r1 = r2;
       else return ok({ recipe: (r2.ok ? r2.recipe : r1.recipe), model, warning: "dr_moh_rules_not_strictly_met" });
     }
 
-    // Available-ingredients enforcement
     if (availableIngredients.length && !includesAllAvailable(r1.recipe, availableIngredients)) {
       const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, recentTitles, __repair_available: true, __repair_energy: true });
       if (r2.ok && includesAllAvailable(r2.recipe, availableIngredients)) r1 = r2;
       else return ok({ recipe: (r2.ok ? r2.recipe : r1.recipe), model, warning: "available_ingredients_not_fully_used" });
     }
 
-    // Dessert sanity
     if (wantDessert && dessertLooksIllogical(r1.recipe)) {
       const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, recentTitles, __repair_dessert: true, __repair_energy: true });
       if (r2.ok && !dessertLooksIllogical(r2.recipe)) r1 = r2;
       else return ok({ recipe: (r2.ok ? r2.recipe : r1.recipe), model, warning: "dessert_logic_issue" });
     }
 
-    // Energy repair (defensive)
     if (energyLooksOff(r1.recipe)) {
       const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, recentTitles, __repair_energy: true });
       if (r2.ok && !energyLooksOff(r2.recipe)) r1 = r2;
     }
 
-    // Target calories guard (±12% نافذة)
     if (target>0){
       const cal = toNum(r1.recipe?.macros?.calories);
       const within = Math.abs(cal - target) <= Math.max(0.12*target, 20);
@@ -687,7 +664,6 @@ exports.handler = async (event) => {
       }
     }
 
-    // Diversity vs recentTitles
     if (tooSimilarToRecent(r1.recipe?.title, recentTitles)) {
       const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, recentTitles, __repair_diversity: true, __repair_energy: true });
       if (r2.ok) r1 = r2;
@@ -696,5 +672,6 @@ exports.handler = async (event) => {
     return ok({ recipe: r1.recipe, model });
   }
 
-  return bad(502, "All models failed for your key/region on v1beta", { errors, tried: MODEL_POOL });
+  // لو فشلت كل النماذج — أعد الأخطاء لسهولة التشخيص
+  return bad(502, "All models failed for your key/region on v1 stable", { errors, tried: MODEL_POOL });
 };

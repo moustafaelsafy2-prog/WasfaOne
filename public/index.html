@@ -176,12 +176,8 @@
     .wave path { fill: #ffffff; }
 
     /* Counter progress bar */
-    .progress {
-      height: 4px; width: 100%; background: #f1f5f9; border-radius: 9999px; overflow: hidden;
-    }
-    .progress > span {
-      display: block; width: 0%; height: 100%; background: var(--brand); border-radius: 9999px; transition: width 1200ms ease;
-    }
+    .progress { height: 4px; width: 100%; background: #f1f5f9; border-radius: 9999px; overflow: hidden; }
+    .progress > span { display: block; width: 0%; height: 100%; background: var(--brand); border-radius: 9999px; transition: width 1200ms ease; }
 
     /* Quote card */
     .quote-card {
@@ -197,6 +193,29 @@
       background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25);
       margin-bottom: .5rem;
     }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,.55);
+      display: none; align-items: center; justify-content: center; z-index: 70;
+      padding: 16px;
+    }
+    .modal {
+      width: 100%; max-width: 720px; border-radius: 24px; background: #fff; border: 1px solid var(--line);
+      box-shadow: 0 30px 60px -20px rgba(0,0,0,.25);
+      overflow: hidden; transform: translateY(12px) scale(.98); opacity: 0; transition: .25s ease;
+    }
+    .modal.open { transform: translateY(0) scale(1); opacity: 1; }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; padding: 18px 22px; border-bottom:1px solid var(--line); }
+    .modal-body { padding: 18px 22px 22px; }
+    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media (max-width:768px){ .modal-grid{grid-template-columns:1fr} }
+    .contact-card { border:1px solid var(--line); border-radius:18px; padding:14px; background:#fff; }
+    .contact-card:hover { box-shadow: 0 12px 30px rgba(0,0,0,.06); transform: translateY(-2px); transition: .2s ease; }
+    .contact-btn { display:flex; align-items:center; justify-content:center; gap:.5rem; border-radius:12px; padding:12px; font-weight:800; color:#fff }
+    .btn-wa { background:#10b981; }
+    .btn-call { background:#ef4444; }
+
   </style>
 </head>
 <body class="antialiased">
@@ -302,7 +321,7 @@
 
       <div class="divider"></div>
 
-      <!-- Free Trial (Demo only, non-AI) — refined -->
+      <!-- Free Trial (Demo only, non-AI) -->
       <section id="trial" class="py-16">
         <div class="pro-card" data-aos="fade-up">
           <div class="flex items-center justify-between mb-8">
@@ -367,27 +386,41 @@
 
       <div class="divider"></div>
 
-      <!-- Trusted By — logos only (no numbers) -->
+      <!-- Trusted By — Arabic sectors only -->
       <section id="trusted" class="py-16">
         <div class="pro-card" data-aos="fade-up">
           <h2 class="text-3xl md:text-4xl font-black text-center mb-10">يثقون بنا</h2>
           <p class="text-center text-[var(--muted)] max-w-2xl mx-auto mb-8">
-            جهات وشركات تعتمد تقديم وصفات منظمة وواضحة للمستخدمين.
+            نخدم شرائح متعددة من المجتمع والمنشآت.
           </p>
-          <div class="grid grid-cols-2 md:grid-cols-5 gap-8 items-center justify-items-center">
-            <!-- SVG brand-like marks (no rights) -->
-            <svg viewBox="0 0 200 40" class="w-[120px] h-[32px]"><path stroke="#0f172a" stroke-width="1.8" fill="none" d="M10 30 L30 10 L50 30 M65 30 L65 10 L95 30 L95 10" /></svg>
-            <svg viewBox="0 0 200 40" class="w-[120px] h-[32px]"><circle stroke="#0f172a" stroke-width="1.8" fill="none" cx="20" cy="20" r="12"/><path stroke="#0f172a" stroke-width="1.8" fill="none" d="M50 30 L80 10 L110 30" /></svg>
-            <svg viewBox="0 0 200 40" class="w-[120px] h-[32px]"><rect stroke="#0f172a" stroke-width="1.8" fill="none" x="10" y="10" width="24" height="20" rx="4"/><path stroke="#0f172a" stroke-width="1.8" fill="none" d="M50 30 L90 10 L130 30 L170 10" /></svg>
-            <svg viewBox="0 0 200 40" class="w-[120px] h-[32px]"><path stroke="#0f172a" stroke-width="1.8" fill="none" d="M10 30 Q30 5 50 30 T90 30" /><circle stroke="#0f172a" stroke-width="1.8" fill="none" cx="120" cy="20" r="10"/></svg>
-            <svg viewBox="0 0 200 40" class="w-[120px] h-[32px]"><path stroke="#0f172a" stroke-width="1.8" fill="none" d="M10 30 L30 10 L50 30 Z" /><path stroke="#0f172a" stroke-width="1.8" fill="none" d="M70 30 L90 10 L110 30 Z" /></svg>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-6 items-stretch">
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white text-center">
+              <div class="icon-chip mb-3"><i data-lucide="building-2" class="w-6 h-6"></i></div>
+              <div class="font-black text-xl">مؤسسات</div>
+              <div class="text-[var(--muted)] text-sm mt-1">شركات وهيئات</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white text-center">
+              <div class="icon-chip green mb-3"><i data-lucide="dumbbell" class="w-6 h-6"></i></div>
+              <div class="font-black text-xl">صالات رياضية</div>
+              <div class="text-[var(--muted)] text-sm mt-1">أندية ومراكز لياقة</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white text-center">
+              <div class="icon-chip blue mb-3"><i data-lucide="landmark" class="w-6 h-6"></i></div>
+              <div class="font-black text-xl">جهات حكومية</div>
+              <div class="text-[var(--muted)] text-sm mt-1">مبادرات صحية</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white text-center">
+              <div class="icon-chip amber mb-3"><i data-lucide="user-check" class="w-6 h-6"></i></div>
+              <div class="font-black text-xl">مدربون أفراد</div>
+              <div class="text-[var(--muted)] text-sm mt-1">تغذية ولياقة</div>
+            </div>
           </div>
         </div>
       </section>
 
       <div class="divider"></div>
 
-      <!-- Stats — varied animations + moved badges -->
+      <!-- Stats — varied animations (no languages here) -->
       <section id="stats" class="py-16">
         <div class="pro-card" data-aos="fade-up">
           <h2 class="text-3xl md:text-4xl font-black text-center mb-10">أرقام تتحدث</h2>
@@ -421,16 +454,13 @@
               <div class="progress"><span style="background: var(--accent-blue)"></span></div>
             </div>
 
-            <!-- Awards / Languages moved here -->
+            <!-- Awards -->
             <div class="p-6 rounded-2xl border border-[var(--line)] bg-white" data-anim="fade">
               <div class="icon-chip amber mb-3"><i data-lucide="trophy" class="w-6 h-6"></i></div>
               <div class="flex items-baseline gap-1">
                 <div class="text-4xl font-black counter" data-target="15" data-suffix="+">0</div>
               </div>
               <div class="text-[var(--muted)] mt-1 mb-1">جوائز وشراكات</div>
-              <div class="mt-3 flex items-center gap-2 text-sm text-[var(--muted)]">
-                <i data-lucide="languages" class="w-4 h-4"></i><span>لغات مدعومة: العربية • الإنجليزية</span>
-              </div>
               <div class="mt-4 progress"><span style="background: var(--accent-amber)"></span></div>
             </div>
 
@@ -450,12 +480,12 @@
               <div class="grid md:grid-cols-2 gap-6">
                 <div class="quote-card">
                   <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
-                  <p class="text-[var(--muted)] leading-relaxed">"أفضل أداة للمحافظة على نظامي الغذائي — تنظيم، وضوح، ونتائج ملموسة."</p>
+                  <p class="text-[var(--muted)] leading-relaxed">"أفضل أداة لتنظيم وجباتي — واضحة وتختصر الوقت."</p>
                   <div class="mt-3 text-sm font-semibold">— سارة</div>
                 </div>
                 <div class="quote-card">
                   <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
-                  <p class="text-[var(--muted)] leading-relaxed">"كان الملل أكبر مشاكلي — الآن لدي خيارات يومية متنوعة تناسب هدفي."</p>
+                  <p class="text-[var(--muted)] leading-relaxed">"خيارات متنوعة يوميًا، بلا ملل وبطعم رائع."</p>
                   <div class="mt-3 text-sm font-semibold">— أحمد</div>
                 </div>
               </div>
@@ -466,12 +496,12 @@
               <div class="grid md:grid-cols-2 gap-6">
                 <div class="quote-card">
                   <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
-                  <p class="text-[var(--muted)] leading-relaxed">"الواجهة أنيقة والتجربة سلسة — الوصول للوصفة المناسبة صار أسرع."</p>
+                  <p class="text-[var(--muted)] leading-relaxed">"واجهة أنيقة وتجربة سلسلة للوصول لوصفة مناسبة."</p>
                   <div class="mt-3 text-sm font-semibold">— ليلى</div>
                 </div>
                 <div class="quote-card">
                   <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
-                  <p class="text-[var(--muted)] leading-relaxed">"يعجبني وضوح الماكروز والتحكم بالمكونات بما يناسب تدريبي."</p>
+                  <p class="text-[var(--muted)] leading-relaxed">"الماكروز واضحة والتحكم بالمكوّنات سهل."</p>
                   <div class="mt-3 text-sm font-semibold">— محمد</div>
                 </div>
               </div>
@@ -482,12 +512,12 @@
               <div class="grid md:grid-cols-2 gap-6">
                 <div class="quote-card">
                   <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
-                  <p class="text-[var(--muted)] leading-relaxed">"تنويع الوصفات أنقذ روتيني — الآن أستمتع بأكل صحي بلا ملل."</p>
+                  <p class="text-[var(--muted)] leading-relaxed">"تنويع الوصفات أنقذ روتيني — صحية ولذيذة."</p>
                   <div class="mt-3 text-sm font-semibold">— نور</div>
                 </div>
                 <div class="quote-card">
                   <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
-                  <p class="text-[var(--muted)] leading-relaxed">"حلول سريعة وواضحة — Wasfa يقدم المطلوب ببراعة."</p>
+                  <p class="text-[var(--muted)] leading-relaxed">"حلول سريعة وواضحة — أنصح بها."</p>
                   <div class="mt-3 text-sm font-semibold">— رامي</div>
                 </div>
               </div>
@@ -500,38 +530,38 @@
 
       <div class="divider"></div>
 
-      <!-- FAQ -->
+      <!-- FAQ (concise) -->
       <section id="faq" class="py-16">
         <h2 class="text-3xl md:text-4xl font-black text-center mb-10" data-aos="fade-up">الأسئلة الشائعة</h2>
         <div class="grid md:grid-cols-2 gap-5">
           <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="100">
             <button class="faq-q w-full flex items-center justify-between text-right">
-              <span class="font-bold text-lg">هل الأداة تحتاج تثبيت؟</span>
+              <span class="font-bold text-lg">هل الأداة تعمل من المتصفح؟</span>
               <i data-lucide="chevron-down" class="w-5 h-5"></i>
             </button>
-            <div class="faq-a hidden pt-3 text-[var(--muted)]">لا، تعمل مباشرة من المتصفح على جميع الأجهزة.</div>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، لا حاجة لتثبيت.</div>
           </div>
           <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="150">
             <button class="faq-q w-full flex items-center justify-between text-right">
               <span class="font-bold text-lg">هل يمكن تجربة الأداة مجانًا؟</span>
               <i data-lucide="chevron-down" class="w-5 h-5"></i>
             </button>
-            <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، استخدم قسم “تجربة مجانية (مثال)” للاطلاع على شكل المخرجات.</div>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">اطّلع على “تجربة مجانية (مثال)”.</div>
           </div>
           <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="200">
-            <button class="faq-q w-full flex items-center justify_between text-right">
-              <span class="font-bold text-lg">هل النتائج ثابتة ومتسقة؟</span>
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">هل تدعم قيود الحساسية؟</span>
               <i data-lucide="chevron-down" class="w-5 h-5"></i>
             </button>
-            <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، نفس المدخلات تُنتج نفس المخرجات، مع حفظ الحالة.</div>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، يمكن تحديدها ببساطة.</div>
           </div>
           <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="250">
             <button class="faq-q w-full flex items-center justify-between text-right">
-              <span class="font-bold text-lg">كيف أتواصل للدعم أو الاشتراك؟</span>
+              <span class="font-bold text-lg">كيف أتواصل للاشتراك؟</span>
               <i data-lucide="chevron-down" class="w-5 h-5"></i>
             </button>
             <div class="faq-a hidden pt-3 text-[var(--muted)]">
-              عبر واتساب: <a class="text-[var(--brand)] underline" href="https://wa.me/971502061209" target="_blank" rel="noopener">00971502061209</a>
+              عبر النافذة المنبثقة من زر “أنشئ حسابك الآن”.
             </div>
           </div>
         </div>
@@ -552,9 +582,9 @@
         <p class="max-w-xl mx-auto mb-8 text-[var(--muted)]">
             انضم إلى مجتمعنا اليوم وابدأ رحلتك نحو حياة صحية مليئة بالطعم الرائع.
         </p>
-        <a href="login.html" class="cta-button" id="ctaFooter">
+        <button type="button" class="cta-button" id="ctaFooter">
             <span>أنشئ حسابك الآن</span>
-        </a>
+        </button>
       <div class="border-t border-[var(--line)] mt-12 pt-8">
         <p class="text-sm text-gray-500">&copy; 2024 Wasfa. جميع الحقوق محفوظة.</p>
       </div>
@@ -565,6 +595,64 @@
   <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="whatsapp-fab" aria-label="تواصل واتساب">
     <i data-lucide="messages-square" class="w-6 h-6"></i>
   </a>
+
+  <!-- Signup Modal -->
+  <div id="signupOverlay" class="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="signupTitle">
+      <div class="modal-head">
+        <h3 id="signupTitle" class="text-xl font-black">إنشاء حساب — قنواتنا الرسمية</h3>
+        <button id="signupClose" class="p-2 rounded-lg hover:bg-gray-100" aria-label="إغلاق">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-[var(--muted)] mb-4">
+          لإنشاء حساب جديد برجاء التواصل عبر إحدى القنوات التالية:
+        </p>
+        <div class="modal-grid">
+          <div class="contact-card">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="icon-chip green"><i data-lucide="message-circle" class="w-5 h-5"></i></span>
+              <div class="font-bold">واتساب الرسمي</div>
+            </div>
+            <p class="text-sm text-[var(--muted)] mb-3">إرسال كلمة: <span class="font-bold text-[var(--ink)]">“اشتراك Wasfa”</span> مع الاسم.</p>
+            <a class="contact-btn btn-wa" href="https://wa.me/971502061209?text=%D8%A7%D8%B4%D8%AA%D8%B1%D8%A7%D9%83%20Wasfa%20-%20%D8%A7%D8%B3%D9%85%D9%8A%3A" target="_blank" rel="noopener">
+              <i data-lucide="send" class="w-5 h-5"></i><span>بدء محادثة واتساب</span>
+            </a>
+          </div>
+          <div class="contact-card">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="icon-chip"><i data-lucide="phone" class="w-5 h-5"></i></span>
+              <div class="font-bold">اتصال هاتفي</div>
+            </div>
+            <p class="text-sm text-[var(--muted)] mb-3">فريقنا متاح يوميًا 9 صباحًا — 9 مساءً.</p>
+            <a class="contact-btn btn-call" href="tel:00971502061209">
+              <i data-lucide="phone-call" class="w-5 h-5"></i><span>اتصل الآن: 00971502061209</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="mt-5 grid sm:grid-cols-3 gap-3">
+          <div class="p-3 rounded-xl border border-[var(--line)]">
+            <div class="text-sm font-bold mb-1">التحقق</div>
+            <div class="text-xs text-[var(--muted)]">بيانات أساسية لتفعيل الحساب.</div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--line)]">
+            <div class="text-sm font-bold mb-1">الدفع الآمن</div>
+            <div class="text-xs text-[var(--muted)]">خيارات مرنة وآمنة.</div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--line)]">
+            <div class="text-sm font-bold mb-1">التفعيل السريع</div>
+            <div class="text-xs text-[var(--muted)]">يعمل حسابك فور الإتمام.</div>
+          </div>
+        </div>
+
+        <div class="mt-4 text-end">
+          <button id="signupClose2" class="px-4 py-2 rounded-lg border border-[var(--line)] hover:bg-gray-50 font-bold">إغلاق</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="assets/app.js"></script>
   <script>
@@ -586,7 +674,7 @@
     };
     window.addEventListener('scroll', parallax, { passive: true });
 
-    // CTA effects
+    // CTA hover/ripple
     function attachCTAEffects(btn) {
       if (!btn) return;
       btn.addEventListener('mousemove', (e) => {
@@ -618,7 +706,6 @@
       const slides = [...track.querySelectorAll('.slide')];
       let index = 0;
 
-      // Build dots
       slides.forEach((_, i) => {
         const dot = document.createElement('button');
         dot.className = 'dot';
@@ -642,7 +729,6 @@
       track.addEventListener('mouseenter', pause);
       track.addEventListener('mouseleave', resume);
 
-      // Init
       goTo(0);
       window.addEventListener('resize', () => goTo(index));
     })();
@@ -735,10 +821,7 @@
       };
 
       const animateNumbers = () => {
-        // progress bars
-        progressBars.forEach((bar,i)=> {
-          setTimeout(()=> { bar.style.width = '100%'; }, 120*i);
-        });
+        progressBars.forEach((bar,i)=> { setTimeout(()=> { bar.style.width = '100%'; }, 120*i); });
 
         counters.forEach((el, idx)=> {
           const target = +el.getAttribute('data-target');
@@ -756,7 +839,6 @@
           requestAnimationFrame(step);
         });
 
-        // per-card motion
         section.querySelectorAll('[data-anim]').forEach((card,i)=> {
           setTimeout(()=> animateCard(card), 120*i);
         });
@@ -784,6 +866,31 @@
       });
     }, { threshold: 0.4 });
     sections.forEach(s => ioActive.observe(s));
+
+    // ===== Signup Modal =====
+    const overlay = document.getElementById('signupOverlay');
+    const openBtn = document.getElementById('ctaFooter');
+    const closeBtn = document.getElementById('signupClose');
+    const closeBtn2 = document.getElementById('signupClose2');
+
+    function openModal(){
+      overlay.style.display = 'flex';
+      requestAnimationFrame(()=> {
+        overlay.querySelector('.modal').classList.add('open');
+      });
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal(){
+      const modal = overlay.querySelector('.modal');
+      modal.classList.remove('open');
+      setTimeout(()=> { overlay.style.display = 'none'; }, 200);
+      document.body.style.overflow = '';
+    }
+    if(openBtn){ openBtn.addEventListener('click', openModal); }
+    if(closeBtn){ closeBtn.addEventListener('click', closeModal); }
+    if(closeBtn2){ closeBtn2.addEventListener('click', closeModal); }
+    overlay.addEventListener('click', (e)=> { if(e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', (e)=> { if(e.key === 'Escape' && overlay.style.display === 'flex') closeModal(); });
   </script>
 </body>
 </html>

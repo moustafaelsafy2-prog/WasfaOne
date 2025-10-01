@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wasfa - وصفتك الصحية تبدأ هنا</title>
   
-  <!-- Fonts -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -17,263 +17,701 @@
   <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
   <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
 
-  <style>
-    /* ============================================
-      REFINED DESIGN SYSTEM (BRAND RED)
-      ============================================ */
-    :root {
-      --brand-primary: #D90429; /* Strong, confident red */
-      --brand-secondary: #EF233C; /* Lighter, vibrant red */
-      --dark-text: #2B2B2B; /* Soft Dark Gray */
-      --body-text: #575757; /* Medium Gray */
-      --light-bg: #F9FAFB; /* Very Light Cool Gray */
-      --white: #FFFFFF;
-      --border-color: #EAEAEA;
-    }
-    
-    html { scroll-behavior: smooth; }
+  <!-- Lucide Icons (CDN) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 
+  <style>
+    :root {
+      --brand: #ef4444;
+      --brand-dark: #dc2626;
+      --ink: #0f172a;
+      --muted: #475569;
+      --soft-bg: #f7f7f9;
+      --line: #e5e7eb;
+      --accent-green: #10b981;
+      --accent-blue: #3b82f6;
+    }
+    html { scroll-behavior: smooth; }
     body {
       font-family: 'Cairo', sans-serif;
-      background-color: var(--white);
-      color: var(--body-text);
+      background-color: var(--soft-bg);
+      color: var(--ink);
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Headings Font - Now unified with body font */
-    h1, h2, h3, h4, .font-heading {
-      font-family: 'Cairo', sans-serif;
-      font-weight: 800;
-      color: var(--dark-text);
-    }
-    
-    /* Main CTA Button Style */
-    .cta-button {
-      display: inline-block;
-      border-radius: 12px;
-      padding: 16px 32px;
-      font-family: 'Cairo', sans-serif;
-      font-weight: 700;
-      font-size: 1.125rem;
-      color: var(--white);
-      background-color: var(--brand-primary);
-      box-shadow: 0 8px 20px rgba(217, 4, 41, 0.25);
-      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-    .cta-button:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 28px rgba(217, 4, 41, 0.35);
-      background-color: var(--brand-secondary);
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink: #f8fafc;
+        --muted: #cbd5e1;
+        --soft-bg: #0b1220;
+        --line: #1f2937;
+      }
+      .pro-card {
+        background: linear-gradient(180deg, #0f172a, #0b1220);
+        border-color: #1f2937;
+      }
+      .sticky-header { background-color: rgba(15, 23, 42, 0.65) !important; }
+      .divider { opacity: 0.6; }
+      .logo-stroke { stroke: #e5e7eb; }
+      .wave path { fill: #0b1220; }
     }
 
-    /* Section Styling */
-    .section-title {
-        font-size: 3rem;
-        line-height: 1.2;
-        text-align: center;
-        margin-bottom: 1.5rem;
+    .brand-title {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      padding: 0 4px;
     }
-    .section-subtitle {
-        text-align: center;
-        font-size: 1.125rem;
-        max-width: 600px;
-        margin: 0 auto 5rem;
+
+    .pro-card {
+      background: linear-gradient(180deg, #fff, #fafafa);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 2.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.08);
+      transition: transform 0.3s, box-shadow 0.3s;
+      will-change: transform;
+      transform-style: preserve-3d;
     }
-    
-    /* Custom Card Style */
-    .custom-card {
-        background-color: var(--white);
-        border-radius: 24px;
-        padding: 2.5rem;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 10px 40px -15px rgba(13, 27, 42, 0.08);
-        transition: transform 0.3s, box-shadow 0.3s;
+    .pro-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15);
     }
-    .custom-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 20px 50px -15px rgba(13, 27, 42, 0.12);
+
+    .icon-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.05));
+      border: 1px solid rgba(239,68,68,0.25);
+      box-shadow: 0 12px 24px -12px rgba(239,68,68,0.35);
     }
+    .icon-chip.green {
+      background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(16,185,129,0.05));
+      border-color: rgba(16,185,129,0.25);
+      box-shadow: 0 12px 24px -12px rgba(16,185,129,0.35);
+    }
+    .icon-chip.blue {
+      background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.05));
+      border-color: rgba(59,130,246,0.25);
+      box-shadow: 0 12px 24px -12px rgba(59,130,246,0.35);
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(to left, transparent, var(--line), transparent);
+      margin: 3rem auto;
+      width: 80%;
+    }
+
+    .sticky-header {
+      backdrop-filter: blur(10px);
+      background-color: rgba(255, 255, 255, 0.8);
+      border-bottom: 1px solid var(--line);
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .sticky-header.scrolled {
+      background-color: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 10px 30px -20px rgba(0,0,0,0.25);
+    }
+
+    .nav-link.active {
+      color: var(--brand);
+      position: relative;
+    }
+    .nav-link.active::after {
+      content: "";
+      position: absolute;
+      bottom: -6px; inset-inline: 0;
+      margin-inline: auto;
+      width: 28px; height: 3px;
+      border-radius: 9999px;
+      background: var(--brand);
+    }
+
+    .hero {
+      position: relative; height: 70vh;
+      background: #000;
+    }
+    @media (min-width: 768px) { .hero { height: 80vh; } }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
+      background-image: url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop');
+    }
+    .hero-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.55));
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; color: white; padding: 1rem;
+    }
+
+    .carousel { position: relative; overflow: hidden; }
+    .carousel-track { display: flex; gap: 2rem; transition: transform 500ms ease; will-change: transform; }
+    .carousel .pro-card { min-width: 100%; }
+    @media (min-width: 768px) { .carousel .pro-card { min-width: calc(50% - 1rem); } }
+    .carousel-nav { display: flex; gap: 0.75rem; justify-content: center; margin-top: 1rem; }
+    .dot { width: 10px; height: 10px; border-radius: 9999px; background: #cbd5e1; transition: transform 0.2s, background 0.2s; }
+    .dot.active { background: var(--brand); transform: scale(1.15); }
+
+    .whatsapp-fab {
+      position: fixed; bottom: 18px; inset-inline-end: 18px; z-index: 60;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 58px; height: 58px; border-radius: 9999px; background: #10b981; color: #fff;
+      box-shadow: 0 20px 30px -10px rgba(16,185,129,0.45);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .whatsapp-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 28px 40px -12px rgba(16,185,129,0.55); }
+
+    .cta-button {
+      position: relative; overflow: hidden;
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      border-radius: 14px; padding: 16px 32px; font-weight: 700;
+      color: white; background: var(--brand);
+      box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2), 0 2px 4px -2px rgba(239, 68, 68, 0.1);
+      transition: all 0.2s ease-in-out;
+    }
+    .cta-button:hover {
+      background: var(--brand-dark);
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.35);
+    }
+    .cta-button::after {
+      content: ""; position: absolute; inset: -2px; border-radius: 16px;
+      background: radial-gradient(120px 120px at var(--mx, 50%) var(--my, 50%), rgba(239,68,68,0.25), transparent 60%);
+      opacity: 0; transition: opacity 0.2s ease; pointer-events: none;
+    }
+    .cta-button.is-hovering::after { opacity: 1; }
+    .ripple {
+      position: absolute; border-radius: 9999px; transform: translate(-50%, -50%);
+      pointer-events: none; animation: ripple 600ms ease-out forwards; background: rgba(255,255,255,0.35);
+    }
+    @keyframes ripple { from { width: 0; height: 0; opacity: 0.6; } to { width: 340px; height: 340px; opacity: 0; } }
+
+    .faq-item { border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+    @media (prefers-color-scheme: dark) { .faq-item { background: #0f172a; } }
+    .faq-q { cursor: pointer; }
+
+    .trusted-logos svg { width: 120px; height: 32px; }
+    .logo-stroke { stroke: #0f172a; stroke-width: 1.8; fill: none; }
+
+    /* Wave separator */
+    .wave { display: block; width: 100%; line-height: 0; }
+    .wave path { fill: #ffffff; }
   </style>
 </head>
 <body class="antialiased">
 
   <!-- Header -->
-  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-gray-200/80">
+  <header class="sticky top-0 z-50 sticky-header" id="siteHeader">
     <div class="container mx-auto flex justify-between items-center p-4">
-      <a href="#" class="text-3xl font-heading" style="color: var(--brand-primary);">Wasfa</a>
+      <div class="text-3xl font-black brand-title">Wasfa</div>
       <nav class="hidden md:flex items-center space-x-8 space-x-reverse">
-        <a href="#features" class="text-lg font-semibold text-gray-700 hover:text-[var(--brand-primary)] transition">المميزات</a>
-        <a href="#how-it-works" class="text-lg font-semibold text-gray-700 hover:text-[var(--brand-primary)] transition">كيف نعمل</a>
-        <a href="#testimonials" class="text-lg font-semibold text-gray-700 hover:text-[var(--brand-primary)] transition">آراء المستخدمين</a>
+        <a href="#features" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">لماذا نحن؟</a>
+        <a href="#how-it-works" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">كيف نعمل؟</a>
+        <a href="#trial" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">تجربة مجانية</a>
+        <a href="#trusted" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">يثقون بنا</a>
+        <a href="#video" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">فيديو</a>
+        <a href="#stats" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأرقام</a>
+        <a href="#testimonials" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">آراء المستخدمين</a>
+        <a href="#faq" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأسئلة</a>
       </nav>
-      <a href="login.html" class="hidden md:inline-block px-6 py-2 rounded-lg font-bold bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-secondary)] transition">
-        ابدأ الآن
+      <a href="login.html" class="hidden md:inline-block px-6 py-2 rounded-lg font-bold bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] transition">
+        الدخول للأداة
       </a>
     </div>
   </header>
 
-  <!-- Hero Section -->
-  <section class="relative min-h-[85vh] flex items-center bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=1887&auto=format&fit=crop');">
-    <div class="absolute inset-0 bg-black/50"></div>
-    <div class="container mx-auto px-6 relative z-10 text-center text-white">
-      <h1 class="text-4xl md:text-7xl font-extrabold mb-6 leading-tight" data-aos="fade-down" style="color: white;">
-        وصفات صحية.<br> لحياة أفضل.
+  <!-- Hero -->
+  <section class="hero" data-parallax>
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-overlay">
+      <h1 class="text-4xl md:text-6xl font-black mb-4 leading-tight" data-aos="fade-down">
+        وصفتك الأولى لصحة أفضل
       </h1>
-      <p class="text-lg md:text-xl max-w-3xl mx-auto mb-10 text-gray-200" data-aos="fade-up" data-aos-delay="200">
-        حوّل أهدافك الصحية إلى واقع مع وصفات لذيذة ومخصصة. اكتشف متعة الطبخ الصحي مع Wasfa.
+      <p class="text-lg md:text-xl max-w-3xl mb-8 text-gray-200" data-aos="fade-up" data-aos-delay="200">
+        اكتشف مئات الوصفات الصحية والشهية التي تناسب أهدافك. الطبخ الصحي أصبح أسهل وأكثر متعة من أي وقت مضى.
       </p>
-      <a href="login.html" class="cta-button" data-aos="fade-up" data-aos-delay="400">ابدأ رحلتك الصحية</a>
+      <a href="login.html" class="cta-button" data-aos="fade-up" data-aos-delay="400" id="ctaStart">
+        <span>ابدأ رحلتك الصحية الآن</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+      </a>
     </div>
   </section>
 
-  <!-- Features Section -->
-  <section id="features" class="py-20 md:py-32 bg-[var(--light-bg)]">
-    <div class="container mx-auto px-6">
-      <h2 class="section-title" data-aos="fade-up">لماذا Wasfa هو خيارك الأفضل؟</h2>
-      <p class="section-subtitle" data-aos="fade-up" data-aos-delay="100">تجربة فريدة مصممة لتجعل رحلتك نحو حياة صحية أسهل وأكثر متعة.</p>
-      
-      <div class="space-y-20">
-        <!-- Feature 1 -->
-        <div class="grid md:grid-cols-2 gap-16 items-center">
-          <div data-aos="fade-left">
-            <div class="inline-flex items-center justify-center w-14 h-14 mb-4 bg-red-100 text-[var(--brand-primary)] rounded-2xl">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+  <div class="container mx-auto p-6 md:p-8">
+
+      <!-- Features -->
+      <section id="features" class="py-16">
+        <div class="pro-card" data-aos="fade-up">
+          <h2 class="text-3xl md:text-4xl font-black text-center mb-12">لماذا Wasfa هو خيارك الأفضل؟</h2>
+
+          <div class="grid md:grid-cols-3 gap-8 text-center">
+            <!-- 1 -->
+            <div class="group" data-aos="fade-up" data-aos-delay="100">
+              <img src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=1200&auto=format&fit=crop" alt="وجبة صحية متوازنة" class="w-full h-48 object-cover rounded-2xl shadow-md mb-5 transition-transform duration-300 group-hover:scale-[1.03]">
+              <div class="flex items-center justify-center gap-3 mb-3">
+                <span class="icon-chip"><i data-lucide="sparkles" class="w-6 h-6" style="stroke-width:2.5;"></i></span>
+                <h3 class="text-2xl font-bold">وصفات صحية مبتكرة</h3>
+              </div>
+              <p class="leading-relaxed text-[var(--muted)]">وصفات ممتعة وسهلة بإعدادات واضحة ومكونات متاحة.</p>
             </div>
-            <h3 class="text-3xl font-bold mb-4">وصفات لا نهائية بلمسة زر</h3>
-            <p class="text-lg leading-relaxed">احصل على وصفات صحية ومبتكرة مصممة خصيصًا لتناسب احتياجاتك الغذائية، من سعرات حرارية محددة إلى أنظمة غذائية متنوعة. وداعاً للحيرة والملل.</p>
-          </div>
-          <div class="rounded-3xl overflow-hidden shadow-2xl" data-aos="fade-right">
-            <img src="https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=2070&auto=format&fit=crop" alt="وصفات مبتكرة" class="w-full h-full object-cover aspect-[4/3]">
+            <!-- 2 -->
+            <div class="group" data-aos="fade-up" data-aos-delay="200">
+              <img src="https://images.unsplash.com/photo-1506354666786-959d6d497f1a?q=80&w=1200&auto=format&fit=crop" alt="مكونات طازجة محسوبة السعرات" class="w-full h-48 object-cover rounded-2xl shadow-md mb-5 transition-transform duration-300 group-hover:scale-[1.03]">
+              <div class="flex items-center justify-center gap-3 mb-3">
+                <span class="icon-chip green"><i data-lucide="gauge" class="w-6 h-6" style="stroke-width:2.5;"></i></span>
+                <h3 class="text-2xl font-bold">اعرف قيمة وجبتك</h3>
+              </div>
+              <p class="leading-relaxed text-[var(--muted)]">تحليل واضح للسعرات والماكروز يساعدك على اتخاذ قرار صحي.</p>
+            </div>
+            <!-- 3 -->
+            <div class="group" data-aos="fade-up" data-aos-delay="300">
+              <img src="https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=1200&auto=format&fit=crop" alt="تنوع وصفات ومطابخ متعددة" class="w-full h-48 object-cover rounded-2xl shadow-md mb-5 transition-transform duration-300 group-hover:scale-[1.03]">
+              <div class="flex items-center justify-center gap-3 mb-3">
+                <span class="icon-chip blue"><i data-lucide="infinity" class="w-6 h-6" style="stroke-width:2.5;"></i></span>
+                <h3 class="text-2xl font-bold">وداعاً للملل</h3>
+              </div>
+              <p class="leading-relaxed text-[var(--muted)]">تنويع مستمر يحافظ على حماسك ويثري تجاربك اليومية.</p>
+            </div>
           </div>
         </div>
-        
-        <!-- Feature 2 -->
-        <div class="grid md:grid-cols-2 gap-16 items-center">
-          <div class="rounded-3xl overflow-hidden shadow-2xl md:order-last" data-aos="fade-left">
-            <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1887&auto=format&fit=crop" alt="تحكم كامل" class="w-full h-full object-cover aspect-[4/3]">
-          </div>
-          <div data-aos="fade-right" class="md:order-first">
-            <div class="inline-flex items-center justify-center w-14 h-14 mb-4 bg-red-100 text-[var(--brand-primary)] rounded-2xl">
-               <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-basket"><path d="m5 11 4-7"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8c.9 0 1.8-.7 2-1.6l1.7-7.4"/><path d="m9 11 1 9"/><path d="M4.5 15.5h15"/><path d="m15 11-1 9"/></svg>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- How it works -->
+      <section id="how-it-works" class="py-16">
+        <h2 class="text-3xl md:text-4xl font-black text-center mb-16" data-aos="fade-up">خطوات بسيطة لحياة صحية</h2>
+        <div class="grid md:grid-cols-3 gap-12 text-center">
+            <div class="flex flex-col items-center" data-aos="fade-up" data-aos-delay="100">
+                <div class="icon-chip mb-6"><i data-lucide="user-plus" class="w-7 h-7" style="stroke-width:2.5;"></i></div>
+                <h3 class="text-2xl font-bold mb-2">1. سجّل حسابك</h3>
+                <p class="text-[var(--muted)]">انضم خلال ثوانٍ وافتح عالمًا من الوصفات الصحية.</p>
             </div>
-            <h3 class="text-3xl font-bold mb-4">مكونات بسيطة وواضحة</h3>
-            <p class="text-lg leading-relaxed">كل وصفة تأتي مع قائمة مكونات سهلة ومباشرة، مع تحليل دقيق للسعرات الحرارية. اتخذ قرارات واعية بكل سهولة وثقة.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-  
-  <!-- How it works -->
-    <section id="how-it-works" class="py-20 md:py-32">
-        <div class="container mx-auto px-6">
-            <h2 class="section-title" data-aos="fade-up">3 خطوات فقط لوصفتك المثالية</h2>
-            <div class="max-w-4xl mx-auto mt-24">
-                <div class="flex flex-col md:flex-row justify-between items-start md:items-center relative">
-                    <!-- Connecting Line -->
-                    <div class="hidden md:block absolute top-12 left-0 w-full h-1 bg-gray-200"></div>
-                    <div class="hidden md:block absolute top-12 left-0 w-full h-1 bg-[var(--brand-primary)] origin-left" style="transform: scaleX(1);"></div>
-
-                    <!-- Step 1 -->
-                    <div class="flex-1 text-center relative mb-16 md:mb-0" data-aos="fade-up" data-aos-delay="100">
-                        <div class="w-24 h-24 mx-auto flex items-center justify-center bg-[var(--brand-primary)] text-white text-4xl font-bold rounded-full border-8 border-white shadow-lg z-10 relative">1</div>
-                        <h3 class="text-2xl font-bold mt-6 mb-2">حدد احتياجك</h3>
-                        <p>اختر نوع الوجبة، نظامك الغذائي، والسعرات الحرارية التي تناسبك.</p>
-                    </div>
-                    
-                    <!-- Step 2 -->
-                    <div class="flex-1 text-center relative mb-16 md:mb-0" data-aos="fade-up" data-aos-delay="200">
-                        <div class="w-24 h-24 mx-auto flex items-center justify-center bg-[var(--brand-primary)] text-white text-4xl font-bold rounded-full border-8 border-white shadow-lg z-10 relative">2</div>
-                        <h3 class="text-2xl font-bold mt-6 mb-2">احصل على وصفتك</h3>
-                        <p>يقوم الذكاء الاصطناعي بتوليد وصفة فريدة ومخصصة لك في ثوانٍ.</p>
-                    </div>
-
-                    <!-- Step 3 -->
-                    <div class="flex-1 text-center relative" data-aos="fade-up" data-aos-delay="300">
-                        <div class="w-24 h-24 mx-auto flex items-center justify-center bg-[var(--brand-primary)] text-white text-4xl font-bold rounded-full border-8 border-white shadow-lg z-10 relative">3</div>
-                        <h3 class="text-2xl font-bold mt-6 mb-2">اطبخ واستمتع</h3>
-                        <p>اتبع التعليمات السهلة وحضّر وجبة صحية ولذيذة تفخر بها.</p>
-                    </div>
-                </div>
+            <div class="flex flex-col items-center" data-aos="fade-up" data-aos-delay="200">
+                <div class="icon-chip green mb-6"><i data-lucide="search-check" class="w-7 h-7" style="stroke-width:2.5;"></i></div>
+                <h3 class="text-2xl font-bold mb-2">2. اختر وصفتك</h3>
+                <p class="text-[var(--muted)]">استكشف واختر ما يناسب يومك وأهدافك.</p>
+            </div>
+            <div class="flex flex-col items-center" data-aos="fade-up" data-aos-delay="300">
+                <div class="icon-chip blue mb-6"><i data-lucide="check-circle-2" class="w-7 h-7" style="stroke-width:2.5;"></i></div>
+                <h3 class="text-2xl font-bold mb-2">3. اطبخ واستمتع</h3>
+                <p class="text-[var(--muted)]">اتبع الخطوات السهلة وقدّم وجبة لذيذة.</p>
             </div>
         </div>
-    </section>
+      </section>
 
-  <!-- Testimonials Section -->
-  <section id="testimonials" class="py-20 md:py-32 bg-[var(--light-bg)]">
-    <div class="container mx-auto px-6">
-      <h2 class="section-title" data-aos="fade-up">ماذا يقول المستخدمون عن Wasfa؟</h2>
-      <div class="grid lg:grid-cols-2 gap-8 mt-16">
-        <!-- Testimonial 1 -->
-        <div class="custom-card" data-aos="fade-up" data-aos-delay="100">
-          <p class="text-xl mb-6 italic leading-relaxed">"بصراحة، أفضل تطبيق جربته للوصفات الصحية. غير حياتي وطريقة أكلي بالكامل. الوصفات مبتكرة وسهلة والأهم أنها لذيذة جداً!"</p>
-          <div class="flex items-center">
-            <img class="w-14 h-14 rounded-full mr-4 object-cover" src="https://images.unsplash.com/photo-1573496359112-58824f2b35a4?q=80&w=200&auto=format&fit=crop" alt="صورة المستخدمة سارة خالد">
+      <div class="divider"></div>
+
+      <!-- Free Trial (Demo only, non-AI) -->
+      <section id="trial" class="py-16">
+        <div class="pro-card" data-aos="fade-up">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-3xl md:text-4xl font-black">تجربة مجانية (مثال)</h2>
+            <span class="text-sm font-semibold text-[var(--muted)]">لا تستخدم الذكاء الاصطناعي — مثال توضيحي فقط</span>
+          </div>
+
+          <div class="grid md:grid-cols-2 gap-8">
+            <!-- Controls -->
             <div>
-              <p class="font-bold text-lg text-[var(--dark-text)]">سارة خالد</p>
-              <p class="font-semibold" style="color: var(--brand-primary);">مستخدمة سعيدة</p>
+              <label class="block mb-2 font-bold">هدفك الغذائي</label>
+              <select id="demoGoal" class="w-full rounded-xl border px-4 py-3 mb-4 outline-none focus:ring-2 focus:ring-[var(--brand)]">
+                <option value="loss">خفض الوزن</option>
+                <option value="gain">زيادة العضلات</option>
+                <option value="balance" selected>توازن صحي</option>
+              </select>
+
+              <label class="block mb-2 font-bold">مكوّنات متاحة</label>
+              <div class="grid grid-cols-2 gap-2 mb-4">
+                <label class="inline-flex items-center gap-2"><input type="checkbox" value="chicken" checked> دجاج</label>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" value="oats"> شوفان</label>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" value="eggs" checked> بيض</label>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" value="broccoli" checked> بروكلي</label>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" value="avocado"> أفوكادو</label>
+                <label class="inline-flex items-center gap-2"><input type="checkbox" value="rice"> أرز</label>
+              </div>
+
+              <button id="demoGenerate" class="cta-button">
+                <i data-lucide="wand-2" class="w-5 h-5"></i>
+                <span>عرض مثال وصفة</span>
+              </button>
             </div>
-          </div>
-        </div>
-        <!-- Testimonial 2 -->
-        <div class="custom-card" data-aos="fade-up" data-aos-delay="200">
-          <p class="text-xl mb-6 italic leading-relaxed">"كنت أعاني من ملل الرجيم، لكن مع Wasfa، كل يوم أتطلع لوجبة جديدة ومختلفة. التطبيق أعاد لي متعة الأكل الصحي."</p>
-          <div class="flex items-center">
-             <img class="w-14 h-14 rounded-full mr-4 object-cover" src="https://images.unsplash.com/photo-1568602471122-7832951cc4c5?q=80&w=200&auto=format&fit=crop" alt="صورة المستخدم أحمد منصور">
+
+            <!-- Result -->
             <div>
-              <p class="font-bold text-lg text-[var(--dark-text)]">أحمد منصور</p>
-              <p class="font-semibold" style="color: var(--brand-primary);">مستخدم سعيد</p>
+              <div id="demoCard" class="rounded-2xl border border-[var(--line)] p-5 bg-white/80 shadow-sm min-h-[220px]">
+                <p class="text-[var(--muted)]">اضغط “عرض مثال وصفة” لتشاهد كيف ستبدو النتيجة.</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Trusted By -->
+      <section id="trusted" class="py-16">
+        <h2 class="text-3xl md:text-4xl font-black text-center mb-12" data-aos="fade-up">يثقون بنا</h2>
+        <p class="text-center text-[var(--muted)] max-w-2xl mx-auto mb-8" data-aos="fade-up" data-aos-delay="100">
+          شركات ومبادرات صحية تعتمد على وصفات منظمة وواضحة.
+        </p>
+
+        <div class="trusted-logos grid grid-cols-2 md:grid-cols-5 gap-8 items-center justify-items-center" data-aos="fade-up" data-aos-delay="150">
+          <!-- شعارات SVG خفيفة (لا حقوق) -->
+          <svg viewBox="0 0 200 40"><path class="logo-stroke" d="M10 30 L30 10 L50 30 M65 30 L65 10 L95 30 L95 10" /></svg>
+          <svg viewBox="0 0 200 40"><circle class="logo-stroke" cx="20" cy="20" r="12"/><path class="logo-stroke" d="M50 30 L80 10 L110 30" /></svg>
+          <svg viewBox="0 0 200 40"><rect class="logo-stroke" x="10" y="10" width="24" height="20" rx="4"/><path class="logo-stroke" d="M50 30 L90 10 L130 30 L170 10" /></svg>
+          <svg viewBox="0 0 200 40"><path class="logo-stroke" d="M10 30 Q30 5 50 30 T90 30" /><circle class="logo-stroke" cx="120" cy="20" r="10"/></svg>
+          <svg viewBox="0 0 200 40"><path class="logo-stroke" d="M10 30 L30 10 L50 30 Z" /><path class="logo-stroke" d="M70 30 L90 10 L110 30 Z" /></svg>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Video -->
+      <section id="video" class="py-16">
+        <div class="pro-card" data-aos="fade-up">
+          <div class="flex items-center gap-3 mb-6">
+            <span class="icon-chip blue"><i data-lucide="clapperboard" class="w-6 h-6" style="stroke-width:2.5;"></i></span>
+            <h2 class="text-3xl md:text-4xl font-black">لقطة مكونات متحركة</h2>
+          </div>
+          <div class="aspect-video w-full overflow-hidden rounded-2xl border border-[var(--line)]">
+            <video controls playsinline preload="metadata" poster="https://images.unsplash.com/photo-1514511547904-0ee15e4278c1?q=80&w=1600&auto=format&fit=crop" class="w-full h-full object-cover">
+              <!-- Mixkit: Free Stock Video -->
+              <source src="https://assets.mixkit.co/videos/preview/mixkit-preparing-a-fresh-salad-with-tomato-43066-large.mp4" type="video/mp4">
+              متصفحك لا يدعم الفيديو.
+            </video>
+          </div>
+          <p class="text-sm text-[var(--muted)] mt-3">فيديو مجاني الاستخدام — يعرض تحضير/تطاير مكونات بسرعة لتجربة مرئية احترافية.</p>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Stats (Counters) -->
+      <section id="stats" class="py-16">
+        <div class="pro-card text-center" data-aos="fade-up">
+          <h2 class="text-3xl md:text-4xl font-black mb-10">أرقام تتحدث</h2>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white">
+              <div class="icon-chip mb-3"><i data-lucide="utensils" class="w-6 h-6"></i></div>
+              <div class="text-4xl font-black counter" data-target="1200">0</div>
+              <div class="text-[var(--muted)] mt-1">وصفة صحية</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white">
+              <div class="icon-chip green mb-3"><i data-lucide="users" class="w-6 h-6"></i></div>
+              <div class="text-4xl font-black counter" data-target="8500">0</div>
+              <div class="text-[var(--muted)] mt-1">مستخدم سعيد</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white">
+              <div class="icon-chip blue mb-3"><i data-lucide="sparkle" class="w-6 h-6"></i></div>
+              <div class="text-4xl font-black counter" data-target="98">0</div>
+              <div class="text-[var(--muted)] mt-1">نسبة رضا %</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white">
+              <div class="icon-chip mb-3"><i data-lucide="timer" class="w-6 h-6"></i></div>
+              <div class="text-4xl font-black counter" data-target="15">0</div>
+              <div class="text-[var(--muted)] mt-1">دقيقة للوصفة</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Testimonials -->
+      <section id="testimonials" class="py-16">
+        <h2 class="text-3xl md:text-4xl font-black text-center mb-12" data-aos="fade-up">ماذا يقول مستخدمونا؟</h2>
+        <div class="carousel" data-aos="fade-up" data-aos-delay="100">
+          <div class="carousel-track" id="carouselTrack">
+            <div class="pro-card">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="icon-chip"><i data-lucide="quote" class="w-5 h-5"></i></span>
+                <h3 class="font-bold">سارة خالد</h3>
+              </div>
+              <p class="text-[var(--muted)] text-lg italic">"أفضل تطبيق للوصفات الصحية! غيّر Wasfa نظرتي للأكل الصحي — سهل ولذيذ."</p>
+            </div>
+            <div class="pro-card">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="icon-chip green"><i data-lucide="quote" class="w-5 h-5"></i></span>
+                <h3 class="font-bold">أحمد منصور</h3>
+              </div>
+              <p class="text-[var(--muted)] text-lg italic">"لا مزيد من الملل. دائمًا أجد وصفة جديدة تناسب هدفي."</p>
+            </div>
+            <div class="pro-card">
+              <div class="flex items-center gap-3 mb-3">
+                <span class="icon-chip blue"><i data-lucide="quote" class="w-5 h-5"></i></span>
+                <h3 class="font-bold">ليلى يوسف</h3>
+              </div>
+              <p class="text-[var(--muted)] text-lg italic">"واجهة أنيقة ونتائج سريعة — أحببت التجربة!"</p>
+            </div>
+          </div>
+          <div class="carousel-nav mt-6" id="carouselDots" aria-label="التنقل بين الآراء"></div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- FAQ -->
+      <section id="faq" class="py-16">
+        <h2 class="text-3xl md:text-4xl font-black text-center mb-10" data-aos="fade-up">الأسئلة الشائعة</h2>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="100">
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">هل الأداة تحتاج تثبيت؟</span>
+              <i data-lucide="chevron-down" class="w-5 h-5"></i>
+            </button>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">لا، تعمل مباشرة من المتصفح على جميع الأجهزة.</div>
+          </div>
+          <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="150">
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">هل يمكن تجربة الأداة مجانًا؟</span>
+              <i data-lucide="chevron-down" class="w-5 h-5"></i>
+            </button>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، استخدم قسم “تجربة مجانية (مثال)” للاطلاع على شكل المخرجات.</div>
+          </div>
+          <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="200">
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">هل النتائج ثابتة ومتسقة؟</span>
+              <i data-lucide="chevron-down" class="w-5 h-5"></i>
+            </button>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، نفس المدخلات تُنتج نفس المخرجات، مع حفظ الحالة.</div>
+          </div>
+          <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="250">
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">كيف أتواصل للدعم أو الاشتراك؟</span>
+              <i data-lucide="chevron-down" class="w-5 h-5"></i>
+            </button>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">
+              عبر واتساب: <a class="text-[var(--brand)] underline" href="https://wa.me/971502061209" target="_blank" rel="noopener">00971502061209</a>
+            </div>
+          </div>
+        </div>
+      </section>
+  </div>
+
+  <!-- SVG Wave Separator before Footer -->
+  <div class="wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 120" preserveAspectRatio="none">
+      <path d="M0,64 C240,120 480,0 720,32 C960,64 1200,128 1440,64 L1440,120 L0,120 Z"></path>
+    </svg>
+  </div>
 
   <!-- Footer -->
-  <footer id="contact" class="bg-[var(--dark-text)] text-white">
-    <div class="container mx-auto py-16 px-6">
-      <div class="grid md:grid-cols-3 gap-8 text-center md:text-right">
-        <!-- Brand Info -->
-        <div class="md:col-span-1">
-          <a href="#" class="text-3xl font-heading mb-4 inline-block" style="color: var(--brand-secondary);">Wasfa</a>
-          <p class="text-gray-400">وصفتك الصحية تبدأ هنا. نحو حياة أفضل وأكثر متعة.</p>
-        </div>
-        <!-- Links -->
-        <div class="md:col-span-1">
-          <h4 class="font-bold text-lg mb-4 text-white">روابط سريعة</h4>
-          <ul class="space-y-2">
-            <li><a href="#features" class="text-gray-400 hover:text-white transition">المميزات</a></li>
-            <li><a href="#how-it-works" class="text-gray-400 hover:text-white transition">كيف نعمل</a></li>
-            <li><a href="#testimonials" class="text-gray-400 hover:text-white transition">آراء المستخدمين</a></li>
-          </ul>
-        </div>
-        <!-- Contact -->
-        <div class="md:col-span-1">
-          <h4 class="font-bold text-lg mb-4 text-white">تواصل معنا</h4>
-          <ul class="space-y-2">
-            <li><a href="https://wa.me/971502061209" target="_blank" class="text-gray-400 hover:text-white transition">واتساب</a></li>
-            <li><a href="tel:00971502061209" class="text-gray-400 hover:text-white transition">اتصال</a></li>
-          </ul>
-        </div>
-      </div>
-      <div class="border-t border-gray-700 mt-12 pt-8 text-center">
-        <p class="text-gray-500">&copy; 2024 Wasfa. جميع الحقوق محفوظة.</p>
+  <footer id="contact" class="bg-white border-t border-[var(--line)]">
+    <div class="container mx-auto p-8 text-center">
+        <h3 class="text-3xl font-black mb-4">جاهز لتبدأ؟</h3>
+        <p class="max-w-xl mx-auto mb-8 text-[var(--muted)]">
+            انضم إلى مجتمعنا اليوم وابدأ رحلتك نحو حياة صحية مليئة بالطعم الرائع.
+        </p>
+        <a href="login.html" class="cta-button" id="ctaFooter">
+            <span>أنشئ حسابك الآن</span>
+        </a>
+      <div class="border-t border-[var(--line)] mt-12 pt-8">
+        <p class="text-sm text-gray-500">&copy; 2024 Wasfa. جميع الحقوق محفوظة.</p>
       </div>
     </div>
   </footer>
 
+  <!-- WhatsApp FAB -->
+  <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="whatsapp-fab" aria-label="تواصل واتساب">
+    <i data-lucide="messages-square" class="w-6 h-6"></i>
+  </a>
+
   <script src="assets/app.js"></script>
   <script>
-    AOS.init({
-      duration: 800,
-      once: true,
-      offset: 100,
+    // Init libraries
+    AOS.init({ duration: 800, once: true, offset: 100 });
+    lucide.createIcons();
+
+    // Header scrolled state
+    const header = document.getElementById('siteHeader');
+    const onScrollHeader = () => header.classList.toggle('scrolled', window.scrollY > 10);
+    onScrollHeader(); window.addEventListener('scroll', onScrollHeader, { passive: true });
+
+    // Parallax hero
+    const heroBg = document.getElementById('heroBg');
+    const parallax = () => {
+      const y = window.scrollY;
+      const translate = Math.min(y * 0.25, 120);
+      heroBg.style.transform = `translate3d(0, ${translate}px, 0) scale(1.05)`;
+    };
+    window.addEventListener('scroll', parallax, { passive: true });
+
+    // CTA effects
+    function attachCTAEffects(btn) {
+      if (!btn) return;
+      btn.addEventListener('mousemove', (e) => {
+        const rect = btn.getBoundingClientRect();
+        btn.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+        btn.style.setProperty('--my', `${e.clientY - rect.top}px`);
+        btn.classList.add('is-hovering');
+      });
+      btn.addEventListener('mouseleave', () => btn.classList.remove('is-hovering'));
+      btn.addEventListener('click', (e) => {
+        const rect = btn.getBoundingClientRect();
+        const circle = document.createElement('span');
+        circle.className = 'ripple';
+        circle.style.left = (e.clientX - rect.left) + 'px';
+        circle.style.top = (e.clientY - rect.top) + 'px';
+        btn.appendChild(circle);
+        setTimeout(() => circle.remove(), 650);
+      });
+    }
+    attachCTAEffects(document.getElementById('ctaStart'));
+    attachCTAEffects(document.getElementById('ctaFooter'));
+
+    // Carousel
+    (function initCarousel(){
+      const track = document.getElementById('carouselTrack');
+      const dotsWrap = document.getElementById('carouselDots');
+      if (!track || !dotsWrap) return;
+
+      const slides = [...track.children];
+      let index = 0;
+
+      slides.forEach((_, i) => {
+        const dot = document.createElement('button');
+        dot.className = 'dot';
+        dot.setAttribute('aria-label', `الشريحة ${i+1}`);
+        dot.addEventListener('click', () => goTo(i));
+        dotsWrap.appendChild(dot);
+      });
+      const dots = [...dotsWrap.children];
+
+      const goTo = (i) => {
+        index = i % slides.length;
+        const slideWidth = slides[0].getBoundingClientRect().width + 32;
+        const isMd = window.matchMedia('(min-width: 768px)').matches;
+        const perView = isMd ? 2 : 1;
+        const offset = Math.floor(index / perView) * (slideWidth * perView);
+        track.style.transform = `translateX(${-offset}px)`;
+        dots.forEach((d, di) => d.classList.toggle('active', di === index));
+      };
+
+      let timer = setInterval(() => goTo((index + 1) % slides.length), 4000);
+      const pause = () => clearInterval(timer);
+      const resume = () => timer = setInterval(() => goTo((index + 1) % slides.length), 4000);
+      track.addEventListener('mouseenter', pause);
+      track.addEventListener('mouseleave', resume);
+
+      goTo(0);
+      window.addEventListener('resize', () => goTo(index));
+    })();
+
+    // FAQ accordion
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const q = item.querySelector('.faq-q');
+      const a = item.querySelector('.faq-a');
+      q.addEventListener('click', () => {
+        a.classList.toggle('hidden');
+        const icon = q.querySelector('[data-lucide]');
+        if (icon) icon.classList.toggle('rotate-180');
+      });
     });
-    // The existing function to load content
-    // loadIndexPage(); 
+
+    // Demo (non-AI) recipe example
+    const demoBtn = document.getElementById('demoGenerate');
+    const demoCard = document.getElementById('demoCard');
+    function demoGenerate() {
+      const goal = document.getElementById('demoGoal').value;
+      const chosen = [...document.querySelectorAll('#trial input[type="checkbox"]:checked')].map(c => c.value);
+      const titleMap = {
+        loss: 'سلطة بروكلي بالدجاج خفيفة',
+        gain: 'أومليت بروتين بالدجاج والشوفان',
+        balance: 'طبق متوازن من الدجاج والبروكلي'
+      };
+      const pick = (arr)=>arr.filter(x=>chosen.includes(x.id));
+      const base = [
+        { id:'chicken', n:'صدر دجاج', q:'150 جم' },
+        { id:'oats', n:'شوفان', q:'40 جم' },
+        { id:'eggs', n:'بيض', q:'2 حبة' },
+        { id:'broccoli', n:'بروكلي', q:'1 كوب' },
+        { id:'avocado', n:'أفوكادو', q:'نصف' },
+        { id:'rice', n:'أرز', q:'80 جم' },
+      ];
+      const ings = pick(base).map(x=>`• ${x.n} — ${x.q}`).join('<br>');
+      const macros = goal==='gain' ? {cal:520,p:45,c:48,f:18} :
+                     goal==='loss' ? {cal:330,p:32,c:22,f:12} :
+                                     {cal:420,p:38,c:35,f:14};
+      const html = `
+        <h3 class="text-xl font-bold mb-2">${titleMap[goal] || titleMap.balance}</h3>
+        <div class="text-sm text-[var(--muted)] mb-3">وقت التحضير: 20 دقيقة — الحصص: 1</div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <h4 class="font-bold mb-2">المكونات</h4>
+            <div class="text-sm leading-relaxed">${ings || '• اختر مكونات لعرضها'}</div>
+          </div>
+          <div>
+            <h4 class="font-bold mb-2">الماكروز</h4>
+            <ul class="text-sm leading-relaxed">
+              <li>السعرات: ${macros.cal}</li>
+              <li>البروتين: ${macros.p}g</li>
+              <li>الكربوهيدرات: ${macros.c}g</li>
+              <li>الدهون: ${macros.f}g</li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-4">
+          <h4 class="font-bold mb-2">التحضير</h4>
+          <ol class="text-sm leading-relaxed list-decimal pr-5">
+            <li>اسلق/اشوِ الدجاج ثم قطّعه مكعبات.</li>
+            <li>اسلق البروكلي 3–4 دقائق ثم صفِّه.</li>
+            <li>اخلط المكونات وقدّمها دافئة.</li>
+          </ol>
+        </div>`;
+      demoCard.innerHTML = html;
+    }
+    if (demoBtn && demoCard) demoBtn.addEventListener('click', demoGenerate);
+
+    // Counters (animate when section visible)
+    (function initCounters(){
+      const counters = document.querySelectorAll('.counter');
+      if (!counters.length) return;
+      let started = false;
+      const animate = () => {
+        counters.forEach(el => {
+          const target = +el.getAttribute('data-target');
+          const duration = 1200; // ms
+          const start = performance.now();
+          const step = (t) => {
+            const p = Math.min((t - start) / duration, 1);
+            const val = Math.floor(target * (0.2 + 0.8 * p));
+            el.textContent = val.toLocaleString('ar-EG');
+            if (p < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        });
+      };
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && !started) {
+            started = true; animate(); io.disconnect();
+          }
+        });
+      }, { threshold: 0.35 });
+      const stats = document.getElementById('stats');
+      if (stats) io.observe(stats);
+    })();
+
+    // Active section highlight
+    const sections = [...document.querySelectorAll('section[id]')];
+    const navLinks = [...document.querySelectorAll('.nav-link')];
+    const linkById = id => navLinks.find(a => a.getAttribute('href') === `#${id}`);
+    const ioActive = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const id = entry.target.id;
+        const link = linkById(id);
+        if (!link) return;
+        if (entry.isIntersecting) link.classList.add('active');
+        else link.classList.remove('active');
+      });
+    }, { threshold: 0.4 });
+    sections.forEach(s => ioActive.observe(s));
   </script>
 </body>
 </html>
-

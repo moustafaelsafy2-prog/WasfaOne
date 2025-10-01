@@ -1,19 +1,16 @@
 // netlify/functions/generateRecipe.js
-// UAE-ready for app.html — broad v1beta model pool, Arabic JSON schema,
-// soft-enforced Dr. Mohamed Saeed rules: try repair once; if still violated, return with warning (no hard fail).
+// UAE-ready — Arabic JSON schema, strict energy reconciliation (4/4/9),
+// Dr. Mohamed Saeed soft-repair path, and now: full diet profiles + custom macros support.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// Same pool/order that worked for you
 const MODEL_POOL = [
-  // Pro-first
   "gemini-1.5-pro-latest",
   "gemini-1.5-pro",
   "gemini-1.5-pro-001",
   "gemini-pro",
   "gemini-1.0-pro",
-  // Flash
   "gemini-2.0-flash",
   "gemini-2.0-flash-exp",
   "gemini-1.5-flash",
@@ -32,41 +29,30 @@ const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringif
 const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
 const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
 
-/* ---------------- Nutrition strict helpers (no flow change) ---------------- */
-/** Compute calories from macros with the canonical factors and enforce ±2%. */
+/* ---------------- Nutrition strict helpers ---------------- */
 function reconcileCalories(macros) {
   const p = Number(macros?.protein_g || 0);
   const c = Number(macros?.carbs_g || 0);
   const f = Number(macros?.fat_g || 0);
   const stated = Number(macros?.calories || 0);
-
-  // Exact energy from macros (no heuristic rounding).
   const calculated = p * 4 + c * 4 + f * 9;
-
-  // If stated deviates beyond ±2%, set calories to the calculated value.
-  const within2pct =
-    stated > 0 ? Math.abs(stated - calculated) / calculated <= 0.02 : false;
-
-  const result = { ...macros };
-  result.calories = within2pct ? stated : calculated;
-
-  // Attach a non-breaking note for traceability (schema allows extra fields).
-  result._energy_model = "4/4/9 strict";
-  result._energy_check = within2pct ? "ok" : "adjusted_to_match_macros";
-  return result;
+  const within2pct = calculated > 0 && stated > 0
+    ? Math.abs(stated - calculated) / calculated <= 0.02
+    : false;
+  return {
+    ...macros,
+    calories: within2pct ? stated : calculated,
+    _energy_model: "4/4/9 strict",
+    _energy_check: within2pct ? "ok" : "adjusted_to_match_macros"
+  };
 }
 
-/** Light check that every ingredient line includes a numeric gram weight. */
 function hasGramWeightLine(s) {
   if (typeof s !== "string") return false;
   const line = s.toLowerCase();
-  // Arabic and Latin variants for gram notations.
   return /\b\d+(\.\d+)?\s*(جم|غ|g|gram|grams)\b/.test(line);
 }
 function enforceGramHints(ingredients) {
-  // Do not change flow or reject; just ensure lines are trimmed,
-  // and if many lines miss grams, we nudge the model via instruction (handled below).
-  // Here we only normalize whitespace.
   return Array.isArray(ingredients)
     ? ingredients.map(x => (typeof x === "string" ? x.trim() : x))
     : ingredients;
@@ -95,18 +81,103 @@ function validateRecipeSchema(rec) {
   }
   if (rec.lang !== "ar") return { ok:false, error:"lang_must_be_ar" };
 
-  // Soft nutrition strictness: ensure most ingredient lines have gram weights
-  // without altering the success path or schema behavior.
   const gramCount = rec.ingredients.filter(hasGramWeightLine).length;
   rec._ingredients_gram_coverage = `${gramCount}/${rec.ingredients.length}`;
 
   return { ok:true };
 }
 
+/* ---------------- Diet Profiles (constraints injected into the prompt) ---------------- */
+const DIET_PROFILES = {
+  dr_mohamed_saeed: `
+- كربوهيدرات صافية ≤ 5 جم/حصة.
+- ممنوع السكريات والمُحلّيات (سكر أبيض/بني، عسل، شراب الذرة/الجلوكوز/الفركتوز، المحليات الصناعية).
+- ممنوع المصنّعات: لانشون/نقانق/سلامي/بسطرمة، المرق البودرة/المكعبات، الصلصات التجارية إن لم تكن منزلية.
+- ممنوع الإضافات: MSG/جلوتامات، نيتريت/نترات، ألوان/نكهات صناعية، مستحلبات.
+- ممنوع الزيوت النباتية المكررة/المهدرجة (كانولا/صويا/ذرة/بذر العنب). يسمح بزيت زيتون بكر، زبدة/سمن طبيعي، أفوكادو، مكسرات نيئة.
+  `.trim(),
+  keto: `
+- كارب منخفض جدًا (استهدف ≤ 10–12 جم صافي/حصة).
+- دهون صحية أساسية (زيت زيتون بكر/أفوكادو/زبدة)، بروتين متوسط.
+- لا حبوب/سكريات/نشويات عالية.
+  `.trim(),
+  high_protein: `
+- البروتين ≥ 25–35% من طاقة الحصة.
+- كارب ودهون متوازنان مع أولوية للأطعمة الكاملة.
+  `.trim(),
+  high_protein_keto: `
+- مثل الكيتو لكن مع رفع البروتين وتقليل الدهون لتعويض.
+- صافي كارب منخفض جدًا.
+  `.trim(),
+  low_carb: `
+- خفّض الكارب (استهدف 15–35 جم/حصة) مع بروتين أعلى وألياف.
+  `.trim(),
+  atkins: `
+- التزم بالخضار غير النشوية والبروتين والدهون الصحية.
+- لا سكريات/طحين أبيض؛ كارب منخفض.
+  `.trim(),
+  lchf: `
+- كارب منخفض ودهون مرتفعة الجودة (EVOO/أفوكادو/مكسرات)، بروتين كافٍ.
+  `.trim(),
+  psmf: `
+- بروتين عالٍ جدًا مع دهون وكارب ضئيلين.
+- التزم بمقادير دقيقة وخضار ورقية قليلة الطاقة.
+  `.trim(),
+  low_fat: `
+- الدهون ≤ 20–30% من الطاقة، طبّق طهي قليل الدهون، وفضّل البروتين الخالي من الدهون.
+  `.trim(),
+  balanced: `
+- تقريب 40/30/30 (كارب/بروتين/دهون) مع أطعمة كاملة وغنية بالألياف.
+  `.trim(),
+  mediterranean: `
+- اعتمد EVOO، خضار، بقوليات، سمك؛ قلّل اللحوم الحمراء والسكريات.
+  `.trim(),
+  vegan: `
+- نباتي 100%: لا لحوم/بيض/ألبان/عسل.
+- وفّر بروتين نباتي كافٍ (بقوليات/توفو/تمبيه).
+  `.trim(),
+  flexitarian: `
+- نباتي في الغالب مع حصص صغيرة اختيارية من البروتين الحيواني عالي الجودة.
+  `.trim(),
+  intermittent_fasting: `
+- لا قيود نوعية صارمة لكن اجعل الوجبة متوازنة وعالية الجودة ضمن نافذة الأكل.
+  `.trim(),
+  carb_cycling: `
+- صيّغ هذه الوجبة كوجبة عالية أو منخفضة الكارب حسب المدخل، افترض منخفضة إن لم يحدد المستخدم.
+  `.trim(),
+  dash: `
+- قلّل الصوديوم، ارفع الخضار والفواكه والألبان قليلة الدسم والحبوب الكاملة.
+  `.trim(),
+  anti_inflammatory: `
+- زوّد أوميغا-3 (سمك دهني/بذور الكتان/الجوز)، توابل (كركم/زنجبيل)، وخفّض السكريات والزيوت المكررة.
+  `.trim(),
+  low_fodmap: `
+- تجنب: ثوم/بصل/قمح/فاصوليا عالية FODMAP، اختر بدائل منخفضة FODMAP.
+  `.trim(),
+  elimination: `
+- تجنب المشتبه به (يُحدد من الحساسية المدخلة) واحرص على مكونات بسيطة وأحادية المصدر.
+  `.trim(),
+  renal: `
+- راقب الصوديوم والبوتاسيوم والفوسفور؛ بروتين معتدل وفق التوجيهات العامة.
+  `.trim(),
+  liver: `
+- خفّض السكريات والدهون المتحولة/المشبعة، زد الألياف وأوميغا-3، لا كحول.
+  `.trim(),
+  pcos: `
+- حساسية إنسولين أفضل: كارب منخفض/متوسط بجودة عالية، بروتين كافٍ، دهون صحية.
+  `.trim(),
+  diabetes: `
+- تحكم كارب دقيق وألياف عالية؛ توازن الماكروز لمنحنى جلوكوز ثابت.
+  `.trim(),
+  metabolic_syndrome: `
+- قلّل السكريات والكارب المكرر، ارفع الألياف والبروتين الخالي من الدهون والدهون غير المشبعة.
+  `.trim()
+};
+
 /* ---------------- Prompting ---------------- */
 function systemInstruction(maxSteps = 8) {
   return `
-أنت شيف محترف. أعد **JSON فقط** حسب هذا المخطط، بدون أي نص خارجه:
+أنت شيف محترف. أعِد **JSON فقط** حسب هذا المخطط، بدون أي نص خارجه:
 {
   "title": string,
   "servings": number,
@@ -121,23 +192,11 @@ function systemInstruction(maxSteps = 8) {
 - steps خطوات تنفيذية قصيرة وواضحة.
 - اللغة عربية فقط، ولا تضف أي شيء خارج JSON.
 
-📘 **توجيه رسمي صارم لحساب السعرات والماكروز (يُطبق على كل وصفة بلا استثناء)**
-
-🎯 الهدف: دقة ±2% قابلة للاعتماد في البروتوكولات العلاجية وخطط التغذية المتقدمة.
-
-1) **الوزن النيء الفعلي لكل مكوّن**: كل كمية يجب أن تُعبّر بالجرام (g/جم) وبالوزن قبل الطهي. يمنع استعمال "ملعقة/كوب/حبة" دون تحويل دقيق إلى جرامات.
-2) **حساسية الميزان**: يُفترض وزن كل مكوّن بميزان ±0.1 جم؛ أي اختلاف في الوزن ينعكس على السعرات والماكروز.
-3) **تمييز نوع المكوّن**: فرّق بدقة بين الحالات (مثل: "زيت زيتون بكر ممتاز" ≠ "زيت زيتون عادي"، "طماطم طازجة" ≠ "مجففة"، "لحم نيء" ≠ "مطبوخ").
-4) **مصادر البيانات المعتمدة فقط**: القيم الغذائية تُستمد من قواعد بيانات علمية (USDA FoodData Central، CIQUAL، McCance and Widdowson). يمنع استخدام تقديرات عامة.
-5) **نموذج الطاقة القياسي**: البروتين 4 ك.س/جم، الكربوهيدرات 4 ك.س/جم، الدهون 9 ك.س/جم.
-6) **طريقة الحساب**:
-   - احسب الماكروز لكل مكوّن بناءً على وزنه النيء ثم اجمعها.
-   - احسب الطاقة من الماكروز (Protein×4 + Carbs×4 + Fat×9). لا تجمع السعرات مباشرة من مصادر مختلفة بدون المرور بالماكروز.
-7) **منع التقريب غير العلمي**: لا تستخدم متوسطات أو تقديرات. يجب أن تأتي الأرقام نتيجة حساب مباشر من الماكروز وبانحراف لا يتجاوز ±2%.
-8) **سلامة الإخراج**:
-   - يجب أن تحتوي كل عناصر ingredients على مقدار بالجرام مثل: "30 جم زيت زيتون بكر ممتاز"، "150 جم صدور دجاج نيئة".
-   - التزم بالوصف الدقيق لنوع المكوّن.
-   - أعِد الحقول داخل JSON فقط كما في المخطط أعلاه دون حقول إضافية.
+📘 **توجيه صارم للتغذية (دقة ±2%)**
+1) جميع الكميات بالجرام (وزن نيء). لا تستعمل "كوب/ملعقة/حبة" دون تحويل دقيق.
+2) احسب الطاقة من الماكروز 4/4/9 فقط.
+3) مصادر القيم الغذائية علمية (USDA/CIQUAL/McCance). لا تقديرات عامة.
+4) صف نوع المكوّن بدقة (زيت زيتون بكر ممتاز… إلخ).
 `.trim();
 }
 
@@ -145,8 +204,9 @@ function userPrompt(input) {
   const {
     mealType = "وجبة",
     cuisine = "متنوع",
-    dietType = "متوازن",
+    dietType = "balanced",
     caloriesTarget = 500,
+    customMacros = null,
     allergies = [],
     focus = "",
     __repair = false
@@ -154,27 +214,30 @@ function userPrompt(input) {
 
   const avoid = (Array.isArray(allergies) && allergies.length) ? allergies.join(", ") : "لا شيء";
   const focusLine = focus ? `تركيز خاص: ${focus}.` : "";
-  const isDrMoh = /محمد\s*سعيد/.test(String(dietType));
 
-  const drRules = isDrMoh ? `
-قواعد صارمة لنظام د. محمد سعيد:
-- الكربوهيدرات الصافية لكل حصة ≤ 5 جم.
-- ممنوع السكريات والمُحلّيات (سكر أبيض/بني، عسل، شراب الذرة/الجلوكوز/الفركتوز، المحليات الصناعية).
-- ممنوع المصنّعات: لانشون/نقانق/سلامي/بسطرمة، المرق البودرة/المكعبات، الصلصات التجارية إن لم تكن منزلية.
-- ممنوع الإضافات المسببة للالتهاب: MSG/جلوتامات، نيتريت/نترات، ألوان/نكهات صناعية، مستحلبات.
-- ممنوع الزيوت النباتية المكررة/المهدرجة (كانولا/صويا/ذرة/بذر العنب). اسمح بزيت زيتون بكر وزبدة/سمن طبيعي وأفوكادو ومكسرات نيئة.
-`.trim() : "";
+  const isDrMoh = /dr_mohamed_saeed|محمد\s*سعيد/.test(String(dietType));
+  const isCustom = String(dietType) === "custom";
+
+  const profile = DIET_PROFILES[dietType] || "";
+
+  const drRules = isDrMoh ? DIET_PROFILES["dr_mohamed_saeed"] : "";
 
   const repairLine = __repair && isDrMoh
     ? "الإخراج السابق خالف القيود. أعد توليد وصفة تلتزم حرفيًا بالبنود أعلاه، مع ضبط المقادير لضمان ≤ 5 جم كربوهيدرات/حصة."
     : "";
 
+  const customLine = isCustom && customMacros
+    ? `استخدم هذه الماكروز **لكل حصة** حرفيًا: بروتين ${Number(customMacros.protein_g)} جم، كارب ${Number(customMacros.carbs_g)} جم، دهون ${Number(customMacros.fat_g)} جم. يجب أن يساوي حقل السعرات مجموع (بروتين×4 + كارب×4 + دهون×9) بدقة ±2%.`
+    : "";
+
   return `
-أنشئ وصفة ${mealType} من مطبخ ${cuisine} لنظام ${dietType}.
+أنشئ وصفة ${mealType} من مطبخ ${cuisine} لنظام ${isDrMoh ? "نظام د. محمد سعيد" : dietType}.
 السعرات المستهدفة للحصة: ${Number(caloriesTarget)}.
 حساسيات يجب تجنبها: ${avoid}.
 ${focusLine}
+${profile}
 ${drRules}
+${customLine}
 ${repairLine}
 أعد النتيجة كـ JSON فقط حسب المخطط المطلوب وبالعربية.
 `.trim();
@@ -206,7 +269,6 @@ async function callOnce(model, input, timeoutMs = 28000) {
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 
   const body = {
-    // v1beta قد يتجاهل responseSchema/MIME إن لم يدعمها — لا تضر
     systemInstruction: { role: "system", parts: [{ text: systemInstruction(8) }] },
     contents: [{ role: "user", parts: [{ text: userPrompt(input) }] }],
     generationConfig: { temperature: 0.6, topP: 0.9, maxOutputTokens: 1000 },
@@ -232,11 +294,10 @@ async function callOnce(model, input, timeoutMs = 28000) {
       return { ok:false, error: msg };
     }
 
-    // حاول كـ JSON مباشر، وإلا استخرج من النص
     let json = data && typeof data === "object" && data.title ? data : extractJsonFromCandidates(data);
     if (!json) return { ok:false, error:"gemini_returned_non_json" };
 
-    // تطبيع: تأمين اللغة + تقصير الخطوات لحد أقصى 8
+    // Normalize
     if (!json.lang) json.lang = "ar";
     if (Array.isArray(json.steps) && json.steps.length > 8) {
       const chunk = Math.ceil(json.steps.length / 8);
@@ -245,11 +306,10 @@ async function callOnce(model, input, timeoutMs = 28000) {
       json.steps = merged.slice(0,6);
     }
 
-    // تشديد التغذية: طَبّق الطاقة من الماكروز بدقة 4/4/9 وأعد ضبط السعرات إذا لزم الأمر
+    // Strict energy reconciliation
     if (json.macros) {
       json.macros = reconcileCalories(json.macros);
     }
-    // تطبيع خفيف لقائمة المكونات (لا يغيّر التدفق)
     if (Array.isArray(json.ingredients)) {
       json.ingredients = enforceGramHints(json.ingredients);
     }
@@ -266,7 +326,7 @@ async function callOnce(model, input, timeoutMs = 28000) {
 }
 
 /* ---------------- Dr. Mohamed checks ---------------- */
-const DR_MOH = /محمد\s*سعيد/;
+const DR_MOH = /محمد\s*سعيد|dr_mohamed_saeed/;
 function violatesDrMoh(recipe) {
   const carbs = Number(recipe?.macros?.carbs_g || 0);
   const ing = (recipe?.ingredients || []).join(" ").toLowerCase();
@@ -294,21 +354,29 @@ exports.handler = async (event) => {
   try { input = JSON.parse(event.body || "{}"); }
   catch { return bad(400, "invalid_json_body"); }
 
+  // Validate custom macros if dietType === custom
+  const isCustom = String(input?.dietType || "") === "custom";
+  let customMacros = null;
+  if (isCustom) {
+    const cm = input?.customMacros || {};
+    const p = Number(cm.protein_g), c = Number(cm.carbs_g), f = Number(cm.fat_g);
+    if (![p,c,f].every(Number.isFinite)) return bad(400, "custom_macros_invalid");
+    if (p < 0 || c < 0 || f < 0) return bad(400, "custom_macros_negative");
+    customMacros = { protein_g: p, carbs_g: c, fat_g: f };
+  }
+
   const wantDrMoh = DR_MOH.test(String(input?.dietType || ""));
 
   const errors = {};
   for (const model of MODEL_POOL) {
-    // المحاولة الأولى
-    const r1 = await callOnce(model, input);
+    const r1 = await callOnce(model, { ...input, customMacros });
     if (!r1.ok) { errors[model] = r1.error; continue; }
 
-    // إصلاح مرة واحدة عند مخالفة قواعد د. محمد سعيد
     if (wantDrMoh && violatesDrMoh(r1.recipe)) {
-      const r2 = await callOnce(model, { ...input, __repair: true });
+      const r2 = await callOnce(model, { ...input, customMacros, __repair: true });
       if (r2.ok && !violatesDrMoh(r2.recipe)) {
         return ok({ recipe: r2.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
       }
-      // قبول المخرجات مع تحذير بدلاً من إسقاط الطلب
       const fallbackRecipe = (r2.ok ? r2.recipe : r1.recipe);
       return ok({ recipe: fallbackRecipe, model, warning: "dr_moh_rules_not_strictly_met" });
     }
@@ -316,6 +384,5 @@ exports.handler = async (event) => {
     return ok({ recipe: r1.recipe, model });
   }
 
-  // فشل حقيقي (HTTP/مفتاح/إتاحة)
   return bad(502, "All models failed for your key/region on v1beta", { errors, tried: MODEL_POOL });
 };

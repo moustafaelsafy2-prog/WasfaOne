@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WasfaOne - وصفتك الصحية تبدأ هنا</title>
+  <title>Wasfa - وصفتك الصحية تبدأ هنا</title>
   
-  <!-- Google Fonts -->
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -17,207 +17,262 @@
   <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
   <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
 
-  <!-- Custom Styles for a professional look -->
   <style>
+    /* ============================================
+      REFINED DESIGN SYSTEM (BRAND RED)
+      ============================================ */
+    :root {
+      --brand-primary: #D90429; /* Strong, confident red */
+      --brand-secondary: #EF233C; /* Lighter, vibrant red */
+      --dark-text: #2B2B2B; /* Soft Dark Gray */
+      --body-text: #575757; /* Medium Gray */
+      --light-bg: #F9FAFB; /* Very Light Cool Gray */
+      --white: #FFFFFF;
+      --border-color: #EAEAEA;
+    }
+    
+    html { scroll-behavior: smooth; }
+
     body {
       font-family: 'Cairo', sans-serif;
+      background-color: var(--white);
+      color: var(--body-text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
-    .hero-gradient {
-      background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0.3));
+
+    /* Headings Font - Now unified with body font */
+    h1, h2, h3, h4, .font-heading {
+      font-family: 'Cairo', sans-serif;
+      font-weight: 800;
+      color: var(--dark-text);
     }
-    .feature-card, .testimonial-card {
-      transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
-    }
-    .feature-card:hover, .testimonial-card:hover {
-      transform: translateY(-10px);
-      box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-    }
+    
+    /* Main CTA Button Style */
     .cta-button {
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      display: inline-block;
+      border-radius: 12px;
+      padding: 16px 32px;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      font-size: 1.125rem;
+      color: var(--white);
+      background-color: var(--brand-primary);
+      box-shadow: 0 8px 20px rgba(217, 4, 41, 0.25);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     }
     .cta-button:hover {
-        transform: scale(1.05);
-        box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(217, 4, 41, 0.35);
+      background-color: var(--brand-secondary);
+    }
+
+    /* Section Styling */
+    .section-title {
+        font-size: 3rem;
+        line-height: 1.2;
+        text-align: center;
+        margin-bottom: 1.5rem;
+    }
+    .section-subtitle {
+        text-align: center;
+        font-size: 1.125rem;
+        max-width: 600px;
+        margin: 0 auto 5rem;
+    }
+    
+    /* Custom Card Style */
+    .custom-card {
+        background-color: var(--white);
+        border-radius: 24px;
+        padding: 2.5rem;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 10px 40px -15px rgba(13, 27, 42, 0.08);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .custom-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 20px 50px -15px rgba(13, 27, 42, 0.12);
     }
   </style>
 </head>
-<body class="bg-slate-50 text-slate-800 dark:bg-slate-900 dark:text-slate-100 antialiased">
+<body class="antialiased">
 
   <!-- Header -->
-  <header class="sticky top-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm shadow-md transition-all">
+  <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-lg border-b border-gray-200/80">
     <div class="container mx-auto flex justify-between items-center p-4">
-      <div id="logo" class="flex items-center space-x-2">
-        <!-- Logo will be loaded by JS -->
-      </div>
-      <nav class="hidden md:flex items-center space-x-6 space-x-reverse">
-        <a href="#features" class="text-slate-600 dark:text-slate-300 hover:text-red-500 transition">لماذا نحن؟</a>
-        <a href="#how-it-works" class="text-slate-600 dark:text-slate-300 hover:text-red-500 transition">كيف نعمل؟</a>
-        <a href="#diets" class="text-slate-600 dark:text-slate-300 hover:text-red-500 transition">أنواع الوصفات</a>
-        <a href="#contact" class="text-slate-600 dark:text-slate-300 hover:text-red-500 transition">تواصل معنا</a>
+      <a href="#" class="text-3xl font-heading" style="color: var(--brand-primary);">Wasfa</a>
+      <nav class="hidden md:flex items-center space-x-8 space-x-reverse">
+        <a href="#features" class="text-lg font-semibold text-gray-700 hover:text-[var(--brand-primary)] transition">المميزات</a>
+        <a href="#how-it-works" class="text-lg font-semibold text-gray-700 hover:text-[var(--brand-primary)] transition">كيف نعمل</a>
+        <a href="#testimonials" class="text-lg font-semibold text-gray-700 hover:text-[var(--brand-primary)] transition">آراء المستخدمين</a>
       </nav>
-      <button id="lang-toggle" class="px-4 py-2 rounded-full font-semibold bg-red-500 text-white hover:bg-red-600 hover:scale-105 transition shadow-sm">EN</button>
+      <a href="login.html" class="hidden md:inline-block px-6 py-2 rounded-lg font-bold bg-[var(--brand-primary)] text-white hover:bg-[var(--brand-secondary)] transition">
+        ابدأ الآن
+      </a>
     </div>
   </header>
 
   <!-- Hero Section -->
-  <section class="relative h-[70vh] md:h-[85vh] bg-cover bg-center bg-fixed" style="background-image: url('https://images.unsplash.com/photo-1498837167922-ddd27525d352?q=80&w=2070&auto=format&fit=crop');">
-    <div id="hero-img" class="hidden" alt=""></div> <!-- Kept for JS compatibility -->
-    <div class="absolute inset-0 flex flex-col items-center justify-center hero-gradient text-center text-white p-4">
-      <h1 id="hero-title" class="text-4xl md:text-6xl font-extrabold mb-4 drop-shadow-lg" data-aos="fade-down">وصفتك الأولى لصحة أفضل</h1>
-      <p class="text-lg md:text-xl max-w-3xl mb-8 drop-shadow-md" data-aos="fade-up" data-aos-delay="200">
-        اكتشف مئات الوصفات الصحية والشهية التي تناسب أهدافك. الطبخ الصحي أصبح أسهل وأكثر متعة من أي وقت مضى.
+  <section class="relative min-h-[85vh] flex items-center bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=1887&auto=format&fit=crop');">
+    <div class="absolute inset-0 bg-black/50"></div>
+    <div class="container mx-auto px-6 relative z-10 text-center text-white">
+      <h1 class="text-4xl md:text-7xl font-extrabold mb-6 leading-tight" data-aos="fade-down" style="color: white;">
+        وصفات صحية.<br> لحياة أفضل.
+      </h1>
+      <p class="text-lg md:text-xl max-w-3xl mx-auto mb-10 text-gray-200" data-aos="fade-up" data-aos-delay="200">
+        حوّل أهدافك الصحية إلى واقع مع وصفات لذيذة ومخصصة. اكتشف متعة الطبخ الصحي مع Wasfa.
       </p>
-      <a href="login.html" class="px-8 py-4 bg-red-500 rounded-full text-lg font-bold shadow-lg hover:scale-105 hover:bg-red-600 transition transform duration-300 ease-in-out cta-button" data-aos="fade-up" data-aos-delay="400">ابدأ رحلتك الصحية الآن</a>
+      <a href="login.html" class="cta-button" data-aos="fade-up" data-aos-delay="400">ابدأ رحلتك الصحية</a>
     </div>
   </section>
 
   <!-- Features Section -->
-  <section id="features" class="py-16 md:py-24 bg-white dark:bg-slate-800">
+  <section id="features" class="py-20 md:py-32 bg-[var(--light-bg)]">
     <div class="container mx-auto px-6">
-      <h2 class="text-3xl font-bold text-center mb-12" data-aos="fade-up">لماذا WasfaOne هو خيارك الأفضل؟</h2>
-      <div class="grid md:grid-cols-3 gap-8">
+      <h2 class="section-title" data-aos="fade-up">لماذا Wasfa هو خيارك الأفضل؟</h2>
+      <p class="section-subtitle" data-aos="fade-up" data-aos-delay="100">تجربة فريدة مصممة لتجعل رحلتك نحو حياة صحية أسهل وأكثر متعة.</p>
+      
+      <div class="space-y-20">
         <!-- Feature 1 -->
-        <div class="feature-card bg-slate-50 dark:bg-slate-900 rounded-xl shadow-lg overflow-hidden text-center p-6" data-aos="fade-right" data-aos-delay="100">
-          <img id="feature-img-1" class="w-full h-48 object-cover rounded-lg mb-4" src="https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=2070&auto=format&fit=crop" alt="وصفات مبتكرة">
-          <h3 class="mt-4 text-2xl font-bold" id="feature-title-1">وصفات صحية مبتكرة بين يديك</h3>
-          <p class="mt-2 text-slate-600 dark:text-slate-300" id="feature-desc-1">اكتشف عالماً من الوصفات الصحية اللذيذة والسهلة. سواء كنت تبحث عن وجبة سريعة أو طبق مميز، ستجد وصفتك المثالية هنا.</p>
+        <div class="grid md:grid-cols-2 gap-16 items-center">
+          <div data-aos="fade-left">
+            <div class="inline-flex items-center justify-center w-14 h-14 mb-4 bg-red-100 text-[var(--brand-primary)] rounded-2xl">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+            </div>
+            <h3 class="text-3xl font-bold mb-4">وصفات لا نهائية بلمسة زر</h3>
+            <p class="text-lg leading-relaxed">احصل على وصفات صحية ومبتكرة مصممة خصيصًا لتناسب احتياجاتك الغذائية، من سعرات حرارية محددة إلى أنظمة غذائية متنوعة. وداعاً للحيرة والملل.</p>
+          </div>
+          <div class="rounded-3xl overflow-hidden shadow-2xl" data-aos="fade-right">
+            <img src="https://images.unsplash.com/photo-1543353071-873f17a7a088?q=80&w=2070&auto=format&fit=crop" alt="وصفات مبتكرة" class="w-full h-full object-cover aspect-[4/3]">
+          </div>
         </div>
+        
         <!-- Feature 2 -->
-        <div class="feature-card bg-slate-50 dark:bg-slate-900 rounded-xl shadow-lg overflow-hidden text-center p-6" data-aos="fade-up" data-aos-delay="200">
-          <img id="feature-img-2" class="w-full h-48 object-cover rounded-lg mb-4" src="https://images.unsplash.com/photo-1526367790999-0150786686a2?q=80&w=2070&auto=format&fit=crop" alt="معلومات غذائية دقيقة">
-          <h3 class="mt-4 text-2xl font-bold" id="feature-title-2">اعرف قيمة وجبتك</h3>
-          <p class="mt-2 text-slate-600 dark:text-slate-300" id="feature-desc-2">كل وصفة تأتي مع تحليل دقيق للسعرات الحرارية والمكونات الغذائية، مما يساعدك على اتخاذ قرارات صحية بوعي.</p>
+        <div class="grid md:grid-cols-2 gap-16 items-center">
+          <div class="rounded-3xl overflow-hidden shadow-2xl md:order-last" data-aos="fade-left">
+            <img src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1887&auto=format&fit=crop" alt="تحكم كامل" class="w-full h-full object-cover aspect-[4/3]">
+          </div>
+          <div data-aos="fade-right" class="md:order-first">
+            <div class="inline-flex items-center justify-center w-14 h-14 mb-4 bg-red-100 text-[var(--brand-primary)] rounded-2xl">
+               <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-shopping-basket"><path d="m5 11 4-7"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8c.9 0 1.8-.7 2-1.6l1.7-7.4"/><path d="m9 11 1 9"/><path d="M4.5 15.5h15"/><path d="m15 11-1 9"/></svg>
+            </div>
+            <h3 class="text-3xl font-bold mb-4">مكونات بسيطة وواضحة</h3>
+            <p class="text-lg leading-relaxed">كل وصفة تأتي مع قائمة مكونات سهلة ومباشرة، مع تحليل دقيق للسعرات الحرارية. اتخذ قرارات واعية بكل سهولة وثقة.</p>
+          </div>
         </div>
-        <!-- Feature 3 -->
-        <div class="feature-card bg-slate-50 dark:bg-slate-900 rounded-xl shadow-lg overflow-hidden text-center p-6" data-aos="fade-left" data-aos-delay="300">
-          <img id="feature-img-3" class="w-full h-48 object-cover rounded-lg mb-4" src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=2070&auto=format&fit=crop" alt="تنوع في الوصفات">
-          <h3 class="mt-4 text-2xl font-bold" id="feature-title-3">وداعاً للملل، أهلاً بالطعم الصحي</h3>
-          <p class="mt-2 text-slate-600 dark:text-slate-300" id="feature-desc-3">اكتشف مكتبة متجددة من الوصفات الشهية التي تثبت أن الأكل الصحي لا يجب أن يكون مملاً. وجبات سريعة التحضير ومكونات بسيطة.</p>
-        </div>
-      </div>
-       <!-- Action Button -->
-       <div class="text-center mt-16" data-aos="fade-up">
-        <a href="https://wa.me/971502061209" target="_blank" class="px-8 py-3 bg-red-500 text-white rounded-full font-bold shadow-lg cta-button">استفسر الآن عبر واتساب</a>
       </div>
     </div>
   </section>
   
   <!-- How it works -->
-  <section id="how-it-works" class="py-16 md:py-24 bg-slate-100 dark:bg-slate-900">
-    <div class="container mx-auto px-6">
-      <h2 class="text-3xl font-bold text-center mb-12" data-aos="fade-up">خطوات بسيطة لحياة صحية</h2>
-      <div class="grid md:grid-cols-3 gap-12 text-center relative">
-         <!-- Connecting line -->
-        <div class="hidden md:block absolute top-10 left-0 w-full h-1 border-t-2 border-dashed border-red-300"></div>
-        <!-- Step 1 -->
-        <div class="relative flex flex-col items-center" data-aos="zoom-in-up" data-aos-delay="100">
-          <div class="flex items-center justify-center h-20 w-20 mx-auto bg-red-500 text-white rounded-full shadow-lg mb-6 z-10">
-            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-          </div>
-          <h3 class="text-xl font-bold mb-2">1. سجّل حسابك</h3>
-          <p class="text-slate-600 dark:text-slate-300">انضم إلينا في ثوانٍ وافتح عالمًا من الوصفات الصحية.</p>
-        </div>
-        <!-- Step 2 -->
-        <div class="relative flex flex-col items-center" data-aos="zoom-in-up" data-aos-delay="200">
-          <div class="flex items-center justify-center h-20 w-20 mx-auto bg-red-500 text-white rounded-full shadow-lg mb-6 z-10">
-            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-          </div>
-          <h3 class="text-xl font-bold mb-2">2. اختر وصفتك</h3>
-          <p class="text-slate-600 dark:text-slate-300">تصفح مكتبتنا الواسعة وابحث عن الوصفة المثالية ليومك.</p>
-        </div>
-        <!-- Step 3 -->
-        <div class="relative flex flex-col items-center" data-aos="zoom-in-up" data-aos-delay="300">
-          <div class="flex items-center justify-center h-20 w-20 mx-auto bg-red-500 text-white rounded-full shadow-lg mb-6 z-10">
-            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-          </div>
-          <h3 class="text-xl font-bold mb-2">3. اطبخ واستمتع</h3>
-          <p class="text-slate-600 dark:text-slate-300">اتبع التعليمات السهلة واستمتع بوجبة لذيذة وصحية.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+    <section id="how-it-works" class="py-20 md:py-32">
+        <div class="container mx-auto px-6">
+            <h2 class="section-title" data-aos="fade-up">3 خطوات فقط لوصفتك المثالية</h2>
+            <div class="max-w-4xl mx-auto mt-24">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center relative">
+                    <!-- Connecting Line -->
+                    <div class="hidden md:block absolute top-12 left-0 w-full h-1 bg-gray-200"></div>
+                    <div class="hidden md:block absolute top-12 left-0 w-full h-1 bg-[var(--brand-primary)] origin-left" style="transform: scaleX(1);"></div>
 
-  <!-- Diet Systems Section -->
-  <section id="diets" class="py-16 md:py-24 bg-white dark:bg-slate-800">
-    <div class="container mx-auto px-6">
-      <h2 class="text-3xl font-bold text-center mb-12" id="diet-title" data-aos="fade-up"></h2>
-      <div id="diet-list" class="grid md:grid-cols-2 lg:grid-cols-4 gap-6" data-aos="zoom-in-up">
-        <!-- Diet systems will be loaded by JS -->
-      </div>
-    </div>
-  </section>
+                    <!-- Step 1 -->
+                    <div class="flex-1 text-center relative mb-16 md:mb-0" data-aos="fade-up" data-aos-delay="100">
+                        <div class="w-24 h-24 mx-auto flex items-center justify-center bg-[var(--brand-primary)] text-white text-4xl font-bold rounded-full border-8 border-white shadow-lg z-10 relative">1</div>
+                        <h3 class="text-2xl font-bold mt-6 mb-2">حدد احتياجك</h3>
+                        <p>اختر نوع الوجبة، نظامك الغذائي، والسعرات الحرارية التي تناسبك.</p>
+                    </div>
+                    
+                    <!-- Step 2 -->
+                    <div class="flex-1 text-center relative mb-16 md:mb-0" data-aos="fade-up" data-aos-delay="200">
+                        <div class="w-24 h-24 mx-auto flex items-center justify-center bg-[var(--brand-primary)] text-white text-4xl font-bold rounded-full border-8 border-white shadow-lg z-10 relative">2</div>
+                        <h3 class="text-2xl font-bold mt-6 mb-2">احصل على وصفتك</h3>
+                        <p>يقوم الذكاء الاصطناعي بتوليد وصفة فريدة ومخصصة لك في ثوانٍ.</p>
+                    </div>
+
+                    <!-- Step 3 -->
+                    <div class="flex-1 text-center relative" data-aos="fade-up" data-aos-delay="300">
+                        <div class="w-24 h-24 mx-auto flex items-center justify-center bg-[var(--brand-primary)] text-white text-4xl font-bold rounded-full border-8 border-white shadow-lg z-10 relative">3</div>
+                        <h3 class="text-2xl font-bold mt-6 mb-2">اطبخ واستمتع</h3>
+                        <p>اتبع التعليمات السهلة وحضّر وجبة صحية ولذيذة تفخر بها.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
   <!-- Testimonials Section -->
-  <section id="testimonials" class="py-16 md:py-24 bg-slate-100 dark:bg-slate-900">
+  <section id="testimonials" class="py-20 md:py-32 bg-[var(--light-bg)]">
     <div class="container mx-auto px-6">
-      <h2 class="text-3xl font-bold text-center mb-12" data-aos="fade-up">ماذا يقول مستخدمونا؟</h2>
-      <div class="grid md:grid-cols-2 gap-8">
+      <h2 class="section-title" data-aos="fade-up">ماذا يقول المستخدمون عن Wasfa؟</h2>
+      <div class="grid lg:grid-cols-2 gap-8 mt-16">
         <!-- Testimonial 1 -->
-        <div class="testimonial-card bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg" data-aos="flip-left" data-aos-delay="100">
-          <p class="text-slate-600 dark:text-slate-300 mb-6 italic">"أفضل تطبيق للوصفات الصحية! لقد غير WasfaOne طريقتي في التفكير في الأكل الصحي. الوصفات سهلة ولذيذة جدًا."</p>
+        <div class="custom-card" data-aos="fade-up" data-aos-delay="100">
+          <p class="text-xl mb-6 italic leading-relaxed">"بصراحة، أفضل تطبيق جربته للوصفات الصحية. غير حياتي وطريقة أكلي بالكامل. الوصفات مبتكرة وسهلة والأهم أنها لذيذة جداً!"</p>
           <div class="flex items-center">
-            <img class="w-12 h-12 rounded-full mr-4 object-cover" src="https://images.unsplash.com/photo-1573496359112-58824f2b35a4?q=80&w=200&auto=format&fit=crop" alt="صورة المستخدمة سارة خالد">
+            <img class="w-14 h-14 rounded-full mr-4 object-cover" src="https://images.unsplash.com/photo-1573496359112-58824f2b35a4?q=80&w=200&auto=format&fit=crop" alt="صورة المستخدمة سارة خالد">
             <div>
-              <p class="font-bold text-slate-800 dark:text-white">سارة خالد</p>
-              <p class="text-sm text-red-500">مستخدمة سعيدة</p>
+              <p class="font-bold text-lg text-[var(--dark-text)]">سارة خالد</p>
+              <p class="font-semibold" style="color: var(--brand-primary);">مستخدمة سعيدة</p>
             </div>
           </div>
         </div>
         <!-- Testimonial 2 -->
-        <div class="testimonial-card bg-white dark:bg-slate-800 p-8 rounded-xl shadow-lg" data-aos="flip-right" data-aos-delay="200">
-          <p class="text-slate-600 dark:text-slate-300 mb-6 italic">"كنت أجد صعوبة في الالتزام بنظام غذائي صحي بسبب الملل، لكن مع WasfaOne، أتطلع دائمًا لتجربة وصفة جديدة. شكرًا لكم!"</p>
+        <div class="custom-card" data-aos="fade-up" data-aos-delay="200">
+          <p class="text-xl mb-6 italic leading-relaxed">"كنت أعاني من ملل الرجيم، لكن مع Wasfa، كل يوم أتطلع لوجبة جديدة ومختلفة. التطبيق أعاد لي متعة الأكل الصحي."</p>
           <div class="flex items-center">
-             <img class="w-12 h-12 rounded-full mr-4 object-cover" src="https://images.unsplash.com/photo-1568602471122-7832951cc4c5?q=80&w=200&auto=format&fit=crop" alt="صورة المستخدم أحمد منصور">
+             <img class="w-14 h-14 rounded-full mr-4 object-cover" src="https://images.unsplash.com/photo-1568602471122-7832951cc4c5?q=80&w=200&auto=format&fit=crop" alt="صورة المستخدم أحمد منصور">
             <div>
-              <p class="font-bold text-slate-800 dark:text-white">أحمد منصور</p>
-              <p class="text-sm text-red-500">مستخدم سعيد</p>
+              <p class="font-bold text-lg text-[var(--dark-text)]">أحمد منصور</p>
+              <p class="font-semibold" style="color: var(--brand-primary);">مستخدم سعيد</p>
             </div>
           </div>
         </div>
       </div>
-      <!-- Action Button -->
-      <div class="text-center mt-16" data-aos="fade-up">
-        <a href="https://wa.me/971502061209" target="_blank" class="px-8 py-3 bg-red-500 text-white rounded-full font-bold shadow-lg cta-button">شاركنا تجربتك عبر واتساب</a>
-      </div>
     </div>
   </section>
 
-
   <!-- Footer -->
-  <footer id="contact" class="bg-slate-800 text-slate-300">
-    <div class="container mx-auto p-8 text-center">
-      <h3 class="text-2xl font-bold text-white mb-4">للاستفسارات والاشتراك</h3>
-      <p id="contact-info" class="max-w-xl mx-auto mb-8 text-slate-400">
-        تواصل معنا مباشرة عبر واتساب أو بالاتصال على الأيقونات أدناه.
-      </p>
-      
-      <!-- NEW Professional Contact Icons -->
-      <div class="flex justify-center items-center space-x-6 space-x-reverse mb-8">
-        <!-- WhatsApp Icon -->
-        <a id="whatsapp-btn" href="https://wa.me/971502061209" target="_blank" class="inline-flex items-center justify-center w-16 h-16 bg-green-500 text-white rounded-full shadow-lg transition-transform transform hover:scale-110 hover:shadow-2xl" aria-label="تواصل معنا عبر واتساب">
-            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.62 15.34 3.51 16.79L2.5 21.5L7.38 20.49C8.8 21.33 10.39 21.81 12.04 21.81C17.5 21.81 21.95 17.36 21.95 11.91C21.95 6.45 17.5 2 12.04 2ZM17.11 15.46C16.86 15.73 15.82 16.29 15.41 16.54C15 16.78 14.5 16.84 14.15 16.69C13.81 16.54 12.87 16.21 11.75 15.18C10.31 13.86 9.53 12.34 9.31 12.04C9.1 11.73 9.31 11.55 9.49 11.37C9.64 11.21 9.83 10.95 10.03 10.74C10.23 10.54 10.28 10.39 10.18 10.19C10.08 9.99 9.53 8.64 9.28 8.04C9.03 7.44 8.78 7.54 8.6 7.53H8.25C8 7.53 7.7 7.63 7.45 7.88C7.2 8.13 6.65 8.64 6.65 9.79C6.65 10.94 7.5 12.04 7.65 12.24C7.8 12.44 9.26 14.73 11.53 15.68C13.8 16.64 14.5 16.34 14.95 16.29C15.41 16.24 16.35 15.68 16.55 15.41C16.75 15.13 16.75 14.91 16.7 14.79C16.65 14.67 16.4 14.59 16.15 14.47C15.9 14.34 17.36 15.18 17.11 15.46Z"></path></svg>
-        </a>
-        <!-- Phone Icon -->
-        <a href="tel:00971502061209" class="inline-flex items-center justify-center w-16 h-16 bg-blue-500 text-white rounded-full shadow-lg transition-transform transform hover:scale-110 hover:shadow-2xl" aria-label="اتصل بنا">
-            <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24c1.12.37 2.33.57 3.57.57c.55 0 1 .45 1 1V20c0 .55-.45 1-1 1c-9.39 0-17-7.61-17-17c0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1c0 1.25.2 2.45.57 3.57c.11.35.03.74-.25 1.02l-2.2 2.2z"></path></svg>
-        </a>
+  <footer id="contact" class="bg-[var(--dark-text)] text-white">
+    <div class="container mx-auto py-16 px-6">
+      <div class="grid md:grid-cols-3 gap-8 text-center md:text-right">
+        <!-- Brand Info -->
+        <div class="md:col-span-1">
+          <a href="#" class="text-3xl font-heading mb-4 inline-block" style="color: var(--brand-secondary);">Wasfa</a>
+          <p class="text-gray-400">وصفتك الصحية تبدأ هنا. نحو حياة أفضل وأكثر متعة.</p>
+        </div>
+        <!-- Links -->
+        <div class="md:col-span-1">
+          <h4 class="font-bold text-lg mb-4 text-white">روابط سريعة</h4>
+          <ul class="space-y-2">
+            <li><a href="#features" class="text-gray-400 hover:text-white transition">المميزات</a></li>
+            <li><a href="#how-it-works" class="text-gray-400 hover:text-white transition">كيف نعمل</a></li>
+            <li><a href="#testimonials" class="text-gray-400 hover:text-white transition">آراء المستخدمين</a></li>
+          </ul>
+        </div>
+        <!-- Contact -->
+        <div class="md:col-span-1">
+          <h4 class="font-bold text-lg mb-4 text-white">تواصل معنا</h4>
+          <ul class="space-y-2">
+            <li><a href="https://wa.me/971502061209" target="_blank" class="text-gray-400 hover:text-white transition">واتساب</a></li>
+            <li><a href="tel:00971502061209" class="text-gray-400 hover:text-white transition">اتصال</a></li>
+          </ul>
+        </div>
       </div>
-      
-      <div class="border-t border-slate-700 mt-8 pt-6">
-        <p class="text-sm text-slate-500">&copy; 2024 WasfaOne. جميع الحقوق محفوظة.</p>
+      <div class="border-t border-gray-700 mt-12 pt-8 text-center">
+        <p class="text-gray-500">&copy; 2024 Wasfa. جميع الحقوق محفوظة.</p>
       </div>
     </div>
   </footer>
 
-  <!-- Scripts -->
   <script src="assets/app.js"></script>
   <script>
     AOS.init({
-      duration: 800, // animation duration
-      once: true, // whether animation should happen only once - while scrolling down
+      duration: 800,
+      once: true,
+      offset: 100,
     });
     // The existing function to load content
-    loadIndexPage();
+    // loadIndexPage(); 
   </script>
 </body>
 </html>

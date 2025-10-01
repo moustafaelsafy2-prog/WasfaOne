@@ -1,9 +1,6 @@
 // netlify/functions/generateRecipe.js
 // UAE-ready — Arabic JSON schema, strict energy reconciliation (4/4/9),
-// Dr. Mohamed Saeed soft-repair path, and now: full diet profiles + custom macros support.
-
-/*  [oai_citation:0‡خطة المشروع.docx](file-service://file-CnXNbiywSJmJR4R6E84xaU) */
-/*  [oai_citation:1‡خريطة الملفات.docx](file-service://file-MtCHta4VW8FqJyRLDTugHv) */
+// Dr. Mohamed Saeed soft-repair path, and now: full diet profiles + custom macros support + user-available ingredients.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -193,10 +190,10 @@ function systemInstruction(maxSteps = 8) {
 
 قواعد إلزامية غير قابلة للتجاوز:
 1) اللغة: العربية الفصحى فقط، أسلوب احترافي موجز، بلا حشو أو شرح خارج JSON.
-2) القياسات: **كل المكونات بالجرام 100%** (وزن نيّئ). ممنوع "كوب/ملعقة/رشة/حبة/½" إلخ. حوِّل دائمًا إلى جرام بدقة (أقرب 1 جم). اذكر الزيوت والتوابل أيضًا بجرام.
+2) القياسات: **كل المكونات بالجرام 100%** (وزن نيّئ). ممنوع "كوب/ملعقة/رشة/حبة/½" إلخ. حوِّل دائمًا إلى جرام بدقة (أقرب 1 جم). اذكر الزيوت والتوابل أيضًا بجرام.
 3) الطاقة من الماكروز فقط (4/4/9): احسب السعرات = (protein_g×4 + carbs_g×4 + fat_g×9). يجب أن يطابق الحقل calories هذا المجموع بدقة ±2%. عند التعارض اضبط calories ليطابق الحساب.
 4) الالتزام بالقيود: طبّق **حرفيًا** أي تعليمات/أنظمة غذائية/حساسيات تأتي في رسالة المستخدم (بما فيها قيود د. محمد سعيد إن طُلبت). لا تستخدم أي مكوّن محظور ولا تتجاوز حدود الكارب المطلوبة.
-5) المكونات: عناصر قصيرة بالشكل "200 جم صدر دجاج". سمِّ النوع بدقة (مثل: "زيت زيتون بكر ممتاز"، "رز بسمتي نيّئ"). لا أسماء علامات تجارية، ولا مكوّنات عامة مبهمة.
+5) المكونات: عناصر قصيرة بالشكل "200 جم صدر دجاج". سمِّ النوع بدقة (مثل: "زيت زيتون بكر ممتاز"، "رز بسمتي نيّئ"). لا أسماء علامات تجارية، ولا مكوّنات عامة مبهمة.
 6) الخطوات: صيغة أمر عملية، بلا تكرار، ≤ ${maxSteps} خطوات. لا تُدخل أي مكونات غير مذكورة في قائمة ingredients. لا خطوات فارغة أو عامة مثل "حضّر المكوّنات".
 7) الجودة والتنوّع: قدّم وصفات **غير مكررة** ومميّزة ضمن المطبخ/النظام المطلوب، وتجنّب الأطباق المبتذلة الشائعة ما أمكن. عدّل التقنيات/التتبيل لتحقيق تميّز حقيقي مع الالتزام الصارم بالكارب والماكروز.
 8) الاتساق: أرقام الماكروز أعداد فقط (بدون وحدات). لا تعليقات، لا نص خارج JSON، لا أسطر تفسيرية.
@@ -219,7 +216,9 @@ function userPrompt(input) {
     customMacros = null,
     allergies = [],
     focus = "",
-    __repair = false
+    availableIngredients = [],
+    __repair = false,
+    __repair_available = false
   } = input || {};
 
   const avoid = (Array.isArray(allergies) && allergies.length) ? allergies.join(", ") : "لا شيء";
@@ -229,11 +228,24 @@ function userPrompt(input) {
   const isCustom = String(dietType) === "custom";
 
   const profile = DIET_PROFILES[dietType] || "";
-
   const drRules = isDrMoh ? DIET_PROFILES["dr_mohamed_saeed"] : "";
 
+  const available = (Array.isArray(availableIngredients) ? availableIngredients : [])
+    .map(s => String(s||"").trim()).filter(Boolean);
+
+  const availableLine = available.length
+    ? `المكوّنات المتاحة لدى المستخدم (اختياري): ${available.join(", ")}.
+- استخدم هذه المكوّنات كأساس الوصفة قدر الإمكان. يجب تضمينها جميعًا في ingredients مع أوزان جرام دقيقة.
+- لا تضف مكوّنات إضافية إلا للضرورة التقنية أو لضبط الماكروز (مثل: ماء، ملح، فلفل، توابل، زيت زيتون بكر).
+- إن تعذر تحقيق النظام الغذائي بهذه القائمة، عدّل الأوزان واقترح أقل قدر من الإضافات الضرورية فقط.`
+    : "";
+
   const repairLine = __repair && isDrMoh
-    ? "الإخراج السابق خالف القيود. أعد توليد وصفة تلتزم حرفيًا بالبنود أعلاه، مع ضبط المقادير لضمان ≤ 5 جم كربوهيدرات/حصة."
+    ? "الإخراج السابق خالف قيود د. محمد سعيد. أعد توليد وصفة تلتزم حرفيًا بالبنود أعلاه، مع ضمان ≤ 5 جم كربوهيدرات/حصة."
+    : "";
+
+  const repairAvailLine = __repair_available && available.length
+    ? "الإخراج السابق لم يضمّن كل المكونات المتاحة. أعد التوليد واضمن إدراجها جميعًا بأوزان جرام وبشكل منطقي في الوصفة."
     : "";
 
   const customLine = isCustom && customMacros
@@ -247,8 +259,10 @@ function userPrompt(input) {
 ${focusLine}
 ${profile}
 ${drRules}
+${availableLine}
 ${customLine}
 ${repairLine}
+${repairAvailLine}
 أعد النتيجة كـ JSON فقط حسب المخطط المطلوب وبالعربية.
 `.trim();
 }
@@ -335,8 +349,9 @@ async function callOnce(model, input, timeoutMs = 28000) {
   }
 }
 
-/* ---------------- Dr. Mohamed checks ---------------- */
+/* ---------------- Dr. Mohamed + Available checks ---------------- */
 const DR_MOH = /محمد\s*سعيد|dr_mohamed_saeed/;
+
 function violatesDrMoh(recipe) {
   const carbs = Number(recipe?.macros?.carbs_g || 0);
   const ing = (recipe?.ingredients || []).join(" ").toLowerCase();
@@ -352,6 +367,15 @@ function violatesDrMoh(recipe) {
   const hasBanned = banned.some(k => ing.includes(k));
   const carbsOk = carbs <= 5;
   return (!carbsOk || hasBanned);
+}
+
+function includesAllAvailable(recipe, available) {
+  if (!Array.isArray(available) || !available.length) return true;
+  const ingJoined = (recipe?.ingredients || []).join(" ").toLowerCase();
+  return available.every(a => {
+    const term = String(a||"").toLowerCase().trim();
+    return term && ingJoined.includes(term);
+  });
 }
 
 /* ---------------- Handler ---------------- */
@@ -375,20 +399,53 @@ exports.handler = async (event) => {
     customMacros = { protein_g: p, carbs_g: c, fat_g: f };
   }
 
+  // Available ingredients (optional)
+  const availableIngredients = Array.isArray(input?.availableIngredients)
+    ? input.availableIngredients.map(s => String(s||"").trim()).filter(Boolean)
+    : [];
+
   const wantDrMoh = DR_MOH.test(String(input?.dietType || ""));
 
   const errors = {};
   for (const model of MODEL_POOL) {
-    const r1 = await callOnce(model, { ...input, customMacros });
+    const r1 = await callOnce(model, { ...input, customMacros, availableIngredients });
     if (!r1.ok) { errors[model] = r1.error; continue; }
 
+    // Dr. Mohamed enforcement
     if (wantDrMoh && violatesDrMoh(r1.recipe)) {
-      const r2 = await callOnce(model, { ...input, customMacros, __repair: true });
+      const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true });
       if (r2.ok && !violatesDrMoh(r2.recipe)) {
-        return ok({ recipe: r2.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
+        // ensure available as well if provided
+        if (includesAllAvailable(r2.recipe, availableIngredients)) {
+          return ok({ recipe: r2.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
+        } else {
+          const r3 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true, __repair_available: true });
+          if (r3.ok && !violatesDrMoh(r3.recipe) && includesAllAvailable(r3.recipe, availableIngredients)) {
+            return ok({ recipe: r3.recipe, model, note: "repaired_to_meet_dr_moh_rules" });
+          }
+          return ok({ recipe: (r3.ok ? r3.recipe : r2.recipe), model, warning: "dr_moh_or_available_rules_not_strictly_met" });
+        }
       }
-      const fallbackRecipe = (r2.ok ? r2.recipe : r1.recipe);
+      const fallbackRecipe = r2.ok ? r2.recipe : r1.recipe;
+      // try to satisfy available if provided
+      if (availableIngredients.length && !includesAllAvailable(fallbackRecipe, availableIngredients)) {
+        const rFix = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true });
+        return ok({
+          recipe: rFix.ok ? rFix.recipe : fallbackRecipe,
+          model,
+          warning: "dr_moh_rules_not_strictly_met"
+        });
+      }
       return ok({ recipe: fallbackRecipe, model, warning: "dr_moh_rules_not_strictly_met" });
+    }
+
+    // Available-ingredients enforcement (when not in Dr. Mohamed path or after passing it)
+    if (availableIngredients.length && !includesAllAvailable(r1.recipe, availableIngredients)) {
+      const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true });
+      if (r2.ok && includesAllAvailable(r2.recipe, availableIngredients)) {
+        return ok({ recipe: r2.recipe, model, note: "aligned_with_available_ingredients" });
+      }
+      return ok({ recipe: (r2.ok ? r2.recipe : r1.recipe), model, warning: "available_ingredients_not_fully_used" });
     }
 
     return ok({ recipe: r1.recipe, model });

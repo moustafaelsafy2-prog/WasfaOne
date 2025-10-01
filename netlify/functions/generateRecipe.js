@@ -301,7 +301,7 @@ function dessertLacksSweetness(recipe){
 }
 
 /* ---------------- Prompting ---------------- */
-function systemInstruction(maxSteps = 10:15) {
+function systemInstruction(maxSteps = 10) {
   return `
 أنت شيف محترف وخبير تغذية. أعد **JSON فقط** وفق المخطط أدناه — دون أي نص خارج القوسين المعقوفين:
 {
@@ -490,8 +490,8 @@ async function callOnce(model, input, timeoutMs = 28000) {
 
     // Normalize steps length
     if (!json.lang) json.lang = "ar";
-    if (Array.isArray(json.steps) && json.steps.length > 10:15) {
-      const chunk = Math.ceil(json.steps.length / 10:15);
+    if (Array.isArray(json.steps) && json.steps.length > 10) {
+      const chunk = Math.ceil(json.steps.length / 10);
       const merged = [];
       for (let i=0;i<json.steps.length;i+=chunk) merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
       json.steps = merged.slice(0,6);

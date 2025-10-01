@@ -4,198 +4,286 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>تسجيل الدخول • WasfaOne</title>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
   <style>
-    /* Using Cairo font for better Arabic typography */
-    body {
-      font-family: 'Cairo', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background-image: url('https://images.unsplash.com/photo-1554147090-e1221a04a025?q=80&w=2070&auto=format&fit=crop');
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
+    :root{
+      --brand:#ef4444;
+      --brand-dark:#dc2626;
+      --ink:#0f172a;
+      --muted:#475569;
+      --soft-bg:#f7f7f9;
+      --line:#e5e7eb;
+    }
+    html{ scroll-behavior:smooth }
+    body{
+      font-family:'Cairo', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color:var(--ink); background:var(--soft-bg);
     }
 
-    /* Animation for the title */
-    .animated-gradient-text {
-      background-image: linear-gradient(-225deg, #f87171 0%, #ffffff 50%, #fca5a5 100%);
-      background-size: 200% auto;
-      background-clip: text;
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      animation: text-flow 3s linear infinite;
+    /* خلفية موحّدة مثل الهيرو */
+    .auth-hero{
+      position:relative; min-height:100vh; display:grid; place-items:center;
+      overflow:hidden;
+    }
+    .auth-hero::before{
+      content:""; position:absolute; inset:0;
+      background-image:url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop');
+      background-size:cover; background-position:center;
+      transform:scale(1.05);
+      filter:saturate(1.05) contrast(1.05);
+    }
+    .auth-hero::after{
+      content:""; position:absolute; inset:0;
+      background:linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.55));
+      backdrop-filter: blur(2px);
     }
 
-    @keyframes text-flow {
-      to {
-        background-position: 200% center;
-      }
-    }
-    
-    /* Page load animation */
-    .animate-on-load {
-        animation: slideUpFadeIn 0.8s ease-out forwards;
-        opacity: 0;
-    }
-    
-    @keyframes slideUpFadeIn {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
+    /* هوية العنوان */
+    .brand-title{
+      background:linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     }
 
-    /* Spinner for login button */
-    .spinner {
-        border: 2px solid #fff;
-        border-top: 2px solid transparent;
-        border-radius: 50%;
-        width: 20px;
-        height: 20px;
-        animation: spin 1s linear infinite;
+    /* بطاقة احترافية موحّدة */
+    .pro-card{
+      position:relative;
+      background:linear-gradient(180deg, #fff, #fafafa);
+      border:1px solid var(--line);
+      border-radius:28px;
+      box-shadow:0 25px 50px -12px rgba(0,0,0,.12);
+      transition:transform .25s, box-shadow .25s;
+    }
+    .pro-card:hover{ transform:translateY(-4px); box-shadow:0 30px 60px -20px rgba(0,0,0,.18) }
+
+    /* حاوية النموذج */
+    .auth-wrap{ width:100%; max-width:460px; padding:24px }
+    .auth-card{ padding:28px }
+
+    /* الحقول + الأيقونة */
+    .field{
+      position:relative;
+    }
+    .field input{
+      width:100%; min-height:52px; padding:0 48px 0 14px;
+      border:1px solid var(--line); border-radius:16px; background:#fcfdff;
+      transition:.2s;
+    }
+    .field input:focus{
+      outline:none; border-color:var(--brand);
+      box-shadow:0 0 0 3px rgba(239,68,68,.12);
+      background:#fff;
+    }
+    .field .icon{
+      position:absolute; inset-block:0; inset-inline-end:0;
+      width:44px; display:grid; place-items:center; color:#9aa4b2; pointer-events:none;
+    }
+    .field .action{
+      position:absolute; inset-block:0; inset-inline-start:0;
+      display:grid; place-items:center; width:44px; color:#6b7280;
     }
 
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    /* زر الدخول بنفس ستايل CTA */
+    .cta-button{
+      position:relative; overflow:hidden;
+      display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+      width:100%; border-radius:14px; padding:14px 24px; font-weight:800;
+      color:#fff; background:var(--brand);
+      box-shadow:0 6px 18px rgba(239,68,68,.28);
+      transition:transform .2s, box-shadow .2s, background .2s;
+    }
+    .cta-button:hover{ background:var(--brand-dark); transform:translateY(-1px); box-shadow:0 10px 26px rgba(239,68,68,.34) }
+    .cta-button::after{
+      content:""; position:absolute; inset:-2px; border-radius:16px; opacity:0;
+      background:radial-gradient(120px 120px at var(--mx,50%) var(--my,50%), rgba(255,255,255,.2), transparent 60%);
+      transition:opacity .2s;
+    }
+    .cta-button.is-hovering::after{ opacity:1 }
+
+    /* سبينر */
+    .spinner{
+      border:2px solid #fff; border-top-color:transparent; border-radius:999px;
+      width:20px; height:20px; animation:spin 1s linear infinite;
+    }
+    @keyframes spin{ to{ transform:rotate(360deg) } }
+
+    /* حركات دخول خفيفة */
+    .fade-up{ opacity:0; transform:translateY(12px); animation:fadeUp .6s ease-out .1s forwards }
+    @keyframes fadeUp{
+      to{ opacity:1; transform:none }
+    }
+
+    /* ترويسة مصغّرة أعلى البطاقة */
+    .mini-header{
+      display:flex; align-items:center; gap:.75rem;
+      margin-bottom:10px;
+    }
+    .mini-badge{
+      display:inline-grid; place-items:center; width:42px; height:42px;
+      border-radius:12px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25);
+      color:var(--brand);
+    }
+
+    /* روابط */
+    .link{ color:var(--brand); font-weight:700 }
+    .link:hover{ color:var(--brand-dark); text-decoration:underline }
+
+    /* فوتر شفاف أعلى الخلفية */
+    .auth-footer{
+      color:#e5e7eb;
+      text-shadow:0 1px 2px rgba(0,0,0,.35);
     }
   </style>
 </head>
-<body class="text-slate-800">
+<body>
 
-  <!-- Main Content Wrapper -->
-  <div class="min-h-screen flex flex-col justify-center items-center p-4 bg-black/20 backdrop-blur-sm">
-    
-    <div class="w-full max-w-md">
-      <!-- Logo and Title -->
-      <header class="text-center mb-8 animate-on-load" style="animation-delay: 0.2s;">
-        <div class="inline-flex items-center gap-3">
-          <img id="login-logo" class="h-14 w-14 rounded-full shadow-lg" alt="Logo" src="https://placehold.co/60x60/ef4444/white?text=W" />
-          <h1 class="font-bold text-4xl text-shadow-lg animated-gradient-text">WasfaOne</h1>
+  <section class="auth-hero">
+    <!-- طبقة المحتوى -->
+    <div class="relative z-10 auth-wrap">
+
+      <!-- بطاقة تسجيل الدخول -->
+      <div class="pro-card auth-card fade-up">
+        <!-- شعار وعنوان -->
+        <header class="text-center mb-6">
+          <div class="inline-flex items-center gap-3">
+            <img id="login-logo" class="h-14 w-14 rounded-2xl shadow-md ring-1 ring-white/40" alt="Logo" src="https://placehold.co/60x60/ef4444/ffffff?text=W" />
+            <h1 class="text-4xl md:text-5xl font-black brand-title leading-none">WasfaOne</h1>
+          </div>
+          <p class="text-[var(--muted)] mt-2">مرحبًا بك — من فضلك سجّل دخولك للمتابعة</p>
+        </header>
+
+        <!-- شارة صغيرة أعلى النموذج -->
+        <div class="mini-header">
+          <span class="mini-badge"><i data-lucide="lock" class="w-5 h-5"></i></span>
+          <div>
+            <div class="font-extrabold">تسجيل الدخول</div>
+            <div class="text-xs text-[var(--muted)]">الوصول إلى لوحة Wasfa محمي</div>
+          </div>
         </div>
-      </header>
 
-      <!-- "Glassmorphism" styled card for a modern look -->
-      <main class="bg-white/80 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border border-white/50 w-full animate-on-load" style="animation-delay: 0.4s;">
-        <h2 class="text-3xl font-bold mb-8 text-center text-slate-900">تسجيل الدخول</h2>
-        <form id="login-form" class="space-y-6">
-          
-          <!-- Email input with icon -->
-          <div class="relative">
-            <span class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-gray-400">
-                <path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.25 1.25 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" />
-                <path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" />
-              </svg>
-            </span>
-            <input id="email" class="w-full bg-gray-50 border border-gray-300 text-slate-800 placeholder-gray-500 rounded-lg pr-12 pl-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition" placeholder="البريد الإلكتروني" type="email" required />
+        <!-- النموذج (نفس الآIDs ونفس العمل) -->
+        <form id="login-form" class="space-y-5 mt-3">
+
+          <!-- البريد -->
+          <div class="field">
+            <span class="icon"><i data-lucide="mail" class="w-5 h-5"></i></span>
+            <input id="email" class="text-[15px]" placeholder="البريد الإلكتروني" type="email" required />
           </div>
 
-          <!-- Password input with icon and visibility toggle -->
-          <div class="relative">
-            <span class="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 text-gray-400">
-                <path fill-rule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clip-rule="evenodd" />
-              </svg>
-            </span>
-            <input id="password" class="w-full bg-gray-50 border border-gray-300 text-slate-800 placeholder-gray-500 rounded-lg pr-12 pl-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition" placeholder="كلمة المرور" type="password" required />
-            <button type="button" id="toggle-password" class="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-500 hover:text-gray-700">
-              <svg id="eye-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5">
-                <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.18l.88-1.405a.825.825 0 011.086-.318L5.11 9.42a.825.825 0 010 1.16l-2.48 1.55a.825.825 0 01-1.086-.318l-.88-1.405zm18.672 0a1.651 1.651 0 000-1.18l-.88-1.405a.825.825 0 00-1.086-.318L14.89 9.42a.825.825 0 000 1.16l2.48 1.55a.825.825 0 001.086-.318l.88-1.405z" clip-rule="evenodd" />
-              </svg>
-              <svg id="eye-slash-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-5 h-5 hidden">
-                  <path d="M3.28 2.22a.75.75 0 00-1.06 1.06l14.5 14.5a.75.75 0 101.06-1.06l-1.745-1.745a10.029 10.029 0 003.3-4.38 1.651 1.651 0 000-1.18l-.88-1.405a.825.825 0 00-1.086-.318l-2.48 1.55a.825.825 0 000 1.16l-2.016 1.26a4.028 4.028 0 01-4.7-4.7l1.26-2.016a.825.825 0 001.16 0l1.55-2.48a.825.825 0 00-.318-1.086L7.8 2.064A10.012 10.012 0 003.28 2.22zM7.5 10a2.5 2.5 0 005 0 2.5 2.5 0 00-5 0z" />
-                  <path d="M9.913 4.043a10.01 10.01 0 012.396 2.064l.88 1.405a.825.825 0 01-.318 1.086l-1.55 2.48a.825.825 0 01-1.16 0l-1.26 2.016a4.028 4.028 0 004.7 4.7l-2.016 1.26a.825.825 0 01-1.16 0l-2.48 1.55a.825.825 0 01-1.086-.318l-.88-1.405a1.651 1.651 0 010-1.18 10.029 10.029 0 013.3-4.38z" />
-              </svg>
+          <!-- كلمة المرور -->
+          <div class="field">
+            <span class="icon"><i data-lucide="lock-keyhole" class="w-5 h-5"></i></span>
+            <input id="password" class="text-[15px]" placeholder="كلمة المرور" type="password" required />
+            <button type="button" id="toggle-password" class="action" aria-label="إظهار/إخفاء كلمة المرور">
+              <i id="eye-icon" data-lucide="eye" class="w-5 h-5"></i>
+              <i id="eye-slash-icon" data-lucide="eye-off" class="w-5 h-5 hidden"></i>
             </button>
           </div>
-          
-          <div class="text-right">
-              <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="text-sm text-red-600 hover:underline">نسيت كلمة المرور؟</a>
+
+          <!-- روابط مساعدة -->
+          <div class="flex items-center justify-between text-sm">
+            <div class="flex items-center gap-2 text-[var(--muted)]">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+              <span>جلسة آمنة</span>
+            </div>
+            <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="link">نسيت كلمة المرور؟</a>
           </div>
 
-          <!-- Enhanced login button -->
-          <button id="login-button" class="bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-3 w-full font-bold text-base shadow-lg hover:shadow-red-500/40 transition-all duration-300 transform hover:-translate-y-1 flex items-center justify-center" type="submit">
-            <span id="button-text">دخــول</span>
+          <!-- زر الدخول (يبقى نفس IDs) -->
+          <button id="login-button" class="cta-button" type="submit">
+            <span id="button-text">دخول</span>
             <div id="button-spinner" class="spinner hidden"></div>
           </button>
-          
+
+          <!-- رسالة خطأ (لا تتغير) -->
           <div id="login-error" class="text-red-600 text-sm hidden pt-1 text-center"></div>
         </form>
-      </main>
 
-       <!-- Footer -->
-      <footer class="mt-8 text-center text-sm text-white/80 animate-on-load" style="animation-delay: 0.6s;">
-        <a href="privacy.html" class="underline hover:text-red-300 transition-colors">سياسة الخصوصية</a>
+        <!-- روابط سفلى صغيرة -->
+        <div class="mt-6 text-center text-sm">
+          <a href="privacy.html" class="text-[var(--muted)] hover:text-[var(--ink)] underline decoration-dotted">سياسة الخصوصية</a>
+        </div>
+      </div>
+
+      <!-- فوتر أعلى الخلفية -->
+      <footer class="mt-6 text-center auth-footer text-sm">
+        <span>&copy; 2024 Wasfa. جميع الحقوق محفوظة.</span>
       </footer>
     </div>
-  </div>
+  </section>
 
-  <!-- Login script remains unchanged -->
+  <!-- منطق الصفحة يبقى كما هو -->
   <script src="login.js"></script>
 
-  <!-- New scripts for interactivity -->
+  <!-- تحسينات تفاعلية صغيرة دون المساس بالمنطق -->
   <script>
-    // Placeholder logo script
-    const logo = document.getElementById('login-logo');
-    if (logo && !logo.src) {
-        logo.src = 'https://placehold.co/60x60/ef4444/white?text=W';
+    // تهيئة أيقونات Lucide
+    lucide.createIcons();
+
+    // تأثير ضوء على زر CTA
+    const btn = document.getElementById('login-button');
+    if (btn){
+      btn.addEventListener('mousemove', (e)=>{
+        const r = btn.getBoundingClientRect();
+        btn.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        btn.style.setProperty('--my', `${e.clientY - r.top}px`);
+        btn.classList.add('is-hovering');
+      });
+      btn.addEventListener('mouseleave', ()=> btn.classList.remove('is-hovering'));
     }
 
-    // Password visibility toggle
+    // شعار احتياطي
+    const logo = document.getElementById('login-logo');
+    if (logo && !logo.src) {
+      logo.src = 'https://placehold.co/60x60/ef4444/ffffff?text=W';
+    }
+
+    // تبديل إظهار كلمة المرور — نفس IDs
     const togglePassword = document.getElementById('toggle-password');
     const passwordInput = document.getElementById('password');
     const eyeIcon = document.getElementById('eye-icon');
     const eyeSlashIcon = document.getElementById('eye-slash-icon');
 
     togglePassword.addEventListener('click', function() {
-        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-        passwordInput.setAttribute('type', type);
-        eyeIcon.classList.toggle('hidden');
-        eyeSlashIcon.classList.toggle('hidden');
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+      eyeIcon.classList.toggle('hidden');
+      eyeSlashIcon.classList.toggle('hidden');
     });
 
-    // Login form submission handler
+    // محاكاة بسيطة (إن أردت الإبقاء عليها) — لا تغيّر login.js
     const loginForm = document.getElementById('login-form');
     const loginButton = document.getElementById('login-button');
     const buttonText = document.getElementById('button-text');
     const buttonSpinner = document.getElementById('button-spinner');
 
     loginForm.addEventListener('submit', function(e) {
-        // This is a demo. In a real app, you would prevent default
-        // and handle the form submission with AJAX.
-        // For this demo, we'll just show the spinner for 2 seconds.
-        e.preventDefault();
+      // لا نغيّر آلية العمل الفعلية في login.js
+      // لو أردت إبقاء المحاكاة الحالية:
+      e.preventDefault();
+      buttonText.classList.add('hidden');
+      buttonSpinner.classList.remove('hidden');
+      loginButton.disabled = true;
+      loginButton.classList.add('cursor-wait', 'opacity-80');
 
-        // Show spinner and disable button
-        buttonText.classList.add('hidden');
-        buttonSpinner.classList.remove('hidden');
-        loginButton.disabled = true;
-        loginButton.classList.add('cursor-not-allowed', 'opacity-75');
-        
-        // Simulate a network request
-        setTimeout(() => {
-            // Restore button state
-            buttonText.classList.remove('hidden');
-            buttonSpinner.classList.add('hidden');
-            loginButton.disabled = false;
-            loginButton.classList.remove('cursor-not-allowed', 'opacity-75');
-
-            // Here you would typically handle the login response
-            // For demo, we'll just log to console.
-            console.log("Login attempt finished.");
-        }, 2000);
+      setTimeout(() => {
+        buttonText.classList.remove('hidden');
+        buttonSpinner.classList.add('hidden');
+        loginButton.disabled = false;
+        loginButton.classList.remove('cursor-wait', 'opacity-80');
+        console.log("Login attempt finished.");
+      }, 1500);
     });
-
   </script>
 </body>
 </html>
-

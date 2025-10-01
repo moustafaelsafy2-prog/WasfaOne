@@ -1,9 +1,9 @@
-/* WasfaOne Frontend — Server-only flow (Netlify Function) with Custom Macros */
+/* WasfaOne Frontend — Standalone binding with Custom Macros + Available Ingredients + Recent Titles */
 
 const API_ENDPOINT = "/.netlify/functions/generateRecipe";
 
 // DOM refs
-let mealTypeEl, cuisineEl, dietTypeEl, calorieTargetEl, commonAllergyEl, customAllergyEl, focusEl;
+let mealTypeEl, cuisineEl, dietTypeEl, calorieTargetEl, commonAllergyEl, customAllergyEl, focusEl, availableIngredientsEl;
 let customBox, customProteinEl, customCarbsEl, customFatEl;
 let generateBtn, loadingIndicator, errorMsg, statusMsg;
 let recipeTitle, timeValue, servingsValue, caloriesValue, proteinValue, carbsValue, fatsValue, ingredientsList, preparationSteps, rawJson;
@@ -20,16 +20,16 @@ function showError(message) {
   errorMsg.classList.toggle("hidden", !message);
 }
 function clearOutput() {
-  recipeTitle.textContent = "";
-  timeValue.textContent = "—";
-  servingsValue.textContent = "—";
-  caloriesValue.textContent = "—";
-  proteinValue.textContent = "—";
-  carbsValue.textContent = "—";
-  fatsValue.textContent = "—";
-  ingredientsList.innerHTML = "";
-  preparationSteps.innerHTML = "";
-  rawJson.textContent = "";
+  if (recipeTitle) recipeTitle.textContent = "";
+  if (timeValue) timeValue.textContent = "—";
+  if (servingsValue) servingsValue.textContent = "—";
+  if (caloriesValue) caloriesValue.textContent = "—";
+  if (proteinValue) proteinValue.textContent = "—";
+  if (carbsValue) carbsValue.textContent = "—";
+  if (fatsValue) fatsValue.textContent = "—";
+  if (ingredientsList) ingredientsList.innerHTML = "";
+  if (preparationSteps) preparationSteps.innerHTML = "";
+  if (rawJson) rawJson.textContent = "";
 }
 function validateRecipeSchema(rec) {
   const must = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
@@ -47,16 +47,46 @@ function validateRecipeSchema(rec) {
   return { ok:true };
 }
 function renderRecipe(recipe) {
-  recipeTitle.textContent = recipe.title;
-  timeValue.textContent = `${recipe.total_time_min} دقيقة`;
-  servingsValue.textContent = `${recipe.servings}`;
-  caloriesValue.textContent = `${recipe.macros.calories}`;
-  proteinValue.textContent = `${recipe.macros.protein_g}`;
-  carbsValue.textContent = `${recipe.macros.carbs_g}`;
-  fatsValue.textContent = `${recipe.macros.fat_g}`;
-  ingredientsList.innerHTML = recipe.ingredients.map(i => `<li>${i}</li>`).join("");
-  preparationSteps.innerHTML = recipe.steps.map(s => `<li>${s}</li>`).join("");
+  if (recipeTitle) recipeTitle.textContent = recipe.title;
+  if (timeValue) timeValue.textContent = `${recipe.total_time_min} دقيقة`;
+  if (servingsValue) servingsValue.textContent = `${recipe.servings}`;
+  if (caloriesValue) caloriesValue.textContent = `${recipe.macros.calories}`;
+  if (proteinValue) proteinValue.textContent = `${recipe.macros.protein_g}`;
+  if (carbsValue) carbsValue.textContent = `${recipe.macros.carbs_g}`;
+  if (fatsValue) fatsValue.textContent = `${recipe.macros.fat_g}`;
+  if (ingredientsList) ingredientsList.innerHTML = recipe.ingredients.map(i => `<li>${i}</li>`).join("");
+  if (preparationSteps) preparationSteps.innerHTML = recipe.steps.map(s => `<li>${s}</li>`).join("");
   if (rawJson) rawJson.textContent = JSON.stringify(recipe, null, 2);
+}
+
+function parseAvailableList(text){
+  if(!text) return [];
+  const parts = text
+    .split(/[\n,،]+/).map(s=>s.trim()).filter(Boolean)
+    .map(s=>s.replace(/[{}\[\]<>:";]/g," "))
+    .map(s=>s.replace(/\s+/g,' '));
+  return Array.from(new Set(parts)).slice(0,50);
+}
+
+function recentKey(){ 
+  const mt = mealTypeEl ? mealTypeEl.value : 'وجبة';
+  const cu = cuisineEl ? cuisineEl.value : 'متنوع';
+  const dt = dietTypeEl ? dietTypeEl.value : 'balanced';
+  return ['k', mt, cu, dt].join('|');
+}
+function getRecentTitles(){
+  const key = recentKey();
+  const all = JSON.parse(localStorage.getItem("wasfa_recent_titles")||"{}");
+  return Array.isArray(all[key]) ? all[key] : [];
+}
+function pushRecentTitle(title){
+  const key = recentKey();
+  const all = JSON.parse(localStorage.getItem("wasfa_recent_titles")||"{}");
+  const list = Array.isArray(all[key]) ? all[key] : [];
+  const t = String(title||"").trim();
+  if (t && !list.includes(t)) list.unshift(t);
+  all[key] = list.slice(0,10);
+  localStorage.setItem("wasfa_recent_titles", JSON.stringify(all));
 }
 
 async function onGenerate() {
@@ -64,7 +94,7 @@ async function onGenerate() {
   showError("");
   showStatus("جاري التوليد ...");
 
-  generateBtn.disabled = true;
+  if (generateBtn) generateBtn.disabled = true;
   if (loadingIndicator) loadingIndicator.classList.remove("hidden");
   if (generateBtn) generateBtn.textContent = "جاري التوليد ...";
 
@@ -72,7 +102,7 @@ async function onGenerate() {
     .concat(commonAllergyEl && commonAllergyEl.value ? [commonAllergyEl.value] : [])
     .concat(
       customAllergyEl && customAllergyEl.value
-        ? customAllergyEl.value.split(",").map(s => s.trim()).filter(Boolean)
+        ? customAllergyEl.value.split(/[,،]+/).map(s => s.trim()).filter(Boolean)
         : []
     );
 
@@ -93,6 +123,8 @@ async function onGenerate() {
     allergies,
     focus: (focusEl && focusEl.value) || "",
     customMacros,
+    availableIngredients: parseAvailableList(availableIngredientsEl && availableIngredientsEl.value),
+    recentTitles: getRecentTitles(),
     lang: "ar"
   };
 
@@ -113,6 +145,7 @@ async function onGenerate() {
     if (!v.ok) throw new Error(`بنية غير متوقعة من الخادم: ${v.error}`);
 
     renderRecipe(data.recipe);
+    pushRecentTitle(data.recipe.title);
   } catch (err) {
     showError(err.message || "حدث خطأ غير متوقع.");
     showStatus("", false);
@@ -148,7 +181,6 @@ async function loadSettingsAndBindDietList() {
 }
 
 function ensureCustomBoxes() {
-  // Create custom macros box dynamically if missing in the page using this JS
   if (!document.getElementById("customMacrosBox")) {
     customBox = document.createElement("div");
     customBox.id = "customMacrosBox";
@@ -176,7 +208,6 @@ function ensureCustomBoxes() {
 }
 
 function setup() {
-  // Bind elements if present on the page using this JS
   mealTypeEl = document.getElementById("mealType");
   cuisineEl = document.getElementById("cuisine");
   dietTypeEl = document.getElementById("dietType");
@@ -184,6 +215,7 @@ function setup() {
   commonAllergyEl = document.getElementById("commonAllergy");
   customAllergyEl = document.getElementById("customAllergy");
   focusEl = document.getElementById("focus");
+  availableIngredientsEl = document.getElementById("availableIngredients");
 
   generateBtn = document.getElementById("generateBtn");
   loadingIndicator = document.getElementById("loadingIndicator");

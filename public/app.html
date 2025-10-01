@@ -287,6 +287,34 @@
       };
     }
 
+    function parseAvailableList(text){
+      if(!text) return [];
+      const parts = text
+        .split(/[\n,،]+/).map(s=>s.trim()).filter(Boolean)
+        .map(s=>s.replace(/[{}\[\]<>:";]/g," "))
+        .map(s=>s.replace(/\s+/g,' '));
+      return Array.from(new Set(parts)).slice(0,50);
+    }
+
+    function getRecentKey(){ 
+      return ['k', mealType.value, cuisine.value, dietType.value].map(s=>String(s||'').trim()).join('|');
+    }
+    function getRecentTitles(){
+      const key = getRecentKey();
+      const all = JSON.parse(localStorage.getItem("wasfa_recent_titles")||"{}");
+      return Array.isArray(all[key]) ? all[key] : [];
+    }
+    function pushRecentTitle(title){
+      const key = getRecentKey();
+      const all = JSON.parse(localStorage.getItem("wasfa_recent_titles")||"{}");
+      const list = Array.isArray(all[key]) ? all[key] : [];
+      const t = String(title||"").trim();
+      if (!t) return;
+      if (!list.includes(t)) list.unshift(t);
+      all[key] = list.slice(0,10);
+      localStorage.setItem("wasfa_recent_titles", JSON.stringify(all));
+    }
+
     async function callAPI(payload){
       const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
       if(!sess || !sess.auth_token || !sess.session_nonce){
@@ -321,17 +349,10 @@
       if (warning) setBanner("تنبيه: تم توليد الوصفة لكن بعض قيود النظام المختار أو المكونات المتاحة قد لا تكون مطبّقة بالكامل.", "amber");
       if (note === "repaired_to_meet_dr_moh_rules") setBanner("تم ضبط الوصفة تلقائيًا لتتوافق مع قواعد نظام د. محمد سعيد.", "amber");
       if (note === "aligned_with_available_ingredients") setBanner("تمت مواءمة الوصفة مع المكونات المتاحة لديك.", "amber");
+      if (note === "dessert_logic_issue") setBanner("ملاحظة: تم التحسين، راجع منطق الحلويات.", "amber");
+      if (note === "diversified_and_dessert_fixed" || note === "diversified_title_style") setBanner("تم تنويع الأسلوب والعنوان.", "amber");
 
       setTimeout(()=>window.scrollTo({top: resultContainer.offsetTop - 20, behavior:'smooth'}),150);
-    }
-
-    function parseAvailableList(text){
-      if(!text) return [];
-      const parts = text
-        .split(/[\n,،]+/).map(s=>s.trim()).filter(Boolean)
-        .map(s=>s.replace(/\s+/g,' '));
-      // إزالة التكرار البسيط
-      return Array.from(new Set(parts));
     }
 
     async function generate(){
@@ -355,11 +376,13 @@
           customMacros,
           allergies,
           availableIngredients: parseAvailableList(availableIngredients.value),
+          recentTitles: getRecentTitles(),
           lang:"ar"
         };
         const data=await callAPI(payload);
         const view=map(data.recipe);
         render(view, data.note, data.warning);
+        pushRecentTitle(view.title);
         setStatus(`تم التوليد بنجاح`, true);
         pushToast(`تم توليد الوصفة بنجاح`,"success");
       }catch(e){

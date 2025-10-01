@@ -99,7 +99,7 @@
     }
 
     if (!r.ok || !data) {
-      throw new Error(`تعذر إتمام الطلب (${r?.status || "?"})`);
+      throw new Error(`نأسف حيث هذا الحساب مرتبط بجهاز أخر (${r?.status || "?"})`);
     }
     if (!data.ok) {
       // خرائط رسائل الخطأ الشائعة من Function

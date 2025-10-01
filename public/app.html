@@ -56,7 +56,6 @@
   <div class="wrap">
     <!-- Header + Form -->
     <div class="card mb-8">
-      <!-- زر تسجيل الخروج في الهيدر (يمين) -->
       <div class="flex justify-end">
         <button id="logoutBtn" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--line)] bg-white hover:bg-gray-50 text-[var(--ink)] font-bold">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h4a2 2 0 012 2v1"/></svg>
@@ -112,34 +111,28 @@
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">النظام الغذائي</label>
-          <!-- سيتم استبدال العناصر تلقائيًا من settings.json العام -->
-          <select id="dietType" class="w-full border rounded-md p-3">
-            <option selected>عادي/متوازن</option>
-            <option>نظام د. محمد سعيد</option>
-            <option>كيتو</option>
-            <option>متوسطي (Mediterranean)</option>
-            <option>باليو (Paleo)</option>
-            <option>Whole30</option>
-            <option>DASH (قلب صحي)</option>
-            <option>منخفض الكربوهيدرات</option>
-            <option>منخفض الدهون</option>
-            <option>منخفض الصوديوم</option>
-            <option>منخفض المؤشر الجلايسيمي (سكري)</option>
-            <option>نباتي (Vegetarian)</option>
-            <option>فيجن (Vegan)</option>
-            <option>بسكاتاريان (نباتي مع أسماك)</option>
-            <option>خالي من الجلوتين</option>
-            <option>خالي من اللاكتوز</option>
-            <option>عالي البروتين</option>
-            <option>عالي الألياف</option>
-            <option>رياضي/زيادة كتلة عضلية</option>
-            <option>حلال</option>
-          </select>
+          <select id="dietType" class="w-full border rounded-md p-3"></select>
           <p class="text-xs text-slate-500 mt-1" id="dietHelp"></p>
         </div>
         <div>
           <label class="block text-sm text-[var(--muted)] mb-1">سعرات الحصة</label>
           <input id="calorieTarget" type="number" min="100" max="2000" step="50" value="550" class="w-full border rounded-md p-3" placeholder="مثال: 500">
+        </div>
+      </div>
+
+      <!-- حقول الماكروز للمخصص -->
+      <div id="customMacrosBox" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 hidden">
+        <div>
+          <label class="block text-sm text-[var(--muted)] mb-1">بروتين (جم/حصة)</label>
+          <input id="customProtein" type="number" min="0" step="1" value="30" class="w-full border rounded-md p-3" placeholder="مثال: 30">
+        </div>
+        <div>
+          <label class="block text-sm text-[var(--muted)] mb-1">كربوهيدرات (جم/حصة)</label>
+          <input id="customCarbs" type="number" min="0" step="1" value="35" class="w-full border rounded-md p-3" placeholder="مثال: 35">
+        </div>
+        <div>
+          <label class="block text-sm text-[var(--muted)] mb-1">دهون (جم/حصة)</label>
+          <input id="customFat" type="number" min="0" step="1" value="20" class="w-full border rounded-md p-3" placeholder="مثال: 20">
         </div>
       </div>
 
@@ -190,8 +183,8 @@
         </div>
 
         <div class="mt-6">
-            <h3 class="text-xl font-black mb-3">المعلومات الغذائية</h3>
-            <div id="tl-wrap" class="tl-wrap"></div>
+          <h3 class="text-xl font-black mb-3">المعلومات الغذائية</h3>
+          <div id="tl-wrap" class="tl-wrap"></div>
         </div>
       </div>
     </div>
@@ -219,7 +212,9 @@
           customAllergy=$('customAllergy'),
           btn=$('generateBtn'), spin=$('loadingIndicator'),
           statusMsg=$('statusMsg'), errMsg=$('errorMsg'),
-          banner=$('banner'), toast=$('toast'), dietHelp=$('dietHelp');
+          banner=$('banner'), toast=$('toast'), dietHelp=$('dietHelp'),
+          customBox=$('customMacrosBox'), customProtein=$('customProtein'),
+          customCarbs=$('customCarbs'), customFat=$('customFat');
 
     // outputs
     const resultContainer = $('resultContainer'), contentArea = $('contentArea'),
@@ -327,7 +322,22 @@
       try{
         const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
         if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
-        const payload={ mealType:mealType.value, cuisine:cuisine.value, dietType:dietType.value, caloriesTarget:Number(calorieTarget.value)||500, allergies, lang:"ar" };
+        const isCustom = (dietType.value === 'custom');
+        const customMacros = isCustom ? {
+          protein_g: Number(customProtein.value)||0,
+          carbs_g: Number(customCarbs.value)||0,
+          fat_g: Number(customFat.value)||0
+        } : null;
+
+        const payload={
+          mealType:mealType.value,
+          cuisine:cuisine.value,
+          dietType:dietType.value,
+          caloriesTarget:Number(calorieTarget.value)||500,
+          customMacros,
+          allergies,
+          lang:"ar"
+        };
         const data=await callAPI(payload);
         const view=map(data.recipe);
         render(view, data.note, data.warning);
@@ -342,27 +352,30 @@
       }
     }
 
-    // ===== تحميل الإعدادات العامة العامة (Public) والتحكم في القائمة =====
+    // ===== تحميل الإعدادات العامة وبناء قائمة الأنظمة + إظهار المخصص =====
     async function loadPublicSettingsAndBind(){
       try{
         const res = await fetch("data/settings.json?ts="+Date.now(), { cache:"no-store" });
         if(!res.ok) throw new Error("settings_fetch_failed");
         const s = await res.json();
-
-        // دعم مخططين: diets (عام) أو diet_systems (رسمي)
-        const diets = Array.isArray(s?.diets) ? s.diets :
-                      Array.isArray(s?.diet_systems) ? s.diet_systems : [];
+        const diets = Array.isArray(s?.diet_systems) ? s.diet_systems : [];
 
         if (diets.length){
-          // إعادة بناء قائمة الأنظمة من الإعدادات
-          dietType.innerHTML = diets.map(d=>`<option value="${d.id||d.name_ar||d.name_en||''}">${d.name_ar||d.name_en||d.id}</option>`).join("");
-          // ملاحظة توضيحية (أول نظام)
+          dietType.innerHTML = diets.map(d=>`<option value="${d.id}">${d.name_ar}</option>`).join("");
           const first = diets[0];
-          const desc = first?.description_ar || "";
-          dietHelp.textContent = desc ? `مثال (${first.name_ar}): ${desc}` : "";
+          dietHelp.textContent = first?.description_ar ? `مثال (${first.name_ar}): ${first.description_ar}` : "";
         }
+
+        function handleDietChange(){
+          const dId = dietType.value;
+          const current = diets.find(d=>String(d.id)===String(dId));
+          dietHelp.textContent = current?.description_ar || "";
+          customBox.classList.toggle('hidden', dId!=='custom');
+        }
+        dietType.addEventListener('change', handleDietChange);
+        handleDietChange();
       }catch(_){
-        // نتجاهل الفشل ونبقي القيم الافتراضية
+        // في حال الفشل، تبقى القائمة فارغة ويستطيع المستخدم المحاولة لاحقًا
       }
     }
 
@@ -383,19 +396,17 @@
       btn.addEventListener('click', ()=>{
         const v=+calorieTarget.value||0;
         if(v<100||v>2000){ setError("أدخل سعرات بين 100 و 2000"); return; }
+        if(dietType.value==='custom'){
+          const p=+customProtein.value||0, c=+customCarbs.value||0, f=+customFat.value||0;
+          if(p<=0 && c<=0 && f<=0){ setError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); return; }
+        }
         resetView(); generate();
       });
 
-      // حدث زر تسجيل الخروج
       const logoutBtn = $('logoutBtn');
       if (logoutBtn){
         logoutBtn.addEventListener('click', ()=>{
-          try{
-            localStorage.removeItem('wasfa_session');
-            // اختيارياً تنظيف مفاتيح إضافية إن وُجدت
-            // localStorage.clear(); // تجنبها إن كنت تخزن بيانات أخرى لا تخص الجلسة
-          }catch(_){}
-          // توجيه مباشر إلى صفحة تسجيل الدخول المطلوبة
+          try{ localStorage.removeItem('wasfa_session'); }catch(_){}
           window.location.replace('https://wasfaone.netlify.app/login.html');
         });
       }

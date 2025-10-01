@@ -46,7 +46,7 @@
     @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
     .banner{border:1px dashed #b45309;background:#fff7e6;color:#92400e}
     .banner.red{border-color:#b91c1c;background:#ffecec;color:#7f1d1d}
-    select,input[type="number"],input[type="text"]{min-height:48px}
+    select,input[type="number"],input[type="text"],textarea{min-height:48px}
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -155,6 +155,13 @@
         </div>
       </div>
 
+      <!-- المكوّنات المتاحة (اختياري) -->
+      <div class="mt-4">
+        <label class="block text-sm text-[var(--muted)] mb-1">المكوّنات المتاحة لديك (اختياري)</label>
+        <textarea id="availableIngredients" class="w-full border rounded-md p-3" placeholder="اكتب المكونات مفصولة بفواصل أو أسطر: صدر دجاج، كوسا، فلفل ألوان، زيت زيتون"></textarea>
+        <p class="text-xs text-slate-500 mt-1">سنحاول بناء الوصفة اعتمادًا على هذه القائمة مع السماح بإضافات بسيطة ضرورية فقط (ملح/فلفل/توابل/زيت/ماء) لضبط الماكروز والطهي.</p>
+      </div>
+
       <div id="banner" class="hidden mt-4 p-3 rounded-xl banner text-sm"></div>
 
       <div class="text-center my-6">
@@ -210,6 +217,7 @@
     const mealType=$('mealType'), cuisine=$('cuisine'), dietType=$('dietType'),
           calorieTarget=$('calorieTarget'), commonAllergy=$('commonAllergy'),
           customAllergy=$('customAllergy'),
+          availableIngredients=$('availableIngredients'),
           btn=$('generateBtn'), spin=$('loadingIndicator'),
           statusMsg=$('statusMsg'), errMsg=$('errorMsg'),
           banner=$('banner'), toast=$('toast'), dietHelp=$('dietHelp'),
@@ -310,10 +318,20 @@
       stepsBox.innerHTML = cleanSteps.map(s=>`<div class="step"><p>${s}</p></div>`).join("");
       renderTL(view.macros);
 
-      if (warning) setBanner("تنبيه: تم توليد الوصفة لكن بعض قيود النظام المختار قد لا تكون مطبّقة بالكامل.", "amber");
+      if (warning) setBanner("تنبيه: تم توليد الوصفة لكن بعض قيود النظام المختار أو المكونات المتاحة قد لا تكون مطبّقة بالكامل.", "amber");
       if (note === "repaired_to_meet_dr_moh_rules") setBanner("تم ضبط الوصفة تلقائيًا لتتوافق مع قواعد نظام د. محمد سعيد.", "amber");
+      if (note === "aligned_with_available_ingredients") setBanner("تمت مواءمة الوصفة مع المكونات المتاحة لديك.", "amber");
 
       setTimeout(()=>window.scrollTo({top: resultContainer.offsetTop - 20, behavior:'smooth'}),150);
+    }
+
+    function parseAvailableList(text){
+      if(!text) return [];
+      const parts = text
+        .split(/[\n,،]+/).map(s=>s.trim()).filter(Boolean)
+        .map(s=>s.replace(/\s+/g,' '));
+      // إزالة التكرار البسيط
+      return Array.from(new Set(parts));
     }
 
     async function generate(){
@@ -336,6 +354,7 @@
           caloriesTarget:Number(calorieTarget.value)||500,
           customMacros,
           allergies,
+          availableIngredients: parseAvailableList(availableIngredients.value),
           lang:"ar"
         };
         const data=await callAPI(payload);

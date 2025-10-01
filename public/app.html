@@ -180,6 +180,12 @@
       to { opacity: 1; transform: translateY(0); }
     }
     .fade-in-up { animation: fadeInUp 0.6s ease-out forwards; }
+
+    @keyframes popIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .status-pop-in { animation: popIn 0.5s ease-out forwards; }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -194,8 +200,10 @@
         </button>
       </div>
 
-      <h1 class="brand-title text-4xl md:text-5xl font-black text-center">Wasfa | وصفة</h1>
-      <p class="text-center text-lg text-[var(--muted)] mt-2 mb-4">التغذية الذكية .. لصحة مثالية</p>
+      <div class="text-center">
+        <h1 class="brand-title text-4xl md:text-5xl font-black leading-none px-2">Wasfa | وصفة</h1>
+        <p class="text-lg text-[var(--muted)] mt-3">التغذية الذكية .. لصحة مثالية</p>
+      </div>
 
       <div class="divider"></div>
 
@@ -278,7 +286,7 @@
               <span id="timeValue">—</span>
             </span>
             <span class="chip">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20v-2A3 3 0 005.356 18.143 3 3 0 005 20h5V20m0 0h10a2 2 0 002-2v-2a3 3 0 00-5.356-1.857M10 20v-2a3 3 0 0110.356 1.857 3 3 0 01-10.356 0zM6 10a3 3 0 11-6 0 3 3 0 016 0zM17 4a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
               <span id="servingsValue">—</span>
             </span>
           </div>
@@ -297,7 +305,7 @@
     <section id="contentArea" class="area mt-8 hidden">
       <aside class="panel">
         <h3 class="section-title">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.5 4l-1.5 1.5M19 9l-1.5 1.5M2 12h1.5M6.5 6.5l1 1M18 18l-1-1M12 2v1.5M12 20.5V22M4 15.5l1.5-1.5M9 19l1.5-1.5M12 12a3.5 3.5 0 00-3.5 3.5v0a3.5 3.5 0 006.364 2.136l1.636-1.636a3.5 3.5 0 00-2.136-6.364v0A3.5 3.5 0 0012 12z"></path></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 11 4-7"/><path d="m19 11-4-7"/><path d="M2 11h20"/><path d="m3.5 11 1.6 7.4a2 2 0 0 0 2 1.6h9.8c.9 0 1.8-.7 2-1.6l1.7-7.4"/><path d="m9 11 1 9"/><path d="M4.5 15.5h15"/><path d="m15 11-1 9"/></svg>
           <span>المكونات</span>
         </h3>
         <ul id="ingredientsList" class="ingredient-list"></ul>
@@ -305,7 +313,7 @@
 
       <main>
         <h3 class="section-title">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12c0-2.2-1.8-4-4-4H8c-2.2 0-4 1.8-4 4v4c0 2.2 1.8 4 4 4h8c2.2 0 4-1.8 4-4Z"></path><path d="M18 16h-4a2 2 0 110-4h4v4Z"></path><path d="m14 8 1.8-1.8c.6-.6 1.4-.9 2.2-.9H20v2.5c0 .8-.3 1.6-.9 2.2L19.5 8"></path></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="10" x2="21" y1="6" y2="6"/><line x1="10" x2="21" y1="12" y2="12"/><line x1="10" x2="21" y1="18" y2="18"/><path d="M4 6h1v4"/><path d="M4 10h2"/><path d="M6 18H4c0-1 2-2 2-3s-1-1.5-2-1.5"/></svg>
           <span>طريقة التحضير</span>
         </h3>
         <div id="preparationSteps" class="steps-list"></div>
@@ -343,10 +351,16 @@
   }
 
   function setStatus(text="", good=true){
+    statusMsg.classList.remove('status-pop-in');
+    void statusMsg.offsetWidth; // Trigger a reflow to restart animation
+
     statusMsg.textContent=text;
     statusMsg.classList.toggle('hidden', !text);
     statusMsg.classList.toggle('text-blue-600', good);
     statusMsg.classList.toggle('text-red-600', !good);
+    if (text) {
+        statusMsg.classList.add('status-pop-in');
+    }
   }
   function setError(text=""){ errMsg.textContent=text; errMsg.classList.toggle('hidden', !text) }
   function setBanner(text="", tone="amber"){
@@ -460,7 +474,7 @@
 
   async function generate(){
     setError(""); setStatus("جارٍ التوليد …", true);
-    btn.disabled=true; spin.classList.remove('hidden'); pushToast("جارٍ توليد الوصفة…","info");
+    btn.disabled=true; spin.classList.remove('hidden');
     try{
       const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
       if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
@@ -556,3 +570,8 @@
 </script>
 </body>
 </html>
+
+
+
+
+

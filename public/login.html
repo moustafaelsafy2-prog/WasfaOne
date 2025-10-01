@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>تسجيل الدخول • WasfaOne</title>
+  <title>تسجيل الدخول • Wasfa</title>
 
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts (نفس الصفحة الرئيسية) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
@@ -31,10 +31,9 @@
       color:var(--ink); background:var(--soft-bg);
     }
 
-    /* خلفية موحّدة مثل الهيرو */
+    /* خلفية مطابقة للصفحة الرئيسية */
     .auth-hero{
-      position:relative; min-height:100vh; display:grid; place-items:center;
-      overflow:hidden;
+      position:relative; min-height:100vh; display:grid; place-items:center; overflow:hidden;
     }
     .auth-hero::before{
       content:""; position:absolute; inset:0;
@@ -49,13 +48,13 @@
       backdrop-filter: blur(2px);
     }
 
-    /* هوية العنوان */
+    /* نفس هوية العنوان */
     .brand-title{
       background:linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
       -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     }
 
-    /* بطاقة احترافية موحّدة */
+    /* بطاقة احترافية مطابقة */
     .pro-card{
       position:relative;
       background:linear-gradient(180deg, #fff, #fafafa);
@@ -66,14 +65,11 @@
     }
     .pro-card:hover{ transform:translateY(-4px); box-shadow:0 30px 60px -20px rgba(0,0,0,.18) }
 
-    /* حاوية النموذج */
-    .auth-wrap{ width:100%; max-width:460px; padding:24px }
+    .auth-wrap{ width:100%; max-width:480px; padding:24px }
     .auth-card{ padding:28px }
 
-    /* الحقول + الأيقونة */
-    .field{
-      position:relative;
-    }
+    /* الحقول + الأيقونات */
+    .field{ position:relative }
     .field input{
       width:100%; min-height:52px; padding:0 48px 0 14px;
       border:1px solid var(--line); border-radius:16px; background:#fcfdff;
@@ -93,7 +89,7 @@
       display:grid; place-items:center; width:44px; color:#6b7280;
     }
 
-    /* زر الدخول بنفس ستايل CTA */
+    /* زر مطابق لزر CTA العام مع تأثير الوميض/التموج */
     .cta-button{
       position:relative; overflow:hidden;
       display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
@@ -106,63 +102,47 @@
     .cta-button::after{
       content:""; position:absolute; inset:-2px; border-radius:16px; opacity:0;
       background:radial-gradient(120px 120px at var(--mx,50%) var(--my,50%), rgba(255,255,255,.2), transparent 60%);
-      transition:opacity .2s;
+      transition:opacity .2s; pointer-events:none;
     }
     .cta-button.is-hovering::after{ opacity:1 }
+    .ripple{ position:absolute; border-radius:9999px; transform:translate(-50%,-50%); pointer-events:none; animation:ripple 600ms ease-out forwards; background:rgba(255,255,255,.35) }
+    @keyframes ripple{ from{ width:0; height:0; opacity:.6 } to{ width:340px; height:340px; opacity:0 } }
 
-    /* سبينر */
+    /* سبينر لو أردته في login.js */
     .spinner{
       border:2px solid #fff; border-top-color:transparent; border-radius:999px;
       width:20px; height:20px; animation:spin 1s linear infinite;
     }
     @keyframes spin{ to{ transform:rotate(360deg) } }
 
-    /* حركات دخول خفيفة */
-    .fade-up{ opacity:0; transform:translateY(12px); animation:fadeUp .6s ease-out .1s forwards }
-    @keyframes fadeUp{
-      to{ opacity:1; transform:none }
-    }
-
-    /* ترويسة مصغّرة أعلى البطاقة */
-    .mini-header{
-      display:flex; align-items:center; gap:.75rem;
-      margin-bottom:10px;
-    }
+    /* تفاصيل صغيرة */
+    .mini-header{ display:flex; align-items:center; gap:.75rem; margin-bottom:10px }
     .mini-badge{
       display:inline-grid; place-items:center; width:42px; height:42px;
       border-radius:12px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25);
       color:var(--brand);
     }
-
-    /* روابط */
     .link{ color:var(--brand); font-weight:700 }
     .link:hover{ color:var(--brand-dark); text-decoration:underline }
-
-    /* فوتر شفاف أعلى الخلفية */
-    .auth-footer{
-      color:#e5e7eb;
-      text-shadow:0 1px 2px rgba(0,0,0,.35);
-    }
+    .auth-footer{ color:#e5e7eb; text-shadow:0 1px 2px rgba(0,0,0,.35) }
   </style>
 </head>
 <body>
 
   <section class="auth-hero">
-    <!-- طبقة المحتوى -->
     <div class="relative z-10 auth-wrap">
-
       <!-- بطاقة تسجيل الدخول -->
-      <div class="pro-card auth-card fade-up">
-        <!-- شعار وعنوان -->
+      <div class="pro-card auth-card">
+        <!-- شعار وعنوان (Wasfa مثل الرئيسية) -->
         <header class="text-center mb-6">
           <div class="inline-flex items-center gap-3">
             <img id="login-logo" class="h-14 w-14 rounded-2xl shadow-md ring-1 ring-white/40" alt="Logo" src="https://placehold.co/60x60/ef4444/ffffff?text=W" />
-            <h1 class="text-4xl md:text-5xl font-black brand-title leading-none">WasfaOne</h1>
+            <h1 class="text-4xl md:text-5xl font-black brand-title leading-none">Wasfa</h1>
           </div>
           <p class="text-[var(--muted)] mt-2">مرحبًا بك — من فضلك سجّل دخولك للمتابعة</p>
         </header>
 
-        <!-- شارة صغيرة أعلى النموذج -->
+        <!-- شارة صغيرة -->
         <div class="mini-header">
           <span class="mini-badge"><i data-lucide="lock" class="w-5 h-5"></i></span>
           <div>
@@ -171,9 +151,8 @@
           </div>
         </div>
 
-        <!-- النموذج (نفس الآIDs ونفس العمل) -->
+        <!-- النموذج (نفس IDs تمامًا) -->
         <form id="login-form" class="space-y-5 mt-3">
-
           <!-- البريد -->
           <div class="field">
             <span class="icon"><i data-lucide="mail" class="w-5 h-5"></i></span>
@@ -199,13 +178,13 @@
             <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="link">نسيت كلمة المرور؟</a>
           </div>
 
-          <!-- زر الدخول (يبقى نفس IDs) -->
+          <!-- زر الدخول (نفس IDs) -->
           <button id="login-button" class="cta-button" type="submit">
             <span id="button-text">دخول</span>
             <div id="button-spinner" class="spinner hidden"></div>
           </button>
 
-          <!-- رسالة خطأ (لا تتغير) -->
+          <!-- رسالة خطأ (لا تتغيّر) -->
           <div id="login-error" class="text-red-600 text-sm hidden pt-1 text-center"></div>
         </form>
 
@@ -215,7 +194,7 @@
         </div>
       </div>
 
-      <!-- فوتر أعلى الخلفية -->
+      <!-- فوتر شفاف أعلى الخلفية -->
       <footer class="mt-6 text-center auth-footer text-sm">
         <span>&copy; 2024 Wasfa. جميع الحقوق محفوظة.</span>
       </footer>
@@ -225,12 +204,12 @@
   <!-- منطق الصفحة يبقى كما هو -->
   <script src="login.js"></script>
 
-  <!-- تحسينات تفاعلية صغيرة دون المساس بالمنطق -->
+  <!-- تحسينات تفاعلية بالواجهة فقط (لا تغيّر طريقة العمل) -->
   <script>
-    // تهيئة أيقونات Lucide
+    // تهيئة الأيقونات
     lucide.createIcons();
 
-    // تأثير ضوء على زر CTA
+    // تأثير ضوء + Ripple على زر الدخول (مطابق لهوية الموقع)
     const btn = document.getElementById('login-button');
     if (btn){
       btn.addEventListener('mousemove', (e)=>{
@@ -240,6 +219,15 @@
         btn.classList.add('is-hovering');
       });
       btn.addEventListener('mouseleave', ()=> btn.classList.remove('is-hovering'));
+      btn.addEventListener('click', (e)=>{
+        const r = btn.getBoundingClientRect();
+        const circle = document.createElement('span');
+        circle.className = 'ripple';
+        circle.style.left = (e.clientX - r.left) + 'px';
+        circle.style.top  = (e.clientY - r.top) + 'px';
+        btn.appendChild(circle);
+        setTimeout(()=> circle.remove(), 650);
+      });
     }
 
     // شعار احتياطي
@@ -248,42 +236,20 @@
       logo.src = 'https://placehold.co/60x60/ef4444/ffffff?text=W';
     }
 
-    // تبديل إظهار كلمة المرور — نفس IDs
+    // تبديل إظهار كلمة المرور (لا يمس إرسال النموذج)
     const togglePassword = document.getElementById('toggle-password');
-    const passwordInput = document.getElementById('password');
-    const eyeIcon = document.getElementById('eye-icon');
-    const eyeSlashIcon = document.getElementById('eye-slash-icon');
+    const passwordInput  = document.getElementById('password');
+    const eyeIcon        = document.getElementById('eye-icon');
+    const eyeSlashIcon   = document.getElementById('eye-slash-icon');
 
-    togglePassword.addEventListener('click', function() {
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
-      eyeIcon.classList.toggle('hidden');
-      eyeSlashIcon.classList.toggle('hidden');
-    });
-
-    // محاكاة بسيطة (إن أردت الإبقاء عليها) — لا تغيّر login.js
-    const loginForm = document.getElementById('login-form');
-    const loginButton = document.getElementById('login-button');
-    const buttonText = document.getElementById('button-text');
-    const buttonSpinner = document.getElementById('button-spinner');
-
-    loginForm.addEventListener('submit', function(e) {
-      // لا نغيّر آلية العمل الفعلية في login.js
-      // لو أردت إبقاء المحاكاة الحالية:
-      e.preventDefault();
-      buttonText.classList.add('hidden');
-      buttonSpinner.classList.remove('hidden');
-      loginButton.disabled = true;
-      loginButton.classList.add('cursor-wait', 'opacity-80');
-
-      setTimeout(() => {
-        buttonText.classList.remove('hidden');
-        buttonSpinner.classList.add('hidden');
-        loginButton.disabled = false;
-        loginButton.classList.remove('cursor-wait', 'opacity-80');
-        console.log("Login attempt finished.");
-      }, 1500);
-    });
+    if (togglePassword){
+      togglePassword.addEventListener('click', function(){
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        eyeIcon.classList.toggle('hidden');
+        eyeSlashIcon.classList.toggle('hidden');
+      });
+    }
   </script>
 </body>
 </html>

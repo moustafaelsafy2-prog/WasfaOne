@@ -1,12 +1,7 @@
 // /netlify/functions/login.js
-// Netlify Function: login (disambiguated status codes - NO 409 ANYWHERE)
-// Mapping:
-//   - 410 Gone            -> subscription_expired (auto-suspend persisted)
-//   - 451 Unavailable     -> suspended (non-expired reasons)
-//   - 412 Precondition    -> inactive_or_out_of_window / inactive
-//   - 423 Locked          -> device_locked (ONLY this case shows "device" message)
-//   - 401 Unauthorized    -> invalid credentials
-//   - 200 OK              -> success
+// Login with strong reasoned responses (ALL errors return 200 + ok:false)
+// This avoids FE hardcoded mapping of non-200 -> "device linked".
+// Order: suspended -> expired -> out_of_window -> inactive -> device -> success.
 
 import crypto from "crypto";
 
@@ -18,7 +13,7 @@ const GH_TOKEN = process.env.GITHUB_TOKEN;
 const GH_API = "https://api.github.com";
 const USERS_PATH = "data/users.json";
 
-/* ---------------- GitHub helpers ---------------- */
+/* ------------- GitHub helpers ------------- */
 async function ghGetJson(path){
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
     headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
@@ -43,7 +38,7 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
-/* ---------------- Date & status utils ---------------- */
+/* ------------- Date & status utils ------------- */
 function todayDubai(){
   return new Date().toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
 }
@@ -62,30 +57,38 @@ function withinWindow(start, end){
   const today = todayDubai();
   const s = normalizeDate(start);
   const e = normalizeDate(end);
-  if (s && cmpDate(today, s) < 0) return false;
-  if (e && cmpDate(today, e) > 0) return false;
+  if (s && cmpDate(today, s) < 0) return false; // before start
+  if (e && cmpDate(today, e) > 0) return false; // after end
   return true;
 }
 function norm(x){ return String(x||"").trim().toLowerCase(); }
 
-/* ---------------- helpers ---------------- */
-function respond(code, payload, reason, message){
+/* ------------- Response helpers (ALL errors as 200) ------------- */
+function emitOk(payload){
   return {
-    statusCode: code,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      ...(reason ? { "X-Error-Reason": reason } : {}),
-      ...(message ? { "X-Error-Message": encodeURIComponent(message) } : {}),
-    },
+    statusCode: 200,
+    headers: { "Content-Type":"application/json; charset=utf-8", "Cache-Control":"no-store" },
     body: JSON.stringify(payload),
   };
 }
+function emitError(reason, ar, en, extra = {}){
+  return {
+    statusCode: 200, // IMPORTANT: force FE to read body instead of mapping by status code
+    headers: {
+      "Content-Type":"application/json; charset=utf-8",
+      "Cache-Control":"no-store",
+      "X-Error-Reason": reason,
+      "X-UI-Message-Ar": encodeURIComponent(ar),
+      "X-UI-Message-En": encodeURIComponent(en),
+    },
+    body: JSON.stringify({ ok:false, reason, message: ar, message_en: en, ...extra }),
+  };
+}
 
-/* ---------------- Handler ---------------- */
+/* ------------- Handler ------------- */
 export async function handler(event){
   if(event.httpMethod !== "POST"){
-    return respond(405, { ok:false, reason:"method_not_allowed" }, "method_not_allowed");
+    return emitError("method_not_allowed", "الطريقة غير مسموحة", "Method Not Allowed");
   }
 
   try{
@@ -95,18 +98,18 @@ export async function handler(event){
     const deviceHash = String(body.device_fingerprint_hash||"").trim();
 
     if(!email || !password || !deviceHash){
-      return respond(400, { ok:false, reason:"missing_fields" }, "missing_fields", "حقول مفقودة");
+      return emitError("missing_fields", "بيانات مفقودة", "Missing required fields");
     }
 
     const { json: users, sha } = await ghGetJson(USERS_PATH);
     const idx = users.findIndex(u => String(u.email||"").toLowerCase().trim() === email);
     if(idx === -1){
-      return respond(401, { ok:false, reason:"invalid" }, "invalid_credentials", "بيانات الدخول غير صحيحة");
+      return emitError("invalid_credentials", "بيانات الدخول غير صحيحة", "Invalid credentials");
     }
 
     const user = users[idx];
     if(String(user.password||"") !== password){
-      return respond(401, { ok:false, reason:"invalid" }, "invalid_credentials", "بيانات الدخول غير صحيحة");
+      return emitError("invalid_credentials", "بيانات الدخول غير صحيحة", "Invalid credentials");
     }
 
     // Normalize dates & status
@@ -114,50 +117,66 @@ export async function handler(event){
     const endN   = normalizeDate(user.end_date);
     const status = norm(user.status);
 
-    // 1) Already suspended (non-expired or expired but flag present)
+    // 1) Already suspended -> specific message
     if (status === "suspended") {
-      const msg = norm(user.lock_reason) === "expired"
-        ? "انتهت صلاحية الاشتراك وتم تعليق الحساب"
-        : "هذا الحساب معلّق";
-      // Use 451 to avoid any FE mapping on 403/409
-      return respond(451, { ok:false, reason:"suspended", message: msg }, "suspended", msg);
+      const isExpired = norm(user.lock_reason) === "expired";
+      const ar = isExpired ? "انتهت صلاحية الاشتراك وتم تعليق الحساب" : "هذا الحساب معلّق";
+      const en = isExpired ? "Your subscription has expired and your account is suspended" : "This account is suspended";
+      return emitError("suspended", ar, en, { lock_reason: user.lock_reason || null });
     }
 
-    // 2) Expired by date -> auto-suspend & 410 Gone
+    // 2) Expired by date -> auto-suspend & persist
     const today = todayDubai();
     if (endN && cmpDate(today, endN) > 0) {
       user.status = "suspended";
       user.lock_reason = "expired";
       users[idx] = user;
       await ghPutJson(USERS_PATH, users, sha, `login: auto-suspend expired ${user.email}`);
-      const msg = "انتهت صلاحية الاشتراك وتم تعليق الحساب";
-      return respond(410, { ok:false, reason:"subscription_expired", message: msg }, "subscription_expired", msg);
+      return emitError(
+        "subscription_expired",
+        "انتهت صلاحية الاشتراك وتم تعليق الحساب",
+        "Your subscription has expired and your account is suspended",
+        { lock_reason: "expired" }
+      );
     }
 
-    // 3) Outside window or not active -> 412 (no 409)
+    // 3) Outside window
     if (!withinWindow(startN, endN)) {
-      return respond(412, { ok:false, reason:"inactive_or_out_of_window" }, "inactive_or_out_of_window", "خارج فترة الاشتراك");
-    }
-    if (status !== "active") {
-      return respond(412, { ok:false, reason:"inactive" }, "inactive", "الحساب غير نشط");
+      return emitError(
+        "inactive_or_out_of_window",
+        "الحساب خارج فترة الاشتراك",
+        "Account is out of subscription window"
+      );
     }
 
-    // 4) Device logic — ONLY here -> 423 Locked
+    // 4) Not active
+    if (status !== "active") {
+      return emitError(
+        "inactive",
+        "الحساب غير نشط",
+        "Account is not active"
+      );
+    }
+
+    // 5) Device checks (only reached if all above passed)
     if(!user.device_fingerprint){
       user.device_fingerprint = deviceHash;
     } else if(user.device_fingerprint !== deviceHash){
-      const msg = "الحساب مرتبط بجهاز آخر. لإعادة الربط: 00971502061209";
-      return respond(423, { ok:false, reason:"device_locked", message: msg }, "device_locked", msg);
+      return emitError(
+        "device_locked",
+        "الحساب مرتبط بجهاز آخر. لإعادة الربط: 00971502061209",
+        "This account is linked to another device. For relink: 00971502061209"
+      );
     }
 
-    // 5) Tokens & persist
+    // 6) Tokens & persist
     user.session_nonce = crypto.randomUUID();
     if(!user.auth_token) user.auth_token = crypto.randomUUID();
 
     users[idx] = user;
     await ghPutJson(USERS_PATH, users, sha, `login: refresh session for ${user.email}`);
 
-    return respond(200, {
+    return emitOk({
       ok: true,
       name: user.name || "",
       email: user.email,
@@ -166,6 +185,6 @@ export async function handler(event){
     });
 
   }catch(err){
-    return respond(500, { ok:false, error: String(err && err.message || err) }, "exception", "خطأ في الخادم");
+    return emitError("exception", "حدث خطأ في الخادم", "Server error", { error: String(err && err.message || err) });
   }
 }

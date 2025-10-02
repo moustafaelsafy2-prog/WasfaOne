@@ -2,6 +2,7 @@
 // Netlify Function: login
 // POST: { email, password, device_fingerprint_hash }
 // Updates users.json: bind device if empty, enforce single-device, set session_nonce (refresh only), keep auth_token stable
+// + NEW: enforce subscription window & auto-suspend if expired (status -> "suspended")
 
 import crypto from "crypto";
 
@@ -78,6 +79,20 @@ export async function handler(event){
     const user = users[idx];
     if(user.password !== password){
       return { statusCode: 401, body: JSON.stringify({ ok:false, reason:"invalid" }) };
+    }
+
+    // NEW: auto-suspend if expired, then block
+    const today = todayDubai();
+    if (user.end_date && today > user.end_date) {
+      user.status = "suspended";
+      user.lock_reason = "expired";
+      users[idx] = user;
+      await ghPutJson(USERS_PATH, users, sha, `login: auto-suspend expired ${user.email}`);
+      return { statusCode: 403, body: JSON.stringify({
+        ok:false,
+        reason:"subscription_expired",
+        message:"انتهت صلاحية الاشتراك وتم تعليق الحساب"
+      }) };
     }
 
     if((user.status||"").toLowerCase() !== "active" || !withinWindow(user.start_date, user.end_date)){

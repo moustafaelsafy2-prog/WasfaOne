@@ -1,7 +1,7 @@
 // netlify/functions/generateRecipeImage.js
-// هدف: صورة مُعبّرة فعلاً عن الطبق، مع منع صور الأشخاص أو المشاهد العامة.
-// الترتيب: Wikimedia → Pexels (تصفية صارمة) → Google (إن توفر) → Replicate (negative قوي + seed) → Placeholder.
-// الاستجابة: { ok:true, image:{ data_url, mime, mode } }
+// هدف عام: توليد/جلب صورة مناسبة للطبق لأي مطبخ أو صنف، مع تصفية ذكية ومنع الصور غير المعبرة.
+// الترتيب: Wikimedia → Pexels → Google (إن توفر) → Replicate (FLUX/SDXL) → Placeholder.
+// لا إشارات للمزوّد في الاستجابة. يدعم GET للفحص دون توليد.
 
 const HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -16,10 +16,12 @@ const PEXELS_KEY    = process.env.PEXELS_API_KEY || "";
 const GEMINI_KEY    = process.env.GEMINI_API_KEY || "";
 const REPLICATE_KEY = process.env.REPLICATE_API_TOKEN || "";
 
-/* ================== أدوات عامة ================== */
+/* ================= أدوات عامة ================= */
 function normalizeList(a, max=25){
   return (Array.isArray(a)?a:[])
-    .map(s=>String(s||"").trim()).filter(Boolean).slice(0,max);
+    .map(s=>String(s||"").trim())
+    .filter(Boolean)
+    .slice(0,max);
 }
 function uniq(arr){ return Array.from(new Set(arr)); }
 function tokenize(s){
@@ -36,7 +38,6 @@ function stableSeedFrom(str){
   for (let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h += (h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24); }
   return Math.abs(h>>>0);
 }
-
 async function fetchAsDataURL(imageUrl, timeoutMs = 20000){
   const ctrl = new AbortController();
   const t = setTimeout(()=>ctrl.abort(), timeoutMs);
@@ -49,94 +50,166 @@ async function fetchAsDataURL(imageUrl, timeoutMs = 20000){
   return { dataUrl: `data:${mime};base64,${b64}`, mime };
 }
 
-/* ================== قواعد المطابقة ================== */
-// كلمات ممنوعة (وجودها يُقصي النتيجة) — عربي/إنجليزي
-const BANNED_TOKENS = [
-  "person","people","woman","man","girl","boy","portrait","selfie","model","fitness","yoga","travel",
-  "tourist","lifestyle","fashion","dress","beach","mountain","forest","city","wedding","family","couple",
-  "رجل","امرأة","نساء","بنات","فتاة","شخص","اشخاص","أشخاص","عائلة","طفل","أزياء","سيلفي","رحلة","بحر","شاطئ"
-];
+/* ================= كشف عام للصنف/البروتين/المطبخ ================= */
+const TOK = {
+  fish: ["fish","seafood","salmon","tuna","shrimp","prawn","squid","octopus","sardine","anchovy","mackerel","سمك","سَمَك","سردين","تونة","سلمون","روبيان","جمبري","كاليماري","حبار","أخطبوط","مأكولات","بحرية"],
+  chicken: ["chicken","poultry","breast","thigh","drumstick","دجاج","فراخ","صدور","افخاذ"],
+  meat: ["meat","beef","lamb","mutton","goat","veal","لحمة","لحم","بقر","غنم","ضأن","ماعز","عجل"],
+  veg: ["vegetarian","vegan","نباتي","صيامي"],
+  rice: ["rice","أرز","رز","biryani","mandi","kabsa","mansaf","pilaf","pulao"],
+  soup: ["soup","شوربة","حساء"],
+  salad: ["salad","سلطة"],
+  pasta: ["pasta","spaghetti","penne","fettuccine","macaroni","مكرونة","معكرونة"],
+  sandwich: ["sandwich","burger","wrap","shawarma","ساندوتش","شطيرة","برجر","شاورما"],
+  stew: ["stew","curry","tagine","مرق","يخنة","طاجن"],
+  grill: ["grill","grilled","barbecue","مشوي","مشاوي"],
+  baked: ["baked","roasted","oven","مخبوز","في الفرن","محمر"],
+  dessert: ["dessert","cake","pastry","sweet","حلويات","كيك","بسبوسة","بقلاوة"," kunafa","كنافة","حلو"]
+};
 
-// كلمات مُحبّذة تؤكد أنها أكل/طبق
-const FOOD_HINTS = [
-  "food","dish","plate","plated","meal","cooked","baked","roasted","grilled","stew","soup","salad","kebab","kabob",
-  "kofta","shawarma","rice","meat","chicken","beef","lamb","vegetable","herbs","sauce","garnish","olive","tagine",
-  "mezze","hummus","falafel","fattoush","tabbouleh","baba","moussaka","mandi","kabsa","dolma","mahshi","moussakhan",
-  "cuisine","restaurant","kitchen"
-];
+function detectProtein({ title, ingredients=[] }){
+  const text = `${title} ${ingredients.join(" ")}`.toLowerCase();
+  const has=(arr)=>arr.some(w=>text.includes(w));
+  if(has(TOK.fish)) return "fish";
+  if(has(TOK.chicken)) return "chicken";
+  if(has(TOK.meat)) return "meat";
+  if(has(TOK.veg)) return "veg";
+  // تخمين إضافي من كلمات شائعة
+  if (/دجاج|chicken/i.test(text)) return "chicken";
+  if (/سمك|fish|seafood/i.test(text)) return "fish";
+  if (/لحم|meat|beef|lamb|mutton/i.test(text)) return "meat";
+  return "unknown";
+}
 
-// تحويل اسم الطبق إلى مفاتيح إنجليزية شائعة (للأطباق العربية)
-function dishSynonyms(title){
-  const t = String(title||"").toLowerCase();
-  const m = [];
-  if(/كباب|kebab/.test(t)) m.push("kebab","kabob","grilled meat");
-  if(/كفتة|كفته|kofta/.test(t)) m.push("kofta","kebab","grilled meat");
-  if(/تبوله|تبولة|tabbouleh/.test(t)) m.push("tabbouleh","salad","parsley bulgur salad");
-  if(/فتوش|fattoush/.test(t)) m.push("fattoush","salad");
-  if(/حمص|hummus/.test(t)) m.push("hummus","mezze");
-  if(/بابا غنوج|baba/.test(t)) m.push("baba ganoush","eggplant dip");
-  if(/مشاوي|مشوي|grill/.test(t)) m.push("grilled","barbecue");
-  if(/منسف|كبسة|mandi|kabsa|mansaf/.test(t)) m.push("rice","arab rice dish");
-  if(/مسقعه|moussaka/.test(t)) m.push("moussaka");
-  if(/شاورما|shawarma/.test(t)) m.push("shawarma");
-  return uniq(m);
+function detectDishType({ title, ingredients=[], steps=[] }){
+  const text = `${title} ${ingredients.join(" ")} ${steps.join(" ")}`.toLowerCase();
+  const has=(arr)=>arr.some(w=>text.includes(w));
+  if(has(TOK.rice)) return "rice";
+  if(has(TOK.soup)) return "soup";
+  if(has(TOK.salad)) return "salad";
+  if(has(TOK.pasta)) return "pasta";
+  if(has(TOK.sandwich)) return "sandwich";
+  if(has(TOK.stew)) return "stew";
+  if(has(TOK.grill)) return "grill";
+  if(has(TOK.baked)) return "baked";
+  if(has(TOK.dessert)) return "dessert";
+  return "generic";
 }
 
 function cuisineHints(c){
   const m = String(c||"").toLowerCase();
-  if(/عراقي|iraqi/.test(m)) return ["iraqi","middle eastern","arab","grill"];
-  if(/شامي|levant|syria|leban|فلسطين|اردن/.test(m)) return ["levant","arab","middle eastern","mezze","grill"];
-  if(/مصري|egypt/.test(m)) return ["egyptian","arab","middle eastern","grill"];
-  if(/خليج|saudi|kuwait|emirati|qatari|omani|bahraini/.test(m)) return ["gulf","arab","middle eastern"];
-  if(/تركي|turk/.test(m)) return ["turkish","kebab","meze"];
-  if(/ايراني|فارسي|persian|iran/.test(m)) return ["persian","kebab","saffron"];
-  if(/متوسطي|medit/.test(m)) return ["mediterranean","olive oil","fresh"];
+  if(/arab|middle eastern|شرق|شامي|خليج|مغربي|تونسي|جزائري|مصري|يمني|سعودي|لبناني|سوري|فلسطيني|أردني/.test(m)) return ["arab","middle eastern","levant","gulf","mediterranean"];
+  if(/تركي|turk/.test(m)) return ["turkish","anatolian","meze"];
+  if(/ايراني|فارسي|persian|iran/.test(m)) return ["persian","iranian"];
+  if(/هندي|india|indian/.test(m)) return ["indian","south asian"];
+  if(/باكستان|pakistan/.test(m)) return ["pakistani","south asian"];
+  if(/صيني|china|chinese/.test(m)) return ["chinese"];
+  if(/يابان|japan/.test(m)) return ["japanese"];
+  if(/كوري|korea/.test(m)) return ["korean"];
+  if(/تايلند|thai/.test(m)) return ["thai"];
+  if(/فيتنام|vietnam/.test(m)) return ["vietnamese"];
+  if(/ايطالي|italy/.test(m)) return ["italian","mediterranean"];
+  if(/اسباني|spain/.test(m)) return ["spanish","mediterranean"];
+  if(/فرنسي|france/.test(m)) return ["french","european"];
+  if(/يوناني|greece|greek/.test(m)) return ["greek","mediterranean"];
+  if(/امريكي|american|usa/.test(m)) return ["american"];
+  if(/مكسيك|mexic/.test(m)) return ["mexican","latin"];
+  if(/افريقي|ethiop/.test(m)) return ["african","ethiopian","north african"];
   return [];
 }
 
-// يحسب نقاط الصورة استنادًا إلى alt/url مع فلترة الممنوعات
-function scoreCandidateText(text, { title, ingredients, cuisine }){
+/* =============== قواعد تقييم/منع عامة =============== */
+const BANNED_NONFOOD = [
+  "person","people","woman","man","girl","boy","portrait","selfie","model","fitness","yoga","fashion",
+  "travel","tourist","wedding","family","couple","sports","beach","mountain","city","forest",
+  "رجل","امرأة","نساء","بنات","فتاة","شخص","أشخاص","عائلة","زفاف","سياحة","رحلة","شاطئ","غابة","مدينة"
+];
+
+// كلمات تؤكد أنها أكل/طبق/تقديم
+const FOOD_HINTS = [
+  "food","dish","plate","plated","meal","cooked","baked","roasted","grilled","stew","soup",
+  "salad","kebab","kabob","kofta","shawarma","rice","meat","chicken","fish","lamb","vegetable","herbs",
+  "sauce","garnish","olive","tagine","mezze","cuisine","kitchen","restaurant","tray","platter","bowl"
+];
+
+function typeHints(dishType){
+  const map = {
+    rice: ["rice","pilaf","pulao","biryani","mandi","kabsa","long-grain","saffron","spiced","tray","platter"],
+    soup: ["soup","broth","bowl","spoon","ladle","creamy","clear"],
+    salad:["salad","greens","herbs","chopped","bowl","fresh"],
+    pasta:["pasta","spaghetti","penne","noodles","sauce"],
+    sandwich:["sandwich","wrap","burger","bread","pita","bun"],
+    stew:["stew","curry","thick","sauce","braised","tagine"],
+    grill:["grill","char","skewers","kebab","kabob","grilled"],
+    baked:["baked","roasted","oven","tray","sheet"],
+    dessert:["dessert","sweet","cake","pastry","syrup","cream"],
+    generic:["dish","plate","meal"]
+  };
+  return map[dishType] || map.generic;
+}
+
+function scoreCandidateText(text, meta){
   const toks = tokenize(text);
-  // اقصاء مباشر إن وجد محظور
-  for(const b of BANNED_TOKENS){ if (toks.includes(b)) return -999; }
+  // إقصاء لغير الغذاء
+  for(const b of BANNED_NONFOOD){ if (toks.includes(b)) return -999; }
+
+  const { title, ingredients, cuisine, dishType, protein } = meta;
+
+  // منع تضارب البروتينات: لو نباتي امنع اللحوم/السمك؛ لو دجاج امنع سمك/بعض اللحوم… إلخ (بشكل عام)
+  if (protein === "veg"){
+    for(const t of [...TOK.chicken, ...TOK.meat, ...TOK.fish]) if (toks.includes(t)) return -999;
+  } else if (protein === "chicken"){
+    for(const t of TOK.fish) if (toks.includes(t)) return -999;
+  } else if (protein === "fish"){
+    for(const t of [...TOK.chicken, ...TOK.meat]) if (toks.includes(t)) return -999;
+  }
 
   let score = 0;
-  // اسم الطبق
-  const titleTokens = uniq(tokenize(title)).concat(dishSynonyms(title));
-  for (const tk of titleTokens) if (toks.includes(tk)) score += 6;
 
-  // المكونات
-  const ingTokens = uniq(normalizeList(ingredients,6).flatMap(tokenize));
-  for (const tk of ingTokens) if (toks.includes(tk)) score += 2;
+  // اسم الطبق (وزن عالٍ)
+  for(const tk of uniq(tokenize(title))) if(toks.includes(tk)) score += 6;
 
-  // تلميحات المطبخ
-  for (const tk of cuisineHints(cuisine)) if (toks.includes(tk)) score += 2;
+  // المكوّنات (وزن متوسط)
+  for(const tk of uniq(normalizeList(ingredients,6).flatMap(tokenize))) if(toks.includes(tk)) score += 2;
+
+  // المطبخ
+  for(const tk of cuisineHints(cuisine)) if(toks.includes(tk)) score += 2;
+
+  // صنف الطبق
+  for(const tk of typeHints(dishType)) if(toks.includes(tk)) score += 2;
 
   // تلميحات طعام عامة
-  for (const tk of FOOD_HINTS) if (toks.includes(tk)) score += 1;
+  for(const tk of FOOD_HINTS) if(toks.includes(tk)) score += 1;
+
+  // تعزيز البروتين الصحيح إن ذُكر
+  if (protein==="chicken" && (toks.includes("chicken")||toks.includes("دجاج"))) score += 4;
+  if (protein==="meat"    && (toks.includes("meat")||toks.includes("beef")||toks.includes("lamb")||toks.includes("لحم"))) score += 3;
+  if (protein==="fish"    && (toks.includes("fish")||toks.includes("seafood")||toks.includes("سمك"))) score += 4;
+  if (protein==="veg"     && (toks.includes("vegetarian")||toks.includes("vegan")||toks.includes("نباتي"))) score += 4;
 
   return score;
 }
 
-/* ================== (A) Wikimedia Commons ================== */
-function commonsQueries({ title, cuisine, ingredients }){
+/* =============== A) Wikimedia Commons =============== */
+function commonsQueries({ title, cuisine, ingredients, dishType }){
   const base = [
     title,
-    `${title} dish`,
+    `${title} ${dishType} dish`,
     `${title} food`,
     `${title} ${cuisine} dish`,
-    `${title} recipe`,
+    `${title} recipe`
   ];
   const ing = (ingredients||[]).slice(0,3).join(" ");
   base.push(`${title} ${ing}`);
   return uniq(base.map(s=>s.trim()).filter(Boolean));
 }
 
-async function tryWikimedia({ title, cuisine, ingredients }){
-  const queries = commonsQueries({ title, cuisine, ingredients });
+async function tryWikimedia(meta){
+  const { title, cuisine, ingredients, dishType } = meta;
+  const queries = commonsQueries({ title, cuisine, ingredients, dishType });
   for (const q of queries){
     try{
-      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=12&prop=imageinfo&iiprop=url|mime|size|extmetadata&iiurlwidth=900&format=json&origin=*`;
+      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=16&prop=imageinfo&iiprop=url|mime|size|extmetadata&iiurlwidth=900&format=json&origin=*`;
       const ctrl = new AbortController();
       const timeout = setTimeout(()=>ctrl.abort(), 9000);
       const resp = await fetch(url, { signal: ctrl.signal });
@@ -153,9 +226,8 @@ async function tryWikimedia({ title, cuisine, ingredients }){
         const mime = (info.mime||"").toLowerCase();
         if(!/^image\/(jpeg|jpg|png|webp)$/i.test(mime)) continue;
         const cand = info.thumburl || info.url; if(!cand) continue;
-
         const text = `${p.title||""} ${(info.extmetadata?.ImageDescription?.value||"")}`.replace(/<[^>]+>/g," ");
-        const s = scoreCandidateText(text, { title, ingredients, cuisine });
+        const s = scoreCandidateText(text, meta);
         if(s>bestScore){ bestScore=s; best={ url:cand, mime: info.mime||"image/jpeg" }; }
       }
       if(best && bestScore>0){
@@ -167,13 +239,23 @@ async function tryWikimedia({ title, cuisine, ingredients }){
   return null;
 }
 
-/* ================== (B) Pexels مع تصفية صارمة ================== */
-async function tryPexels({ title, ingredients, cuisine }){
+/* =============== B) Pexels =============== */
+async function tryPexels(meta){
   if(!PEXELS_KEY) return null;
+  const { title, dishType, protein, cuisine, ingredients } = meta;
 
-  // استعلام مركّب يؤكد أنه عن طبق
-  const enrichedTitle = [title, ...dishSynonyms(title), "food dish", "on plate"].filter(Boolean).join(" ");
-  const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(enrichedTitle)}&per_page=24&orientation=landscape`;
+  const proteinWord =
+    protein==="veg" ? "vegetarian" :
+    protein==="chicken" ? "chicken" :
+    protein==="fish" ? "fish" :
+    protein==="meat" ? "meat" : "";
+
+  const typeWord = dishType==="generic" ? "dish" : dishType;
+
+  const enriched = [title, proteinWord, typeWord, "cooked food", ...cuisineHints(cuisine)]
+    .filter(Boolean).join(" ");
+
+  const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(enriched)}&per_page=24&orientation=landscape`;
 
   const ctrl = new AbortController();
   const timeout = setTimeout(()=>ctrl.abort(), 9000);
@@ -186,10 +268,9 @@ async function tryPexels({ title, ingredients, cuisine }){
   let best=null, bestScore=-1;
   for(const ph of data.photos){
     const text = `${ph?.alt||""} ${ph?.url||""}`.toLowerCase();
-    const s = scoreCandidateText(text, { title, ingredients, cuisine });
+    const s = scoreCandidateText(text, meta);
     if(s>bestScore){ bestScore=s; best = ph?.src?.large2x || ph?.src?.large || ph?.src?.medium || ph?.src?.original || null; }
   }
-  // ارفض النتائج السالبة (تحتوي محظورات)
   if(bestScore<=0 || !best) return null;
 
   try{
@@ -198,7 +279,7 @@ async function tryPexels({ title, ingredients, cuisine }){
   }catch(_){ return null; }
 }
 
-/* ================== (C) Google (إن وُجد نموذج صور) ================== */
+/* =============== C) Google Generative Language (إن توفر) =============== */
 const GL_BASE = "https://generativelanguage.googleapis.com/v1beta";
 let cachedModels = null;
 let cachedImageModel = null;
@@ -217,48 +298,64 @@ async function glListModels(){
   return cachedModels;
 }
 function pickImageModelFrom(models){
-  const hasGC = (m) => Array.isArray(m?.supportedGenerationMethods)
-    ? m.supportedGenerationMethods.includes("generateContent")
-    : true;
-  const imagen = models.find(m => /(^|\/)models\/.*imagen/i.test(m?.name||"") && hasGC(m));
+  const gc = (m)=>Array.isArray(m?.supportedGenerationMethods)?m.supportedGenerationMethods.includes("generateContent"):true;
+  const imagen = models.find(m => /(^|\/)models\/.*imagen/i.test(m?.name||"") && gc(m));
   if (imagen?.name) return imagen.name.replace(/^models\//, "");
-  const imageLike = models.find(m => /(^|\/)models\/.*image/i.test(m?.name||"") && hasGC(m));
-  if (imageLike?.name) return imageLike.name.replace(/^models\//, "");
+  const imageAny = models.find(m => /(^|\/)models\/.*image/i.test(m?.name||"") && gc(m));
+  if (imageAny?.name) return imageAny.name.replace(/^models\//, "");
   return null;
 }
 
-function buildTextPrompt({ title = "", ingredients = [], steps = [], cuisine = "", lang = "ar" }){
-  const titleLine = title ? `اسم الطبق: ${title}` : "اسم الطبق غير محدد";
-  const ingLine   = ingredients.length ? `المكوّنات: ${ingredients.join(", ")}` : "المكوّنات: —";
-  const stepsLine = steps.length ? `ملخص التحضير: ${steps.join(" ثم ")}` : "طريقة التحضير: —";
-  const cuiLine   = cuisine ? `المطبخ: ${cuisine}` : "المطبخ: متنوع";
+function buildTextPrompt(meta){
+  const { title, ingredients, steps, cuisine, dishType, protein, lang } = meta;
 
-  const ar = `
-أنت مصوّر أطعمة محترف. أنشئ صورة فوتوغرافية واقعية للطبق النهائي:
-${titleLine}
-${cuiLine}
-${ingLine}
-${stepsLine}
-- زاوية 30–45°، إضاءة طبيعية، تقديم أنيق على طبق، خلفية مطبخ محايدة.
-- بدون أي نصوص/شعارات/أشخاص/أيدي، وبدون ديكور لا علاقة له بالطعام.
-أخرج صورة واحدة مناسبة للويب.
-`.trim();
+  const style = `
+- 30–45° angle, soft natural light, elegant plating, neutral kitchen backdrop.
+- No text/logos/watermarks. No people or hands. Realistic, appetizing colors.`.trim();
 
   const en = `
-You are a professional food photographer. Generate one photorealistic final dish image:
+You are a professional food photographer.
+Generate one photorealistic image for:
 Title: ${title || "N/A"}
-Cuisine: ${cuisine || "Mixed"}
+Cuisine hints: ${cuisineHints(cuisine).join(", ") || "global"}
+Dish type: ${dishType}
+Protein: ${protein}
 Key ingredients: ${(ingredients||[]).join(", ") || "—"}
 Preparation summary: ${(steps||[]).join(" then ") || "—"}
-- 30–45° angle, soft natural light, elegant plating on a plate, neutral kitchen backdrop.
-- No text/logos/people/hands, no unrelated props.
-Return exactly one web-suitable image.
-`.trim();
+${dishType==="rice" ? "Ensure a prominent rice base (long-grain) plated appropriately." : ""}
+${dishType==="soup" ? "Serve in a bowl with visible broth." : ""}
+${dishType==="salad" ? "Fresh chopped ingredients, no heavy sauces." : ""}
+${dishType==="pasta" ? "Recognizable pasta shapes coated with sauce." : ""}
+${dishType==="sandwich" ? "Clearly a sandwich/wrap/burger." : ""}
+${dishType==="stew" ? "Thick saucy consistency." : ""}
+${dishType==="grill" ? "Grilled/charred cues." : ""}
+${dishType==="dessert" ? "Dessert presentation." : ""}
+${style}`.trim();
 
-  return (lang === "en") ? en : ar;
+  const ar = `
+أنت مصوّر أطعمة محترف.
+أنشئ صورة فوتوغرافية واقعية لـ:
+الاسم: ${title || "—"}
+تلميحات المطبخ: ${cuisineHints(cuisine).join(", ") || "عالمي"}
+نوع الطبق: ${dishType}
+نوع البروتين: ${protein}
+المكوّنات الأساسية: ${(ingredients||[]).join(", ") || "—"}
+ملخص التحضير: ${(steps||[]).join(" ثم ") || "—"}
+${dishType==="rice" ? "تأكيد وجود أساس من الأرز الطويل الحبة والتقديم الملائم." : ""}
+${dishType==="soup" ? "يُقدَّم في وعاء مع مرق واضح." : ""}
+${dishType==="salad" ? "مكونات طازجة مقطّعة، دون صوص ثقيل." : ""}
+${dishType==="pasta" ? "شكل مكرونة واضح مع صلصة." : ""}
+${dishType==="sandwich" ? "ساندوتش/راب/برجر واضح." : ""}
+${dishType==="stew" ? "قوام سميك غني." : ""}
+${dishType==="grill" ? "علامات شواء واضحة." : ""}
+${dishType==="dessert" ? "تقديم حلوى." : ""}
+- زاوية 30–45°، إضاءة طبيعية ناعمة، خلفية مطبخ محايدة، تقديم أنيق.
+- بدون نصوص/شعارات/أشخاص/أيدي، ألوان واقعية فاتحة للشهية.`.trim();
+
+  return (lang==="en") ? en : ar;
 }
 
-async function tryGoogleImage(prompt){
+async function tryGoogleImage(meta){
   if(!GEMINI_KEY) return null;
   try{
     if(!cachedImageModel){
@@ -267,7 +364,11 @@ async function tryGoogleImage(prompt){
       if(!cachedImageModel) return null;
     }
     const url = `${GL_BASE}/models/${encodeURIComponent(cachedImageModel)}:generateContent`;
-    const body = { contents:[{ role:"user", parts:[{ text: prompt }] }], generationConfig:{ temperature:0, topP:1, maxOutputTokens:64 }, safetySettings:[] };
+    const body = {
+      contents:[{ role:"user", parts:[{ text: buildTextPrompt(meta) }] }],
+      generationConfig:{ temperature:0, topP:1, maxOutputTokens:64 },
+      safetySettings:[]
+    };
 
     const ctrl = new AbortController();
     const timeout = setTimeout(()=>ctrl.abort(), 12000);
@@ -290,37 +391,22 @@ async function tryGoogleImage(prompt){
     );
     if(!found) return null;
 
-    const mime =
-      found.inlineData?.mimeType ||
-      found.inline_data?.mime_type ||
-      found.fileData?.mimeType ||
-      "image/png";
-
-    const b64 =
-      found.inlineData?.data ||
-      found.inline_data?.data ||
-      null;
-
-    if (!b64 && found.fileData?.fileUri) {
+    const mime = found.inlineData?.mimeType || found.inline_data?.mime_type || found.fileData?.mimeType || "image/png";
+    const b64  = found.inlineData?.data     || found.inline_data?.data     || null;
+    if(!b64 && found.fileData?.fileUri){
       const { dataUrl, mime: m2 } = await fetchAsDataURL(found.fileData.fileUri, 20000);
       return { dataUrl, mime: m2 || mime, mode:"inline" };
     }
-    if (!b64) return null;
-
+    if(!b64) return null;
     return { dataUrl:`data:${mime};base64,${b64}`, mime, mode:"inline" };
   }catch{ return null; }
 }
 
-/* ================== (D) Replicate (negative قوي + seed) ================== */
+/* =============== D) Replicate (FLUX/SDXL) =============== */
 const REPLICATE_MODEL_CANDIDATES = [
   { owner:"black-forest-labs", name:"flux-schnell" }, // أسرع
   { owner:"stability-ai",      name:"sdxl" }          // أدق
 ];
-
-function negativePrompt(){
-  return "text, watermark, logo, people, person, hands, fingers, portrait, selfie, cartoon, unrealistic, extra objects, wrong ingredients, clutter, low quality, lowres, blurry, artifacts";
-}
-
 async function replicateLatestVersion(owner, name){
   const url = `https://api.replicate.com/v1/models/${owner}/${name}/versions`;
   const ctrl = new AbortController();
@@ -346,7 +432,9 @@ async function replicatePredict(versionId, input, overallTimeoutMs=45000){
   const t0 = Date.now();
   while(true){
     await new Promise(r=>setTimeout(r, 900));
-    const r = await fetch(`https://api.replicate.com/v1/predictions/${id}`, { headers: { Authorization: `Bearer ${REPLICATE_KEY}` } });
+    const r = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+      headers: { Authorization: `Bearer ${REPLICATE_KEY}` }
+    });
     const js = await r.json().catch(()=> ({}));
     const st = js?.status;
     if(st === "succeeded"){
@@ -360,15 +448,63 @@ async function replicatePredict(versionId, input, overallTimeoutMs=45000){
   }
 }
 
-async function tryReplicateEnhanced(prompt, seed){
+function buildReplicatePrompt(meta){
+  const { title, ingredients, steps, cuisine, dishType, protein } = meta;
+
+  const base = `
+Professional food photography of a ${cuisineHints(cuisine).join("/")} ${dishType} ${protein!=="unknown"?protein:""} dish.
+Elegant plating, neutral kitchen backdrop, soft natural light, 30–45 degree angle, shallow depth of field.
+No text, no logos, no people, no hands. Realistic, appetizing colors.`.trim();
+
+  const dishLine = (() => {
+    switch(dishType){
+      case "rice": return "Prominent long-grain rice base presented appropriately.";
+      case "soup": return "Served in a bowl with visible broth.";
+      case "salad": return "Fresh chopped ingredients, no heavy sauces.";
+      case "pasta": return "Recognizable pasta shapes coated with sauce.";
+      case "sandwich": return "Clearly a sandwich/wrap/burger presentation.";
+      case "stew": return "Thick rich stew consistency in a bowl.";
+      case "grill": return "Grilled/charred visual cues, skewers or grill marks if applicable.";
+      case "baked": return "Oven-baked presentation on tray/plate.";
+      case "dessert": return "Dessert styling.";
+      default: return "Proper plating as a main dish.";
+    }
+  })();
+
+  const ingLine = (ingredients && ingredients.length) ? `Key ingredients: ${ingredients.join(", ")}.` : "";
+  const stepsLine = (steps && steps.length) ? `Preparation summary: ${steps.join(" then ")}.` : "";
+
+  return [base, dishLine, ingLine, stepsLine].filter(Boolean).join("\n");
+}
+
+function negativePrompt(meta){
+  const { protein } = meta;
+  const base = [
+    "text","watermark","logo","people","person","hands","fingers","portrait","selfie",
+    "cartoon","unrealistic","clutter","low quality","lowres","blurry","artifacts"
+  ];
+  // منع عدم التوافق بشكل عام
+  if (protein === "veg"){
+    base.push(...TOK.chicken, ...TOK.meat, ...TOK.fish);
+  } else if (protein === "chicken"){
+    base.push(...TOK.fish);
+  } else if (protein === "fish"){
+    base.push(...TOK.chicken, ...TOK.meat);
+  }
+  return uniq(base).join(", ");
+}
+
+async function tryReplicate(meta, seed){
   if(!REPLICATE_KEY) return null;
+  const prompt = buildReplicatePrompt(meta);
+  const neg = negativePrompt(meta);
   let lastErr = null;
   for(const m of REPLICATE_MODEL_CANDIDATES){
     try{
       const version = await replicateLatestVersion(m.owner, m.name);
       const input = (m.name === "sdxl")
-        ? { prompt, negative_prompt: negativePrompt(), width: 800, height: 600, scheduler:"K_EULER", num_inference_steps: 28, guidance_scale: 7.0, seed }
-        : { prompt, negative_prompt: negativePrompt(), width: 800, height: 600, num_inference_steps: 8, seed };
+        ? { prompt, negative_prompt: neg, width: 800, height: 600, scheduler:"K_EULER", num_inference_steps: 28, guidance_scale: 7.0, seed }
+        : { prompt, negative_prompt: neg, width: 800, height: 600, num_inference_steps: 10, seed };
       const url = await replicatePredict(version, input);
       const { dataUrl, mime } = await fetchAsDataURL(url, 22000);
       return { dataUrl, mime, mode:"inline" };
@@ -377,7 +513,7 @@ async function tryReplicateEnhanced(prompt, seed){
   return null;
 }
 
-/* ================== Placeholder ================== */
+/* =============== Placeholder =============== */
 function placeholderDataURL(){
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="256" height="256">
@@ -394,13 +530,14 @@ function placeholderDataURL(){
   return `data:image/svg+xml;utf8,${encoded}`;
 }
 
-/* ================== Handler ================== */
+/* =============== HTTP Handler =============== */
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: HEADERS, body: "" };
 
   if (event.httpMethod === "GET") {
     return ok({
-      info: "generateRecipeImage (strict filtering) is alive. Use POST."
+      info: "generateRecipeImage (universal) is alive. Use POST to generate an image.",
+      providers_available: { wikimedia: true, pexels: !!PEXELS_KEY, google_models: !!GEMINI_KEY, replicate: !!REPLICATE_KEY }
     });
   }
 
@@ -416,29 +553,34 @@ exports.handler = async (event) => {
   const cuisine = String(payload?.cuisine || "").trim();
   const lang = (payload?.lang === "en") ? "en" : "ar";
 
-  // 1) Wikimedia (أدق)
+  const protein  = detectProtein({ title, ingredients });
+  const dishType = detectDishType({ title, ingredients, steps });
+
+  const meta = { title, ingredients, steps, cuisine, lang, protein, dishType };
+
+  // 1) Wikimedia
   try{
-    const wm = await tryWikimedia({ title, cuisine, ingredients });
-    if(wm && wm.dataUrl) return ok({ image:{ mime: wm.mime || "image/jpeg", mode:"inline", data_url: wm.dataUrl } });
+    const w = await tryWikimedia(meta);
+    if(w && w.dataUrl) return ok({ image:{ mime: w.mime || "image/jpeg", mode: w.mode || "inline", data_url: w.dataUrl } });
   }catch(_){}
 
-  // 2) Pexels (مع تصفية شديدة)
+  // 2) Pexels
   try{
-    const px = await tryPexels({ title, ingredients, cuisine });
-    if(px && px.dataUrl) return ok({ image:{ mime: px.mime || "image/jpeg", mode:"inline", data_url: px.dataUrl } });
+    const p = await tryPexels(meta);
+    if(p && p.dataUrl) return ok({ image:{ mime: p.mime || "image/jpeg", mode: p.mode || "inline", data_url: p.dataUrl } });
   }catch(_){}
 
-  // 3) Google (إن توفر نموذج صور)
+  // 3) Google (إن توفر)
   try{
-    const g = await tryGoogleImage(buildTextPrompt({ title, ingredients, steps, cuisine, lang }));
-    if(g && g.dataUrl) return ok({ image:{ mime: g.mime || "image/png", mode:"inline", data_url: g.dataUrl } });
+    const g = await tryGoogleImage(meta);
+    if(g && g.dataUrl) return ok({ image:{ mime: g.mime || "image/png", mode: g.mode || "inline", data_url: g.dataUrl } });
   }catch(_){}
 
-  // 4) Replicate (negative + seed)
+  // 4) Replicate
   try{
-    const seed = stableSeedFrom(`${title}|${ingredients.join(",")}|${cuisine}`);
-    const rp = await tryReplicateEnhanced(buildTextPrompt({ title, ingredients, steps, cuisine, lang }), seed);
-    if(rp && rp.dataUrl) return ok({ image:{ mime: rp.mime || "image/png", mode:"inline", data_url: rp.dataUrl } });
+    const seed = stableSeedFrom(`${title}|${ingredients.join(",")}|${cuisine}|${protein}|${dishType}`);
+    const r = await tryReplicate(meta, seed);
+    if(r && r.dataUrl) return ok({ image:{ mime: r.mime || "image/png", mode: r.mode || "inline", data_url: r.dataUrl } });
   }catch(_){}
 
   // 5) Placeholder

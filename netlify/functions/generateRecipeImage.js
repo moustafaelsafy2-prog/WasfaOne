@@ -1,8 +1,10 @@
 // netlify/functions/generateRecipeImage.js
 // توليد صورة الطبق النهائي عبر Google Generative Language API.
-// ✅ يعتمد أولاً على models.list لاكتشاف النماذج المتاحة في حسابك ثم يختار نموذج صور يدعم generateContent.
-// ✅ إن لم يوجد أي نموذج صور متاح، نعيد خطأ واضح للواجهة (والواجهة ستظهر تنبيهًا كما أضفتَ سابقًا).
-// ✅ يحافظ على GET للفحص اليدوي، وPOST للتوليد الفعلي، وواجهة استجابة ثابتة: { ok, image: { data_url, ... } }
+// ✅ يكتشف نموذج الصور المتاح عبر models.list ويستدعي generateContent.
+// ✅ عند أي فشل (عدم وجود نموذج صور، عدم إرجاع صورة، خطأ مفاتيح/صلاحيات) يعيد "placeholder" كـ data URL
+//    حتى تَظهر دائمًا صورة بجانب الاسم دون أخطاء على الواجهة.
+// ✅ يحافظ على واجهة الاستجابة كما هي: { ok, image: { data_url, mime, mode } }.
+// ✅ يدعم GET للفحص اليدوي (لا يولّد صورة حقيقية).
 
 // =======================
 // CORS + Helpers
@@ -19,15 +21,47 @@ const bad = (code, error, extra = {}) => ({ statusCode: code, headers: HEADERS, 
 // =======================
 // Config
 // =======================
-const API_KEY = process.env.GEMINI_API_KEY || ""; // مفتاح Google AI Studio / Generative Language API
+const API_KEY = process.env.GEMINI_API_KEY || ""; // Google AI Studio / Generative Language API key
 const BASE    = "https://generativelanguage.googleapis.com/v1beta";
 
 // ثبات أعلى
 const GENERATION_CONFIG = { temperature: 0, topP: 1, maxOutputTokens: 64 };
 
-// ذاكرة مؤقتة ضمن عمر الدالة (قد تُفرّغ عند الـ cold start)
+// Cache مبسّط داخل عمر الدالة
 let cachedModelName = null;
 let cachedModels = null;
+
+// =======================
+// Placeholder (SVG -> data URL)
+// =======================
+// نصنع SVG بسيط لطبق افتراضي (دون كتابة نص داخل الصورة) ونحوله إلى data URL.
+function buildPlaceholderDataURL() {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="256" height="256">
+      <rect width="128" height="128" fill="#f8fafc"/>
+      <circle cx="64" cy="64" r="44" fill="#ffffff" stroke="#e5e7eb" stroke-width="4"/>
+      <circle cx="64" cy="64" r="24" fill="#fde68a" stroke="#f59e0b" stroke-width="3"/>
+      <g fill="#94a3b8">
+        <rect x="18" y="30" width="8" height="68" rx="2"/>
+        <circle cx="22" cy="26" r="4"/>
+        <rect x="102" y="30" width="8" height="68" rx="2"/>
+      </g>
+    </svg>`;
+  const encoded = encodeURIComponent(svg).replace(/'/g, "%27").replace(/"/g, "%22");
+  return `data:image/svg+xml;utf8,${encoded}`;
+}
+
+function placeholderResponse(note) {
+  return ok({
+    image: {
+      mime: "image/svg+xml",
+      mode: "inline",
+      data_url: buildPlaceholderDataURL()
+    },
+    model: null,
+    note: note || "تم استخدام صورة بديلة افتراضية لعدم توفر توليد الصور بالحساب حالياً."
+  });
+}
 
 // =======================
 // Prompt Builder
@@ -76,8 +110,6 @@ Return exactly one web-suitable image.
 // =======================
 // Models Discovery
 // =======================
-
-// يجلب قائمة النماذج المتاحة لحسابك ويخزنها مؤقتًا
 async function listModels() {
   if (cachedModels) return cachedModels;
   const url = `${BASE}/models`;
@@ -89,32 +121,30 @@ async function listModels() {
   return cachedModels;
 }
 
-// يختار أول نموذج صور يدعم generateContent وفق المتاح في حسابك
 async function pickImageModelName() {
   if (cachedModelName) return cachedModelName;
-
   const models = await listModels();
 
-  // 1) أفضلية لأي نموذج يحتوي "imagen" في الاسم ويدعم generateContent
+  // أولوية لأي اسم يحتوي imagen ويدعم generateContent
   const imagen = models.find(m =>
     /(^|\/)models\/.*imagen/i.test(m?.name || "") &&
     (Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods.includes("generateContent") : true)
   );
   if (imagen?.name) { cachedModelName = imagen.name.replace(/^models\//, ""); return cachedModelName; }
 
-  // 2) نماذج تحتوي "image" في الاسم (إن وُجدت) وتدعم generateContent
+  // أي اسم يحتوي image ويدعم generateContent
   const imageLike = models.find(m =>
     /(^|\/)models\/.*image/i.test(m?.name || "") &&
     (Array.isArray(m?.supportedGenerationMethods) ? m.supportedGenerationMethods.includes("generateContent") : true)
   );
   if (imageLike?.name) { cachedModelName = imageLike.name.replace(/^models\//, ""); return cachedModelName; }
 
-  // 3) لا يوجد نموذج صور متاح
+  // لا يوجد نموذج صور متاح
   throw new Error("no_image_model_available_for_account");
 }
 
 // =======================
-// Image Generation via generateContent
+// Image Generation Call
 // =======================
 async function callImageModel(prompt) {
   const model = await pickImageModelName(); // يرمي خطأ إن لم يوجد
@@ -155,7 +185,6 @@ async function callImageModel(prompt) {
     found.fileData?.mimeType ||
     "image/png";
 
-  // inline base64
   const b64 =
     found.inlineData?.data ||
     found.inline_data?.data ||
@@ -178,9 +207,9 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: HEADERS, body: "" };
   }
 
-  // GET: فحص يدوي + إظهار النماذج المتاحة والاختيار الحالي إن أمكن
+  // GET: فحص يدوي + عرض النماذج المتاحة والاختيار الحالي إن أمكن
   if (event.httpMethod === "GET") {
-    if (!API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
+    if (!API_KEY) return ok({ info: "endpoint is alive (no API key set). Use POST.", chosen_model: null, available_models_count: 0, available_models: [] });
     try {
       const models = await listModels();
       let chosen = null;
@@ -189,25 +218,20 @@ exports.handler = async (event) => {
         info: "generateRecipeImage endpoint is alive. Use POST to generate an image.",
         chosen_model: chosen || null,
         available_models_count: models.length,
-        // نعرض فقط الأسماء لتسهيل التشخيص
-        available_models: models.map(m => m?.name || "").slice(0, 150)
+        available_models: models.map(m => m?.name || "").slice(0, 200)
       });
     } catch (e) {
-      return bad(502, String(e && e.message || e) || "list_models_failed");
+      // حتى لو فشل listing، أعد حالة حيّة للمسار
+      return ok({ info: "alive, but listing models failed", error: String(e && e.message || e) });
     }
   }
 
-  // POST: التوليد الفعلي
-  if (event.httpMethod !== "POST") {
-    return bad(405, "Method Not Allowed");
-  }
-  if (!API_KEY) {
-    return bad(500, "GEMINI_API_KEY is missing on the server");
-  }
+  // POST: التوليد الفعلي (مع fallback دائمًا)
+  if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
 
   let payload = {};
   try { payload = JSON.parse(event.body || "{}"); }
-  catch { return bad(400, "invalid_json_body"); }
+  catch { return placeholderResponse("تم استخدام الصورة البديلة بسبب خطأ في شكل الطلب (JSON)."); }
 
   const title = String(payload?.title || "").trim();
   const ingredients = Array.isArray(payload?.ingredients) ? payload.ingredients.slice(0, 25) : [];
@@ -217,24 +241,24 @@ exports.handler = async (event) => {
 
   const prompt = buildPrompt({ title, ingredients, steps, cuisine, lang });
 
+  // لا يوجد مفتاح؟ أعد placeholder فورًا
+  if (!API_KEY) {
+    return placeholderResponse("تم استخدام الصورة البديلة: لا يوجد مفتاح API على الخادم.");
+  }
+
   try {
     const r = await callImageModel(prompt);
-    if (!r.ok) return bad(502, r.error || "image_generation_failed", { note: "image_model_call_failed" });
-
-    return ok({
-      image: { mime: r.mime || "image/png", mode: r.mode || "inline", data_url: r.dataUrl },
-      model: r.model || null,
-      note: lang === "ar" ? "تم توليد صورة الطبق بنجاح." : "Dish image generated successfully."
-    });
-  } catch (e) {
-    // في حال لا يوجد نموذج صور متاح للحساب
-    const msg = String(e && e.message || e);
-    if (msg === "no_image_model_available_for_account") {
-      return bad(501, "no_image_model_available_for_account", {
-        hint: "فعّل نموذج صور في حساب Google (Imagen/Gemini image) أو اربط مفتاحًا لديه صلاحية الصور.",
-        models_hint_endpoint: `${BASE}/models`
+    if (r && r.ok && r.dataUrl) {
+      return ok({
+        image: { mime: r.mime || "image/png", mode: r.mode || "inline", data_url: r.dataUrl },
+        model: r.model || null,
+        note: lang === "ar" ? "تم توليد صورة الطبق بنجاح." : "Dish image generated successfully."
       });
     }
-    return bad(500, msg || "unexpected_error");
+    // فشل أو لم تُرجع صورة
+    return placeholderResponse("تم استخدام الصورة البديلة: لم تُرجِع خدمة التوليد صورة للحساب الحالي.");
+  } catch (e) {
+    // أي استثناء غير متوقّع ➜ placeholder
+    return placeholderResponse(`تم استخدام الصورة البديلة: ${String(e && e.message || e)}`);
   }
 };

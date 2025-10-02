@@ -322,6 +322,9 @@
 
 <script>
   const API_ENDPOINT="/.netlify/functions/generateRecipe";
+  /* ===== إضافة واجهة توليد صورة الطبق عبر Gemini (خلفية مستقلة) ===== */
+  const API_IMAGE_ENDPOINT = "/.netlify/functions/generateRecipeImage";
+
   const $=id=>document.getElementById(id);
 
   // inputs
@@ -427,6 +430,56 @@
     return data;
   }
 
+  /* ===== توليد صورة الطبق وإلصاقها بجانب الاسم (إضافة فقط دون تغيير أي سلوك آخر) ===== */
+  async function generateDishImage(view){
+    try{
+      if(!view || !view.title) return;
+      // تجهيز حمولة مختصرة من نفس البيانات المعروضة
+      const payload = {
+        title: view.title,
+        ingredients: Array.isArray(view.ingredients) ? view.ingredients.map(i=>i.name).filter(Boolean).slice(0,25) : [],
+        steps: Array.isArray(view.steps) ? view.steps.filter(Boolean).slice(0,12) : [],
+        cuisine: (document.getElementById('cuisine')?.value || ""),
+        lang: "ar"
+      };
+      const res = await fetch(API_IMAGE_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json().catch(()=> ({}));
+      if(!res.ok || !data.ok || !data.image || !data.image.data_url) return;
+
+      // بناء العنوان: صورة مصغرة + النص الحالي
+      if(!recipeTitle) return;
+      const currentText = view.title;
+      const img = document.createElement("img");
+      img.src = data.image.data_url;
+      img.alt = currentText || "صورة الطبق";
+      img.decoding = "async";
+      img.loading = "lazy";
+      /* نحافظ على التصميم العام؛ تنسيق محلي للصورة فقط */
+      img.style.width = "88px";
+      img.style.height = "88px";
+      img.style.objectFit = "cover";
+      img.style.borderRadius = "12px";
+      img.style.marginInlineEnd = "12px";
+      img.style.verticalAlign = "middle";
+      img.style.display = "inline-block";
+
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = currentText || "";
+      titleSpan.style.verticalAlign = "middle";
+
+      recipeTitle.innerHTML = "";
+      recipeTitle.appendChild(img);
+      recipeTitle.appendChild(titleSpan);
+    }catch(e){
+      // الحفاظ على الاستقرار دون أي رسائل إضافية
+      console.error("image_generation_failed", e);
+    }
+  }
+
   function render(view, note, warning){
     resultContainer.classList.remove('hidden');
     resultContainer.classList.add('fade-in-up');
@@ -445,6 +498,9 @@
     if (warning) setBanner("تنبيه: تم توليد الوصفة لكن بعض قيود النظام المختار أو المكونات المتاحة قد لا تكون مطبّقة بالكامل.", "amber");
     if (note === "repaired_to_meet_dr_moh_rules") setBanner("تم ضبط الوصفة تلقائيًا لتتوافق مع قواعد نظام د. محمد سعيد.", "amber");
     if (note === "aligned_with_available_ingredients") setBanner("تمت مواءمة الوصفة مع المكونات المتاحة لديك.", "amber");
+
+    // ===== استدعاء توليد الصورة بعد اكتمال العرض =====
+    generateDishImage(view);
 
     // Scroll to results smoothly
     setTimeout(()=> {
@@ -567,10 +623,3 @@
 </script>
 </body>
 </html>
-
-
-
-
-
-
-

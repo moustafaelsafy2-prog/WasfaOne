@@ -1,4 +1,8 @@
 // /netlify/functions/adminUsers.js  — Netlify Functions (V1) + Node 18
+// + NEW: normalize status based on dates:
+//   - if end_date < today -> status="suspended", lock_reason="expired"
+//   - if start_date > today -> status "inactive" (unless admin insists on "active")
+//   - if window valid and previously suspended due to expiry and dates extended -> reactivate
 
 const {
   ADMIN_PASSWORD,
@@ -25,6 +29,40 @@ function resp(status, obj) {
     },
     body: JSON.stringify(obj),
   };
+}
+
+function todayDubai(){
+  const now = new Date();
+  return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
+}
+
+function normalizeStatusByDates(user, today = todayDubai()) {
+  const u = { ...user };
+  const status = (u.status || "").toLowerCase();
+
+  if (u.end_date && today > u.end_date) {
+    u.status = "suspended";
+    u.lock_reason = "expired";
+    return u;
+  }
+
+  if (u.start_date && today < u.start_date) {
+    // not started yet
+    u.status = status === "active" ? "active" : "inactive";
+    if (u.status !== "suspended") u.lock_reason = null;
+    return u;
+  }
+
+  // inside window
+  if (status === "suspended" && u.lock_reason === "expired") {
+    // admin extended period -> reactivate
+    u.status = "active";
+    u.lock_reason = null;
+  } else {
+    u.status = status || "active";
+    if (u.status !== "suspended") u.lock_reason = null;
+  }
+  return u;
 }
 
 async function ghGetJson(path) {
@@ -105,7 +143,7 @@ exports.handler = async (event) => {
         return resp(409, { ok: false, error: "exists" });
       }
 
-      const nu = {
+      const nuRaw = {
         email,
         password: String(body.password),
         name: String(body.name),
@@ -115,7 +153,9 @@ exports.handler = async (event) => {
         device_fingerprint: null,
         session_nonce: null,
         lock_reason: body.lock_reason || null,
+        auth_token: null
       };
+      const nu = normalizeStatusByDates(nuRaw);
 
       users.push(nu);
       await ghPutJson(USERS_PATH, users, `admin: create ${email}`, sha);
@@ -128,7 +168,7 @@ exports.handler = async (event) => {
       if (!email || idx === -1) return resp(404, { ok: false, error: "not_found" });
 
       const current = users[idx];
-      const next = {
+      const merged = {
         ...current,
         name: body.name ?? current.name,
         status: body.status ?? current.status,
@@ -136,9 +176,10 @@ exports.handler = async (event) => {
         end_date: body.end_date ?? current.end_date,
       };
       if (typeof body.password === "string" && body.password.trim() !== "") {
-        next.password = body.password;
+        merged.password = body.password;
       }
 
+      const next = normalizeStatusByDates(merged);
       users[idx] = next;
       await ghPutJson(USERS_PATH, users, `admin: update ${email}`, sha);
       return resp(200, { ok: true, user: next });

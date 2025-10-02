@@ -2,6 +2,8 @@
 
 const API_ENDPOINT = "/.netlify/functions/generateRecipe";
 
+const API_IMAGE_ENDPOINT = "/.netlify/functions/generateRecipeImage";
+
 // DOM refs
 let mealTypeEl, cuisineEl, dietTypeEl, calorieTargetEl, commonAllergyEl, customAllergyEl, focusEl;
 let customBox, customProteinEl, customCarbsEl, customFatEl;
@@ -13,14 +15,19 @@ function showStatus(message, isError = false) {
   statusMsg.textContent = message || "";
   statusMsg.classList.toggle("hidden", !message);
   statusMsg.classList.toggle("text-red-600", !!isError);
-  statusMsg.classList.toggle("text-blue-600", !isError);
+  statusMsg.classList.toggle("text-emerald-700", !isError);
 }
 function showError(message) {
   errorMsg.textContent = message || "";
   errorMsg.classList.toggle("hidden", !message);
 }
+function $(sel) { return document.querySelector(sel); }
+
 function clearOutput() {
-  recipeTitle.textContent = "";
+  // إزالة أي صورة سابقة مدمجة داخل العنوان
+  if (recipeTitle) {
+    recipeTitle.innerHTML = "";
+  }
   timeValue.textContent = "—";
   servingsValue.textContent = "—";
   caloriesValue.textContent = "—";
@@ -38,16 +45,18 @@ function validateRecipeSchema(rec) {
   const m = rec.macros;
   if (!m || typeof m !== "object") return { ok:false, error:"macros_not_object" };
   for (const key of ["protein_g","carbs_g","fat_g","calories"]) {
-    if (typeof m[key] !== "number") return { ok:false, error:`macro_${key}_type` };
+    if (!(key in m)) return { ok:false, error:`missing_macro_${key}` };
   }
-  if (!Array.isArray(rec.ingredients) || rec.ingredients.some(x => typeof x !== "string"))
-    return { ok:false, error:"ingredients_type" };
-  if (!Array.isArray(rec.steps) || rec.steps.some(x => typeof x !== "string"))
-    return { ok:false, error:"steps_type" };
+  if (!Array.isArray(rec.ingredients) || !rec.ingredients.length) return { ok:false, error:"ingredients_empty" };
+  if (!Array.isArray(rec.steps) || !rec.steps.length) return { ok:false, error:"steps_empty" };
   return { ok:true };
 }
+
+// Render
 function renderRecipe(recipe) {
   recipeTitle.textContent = recipe.title;
+  // بعد عرض البيانات النصية، نولّد الصورة ونلصقها بجانب الاسم
+  generateAndRenderRecipeImage(recipe);
   timeValue.textContent = `${recipe.total_time_min} دقيقة`;
   servingsValue.textContent = `${recipe.servings}`;
   caloriesValue.textContent = `${recipe.macros.calories}`;
@@ -59,6 +68,69 @@ function renderRecipe(recipe) {
   if (rawJson) rawJson.textContent = JSON.stringify(recipe, null, 2);
 }
 
+// ====== إضافة توليد وعرض صورة الطبق عبر Gemini (واجهة مستقلة) ======
+async function generateAndRenderRecipeImage(recipe) {
+  try {
+    // تجهيز الحمولة للوظيفة الخلفية
+    const payload = {
+      title: recipe.title || "",
+      ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
+      steps: Array.isArray(recipe.steps) ? recipe.steps : [],
+      cuisine: (cuisineEl && cuisineEl.value) || "",
+      lang: recipe.lang || "ar"
+    };
+
+    const res = await fetch(API_IMAGE_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok || !data.image || !data.image.data_url) {
+      // لا نكسر الواجهة إن فشل توليد الصورة — نكتفي بالعنوان النصي.
+      return;
+    }
+
+    // إدراج الصورة بجانب الاسم داخل <h2 id="recipeTitle">
+    if (!recipeTitle) return;
+    // نبني العنوان مجددًا: صورة + نص
+    // ملاحظة: لا نغير أي تصميم عام — تنسيق محلي داخل img فقط.
+    const img = document.createElement("img");
+    img.src = data.image.data_url;
+    img.alt = recipe.title || "صورة الطبق";
+    img.decoding = "async";
+    img.loading = "lazy";
+    img.style.width = "88px";
+    img.style.height = "88px";
+    img.style.objectFit = "cover";
+    img.style.borderRadius = "12px";
+    img.style.marginInlineEnd = "12px";
+    img.style.verticalAlign = "middle";
+    img.style.display = "inline-block";
+
+    const titleSpan = document.createElement("span");
+    titleSpan.textContent = recipe.title || "";
+    titleSpan.style.verticalAlign = "middle";
+
+    // في حال كان العنوان يحتوي نصًا سابقًا — نعيد بناؤه للصورة + النص
+    recipeTitle.innerHTML = "";
+    recipeTitle.appendChild(img);
+    recipeTitle.appendChild(titleSpan);
+  } catch (e) {
+    // تجاهل أي خطأ — الحفاظ على الاستقرار
+    console.error("image_generation_failed", e);
+  }
+}
+
+// Input sanitation
+function normalizeAllergies(arr) {
+  return (Array.isArray(arr) ? arr : [])
+    .map(s => String(s || "").trim())
+    .filter(Boolean)
+    .slice(0, 10);
+}
+
+// Main action
 async function onGenerate() {
   clearOutput();
   showError("");
@@ -76,20 +148,20 @@ async function onGenerate() {
         : []
     );
 
-  const isCustom = dietTypeEl && dietTypeEl.value === "custom";
-  const customMacros = isCustom && customProteinEl && customCarbsEl && customFatEl
-    ? {
-        protein_g: Number(customProteinEl.value) || 0,
-        carbs_g: Number(customCarbsEl.value) || 0,
-        fat_g: Number(customFatEl.value) || 0
-      }
-    : null;
+  const isCustom = 
+    dietTypeEl && dietTypeEl.value === "custom";
+
+  const customMacros = isCustom ? {
+    protein_g: customProteinEl ? (+customProteinEl.value || 0) : 0,
+    carbs_g: customCarbsEl ? (+customCarbsEl.value || 0) : 0,
+    fat_g: customFatEl ? (+customFatEl.value || 0) : 0
+  } : null;
 
   const payload = {
-    mealType: mealTypeEl ? mealTypeEl.value : "وجبة",
-    cuisine: cuisineEl ? cuisineEl.value : "متنوع",
-    dietType: dietTypeEl ? dietTypeEl.value : "balanced",
-    caloriesTarget: calorieTargetEl ? (Number(calorieTargetEl.value) || 500) : 500,
+    mealType: mealTypeEl ? mealTypeEl.value : "",
+    cuisine: cuisineEl ? cuisineEl.value : "",
+    dietType: dietTypeEl ? dietTypeEl.value : "",
+    calorieTarget: calorieTargetEl ? (Number(calorieTargetEl.value) || 500) : 500,
     allergies,
     focus: (focusEl && focusEl.value) || "",
     customMacros,
@@ -116,65 +188,15 @@ async function onGenerate() {
   } catch (err) {
     showError(err.message || "حدث خطأ غير متوقع.");
     showStatus("", false);
+  
   } finally {
-    if (generateBtn) generateBtn.disabled = false;
+    generateBtn.disabled = false;
     if (loadingIndicator) loadingIndicator.classList.add("hidden");
-    if (generateBtn) generateBtn.textContent = "توليد الوصفة الآن";
+    if (generateBtn) generateBtn.textContent = "توليد الوصفة";
   }
 }
 
-async function loadSettingsAndBindDietList() {
-  try {
-    const res = await fetch("/data/settings.json?ts=" + Date.now(), { cache: "no-store" });
-    if (!res.ok) throw new Error("settings_fetch_failed");
-    const s = await res.json();
-    const diets = Array.isArray(s?.diet_systems) ? s.diet_systems : [];
-
-    if (dietTypeEl && diets.length) {
-      dietTypeEl.innerHTML = diets.map(d => `<option value="${d.id}">${d.name_ar}</option>`).join("");
-    }
-
-    function toggleCustom() {
-      const isCustom = dietTypeEl && dietTypeEl.value === "custom";
-      if (customBox) customBox.classList.toggle("hidden", !isCustom);
-    }
-    if (dietTypeEl) {
-      dietTypeEl.addEventListener("change", toggleCustom);
-      toggleCustom();
-    }
-  } catch (_e) {
-    // fallback: keep existing options if present
-  }
-}
-
-function ensureCustomBoxes() {
-  // Create custom macros box dynamically if missing in the page using this JS
-  if (!document.getElementById("customMacrosBox")) {
-    customBox = document.createElement("div");
-    customBox.id = "customMacrosBox";
-    customBox.className = "grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4 hidden";
-    customBox.innerHTML = `
-      <div><label class="block text-sm text-slate-600 mb-1">بروتين (جم/حصة)</label>
-        <input id="customProtein" type="number" min="0" step="1" value="30" class="w-full border rounded-md p-3">
-      </div>
-      <div><label class="block text-sm text-slate-600 mb-1">كربوهيدرات (جم/حصة)</label>
-        <input id="customCarbs" type="number" min="0" step="1" value="35" class="w-full border rounded-md p-3">
-      </div>
-      <div><label class="block text-sm text-slate-600 mb-1">دهون (جم/حصة)</label>
-        <input id="customFat" type="number" min="0" step="1" value="20" class="w-full border rounded-md p-3">
-      </div>`;
-    const anchor = document.getElementById("calorieTarget");
-    if (anchor && anchor.parentElement && anchor.parentElement.parentElement) {
-      anchor.parentElement.parentElement.insertAdjacentElement("afterend", customBox);
-    } else {
-      document.body.appendChild(customBox);
-    }
-  }
-  customProteinEl = document.getElementById("customProtein");
-  customCarbsEl = document.getElementById("customCarbs");
-  customFatEl = document.getElementById("customFat");
-}
-
+// Setup
 function setup() {
   // Bind elements if present on the page using this JS
   mealTypeEl = document.getElementById("mealType");
@@ -201,9 +223,6 @@ function setup() {
   preparationSteps = document.getElementById("preparationSteps");
   rawJson = document.getElementById("rawJson");
 
-  customBox = document.getElementById("customMacrosBox");
-  ensureCustomBoxes();
-
   if (generateBtn) generateBtn.addEventListener("click", () => {
     const v = calorieTargetEl ? (+calorieTargetEl.value || 0) : 0;
     if (v < 100 || v > 2000) { showError("أدخل سعرات بين 100 و 2000"); return; }
@@ -218,3 +237,51 @@ function setup() {
 }
 
 document.addEventListener("DOMContentLoaded", setup);
+
+async function loadSettingsAndBindDietList() {
+  try {
+    const res = await fetch("/data/settings.json?ts=" + Date.now(), { cache: "no-store" });
+    if (!res.ok) throw new Error("settings_fetch_failed");
+    const s = await res.json();
+    const diets = Array.isArray(s?.diet_systems) ? s.diet_systems : [];
+
+    if (dietTypeEl && diets.length) {
+      dietTypeEl.innerHTML = diets.map(d => `<option value="${d.id}">${d.name_ar}</option>`).join("");
+    }
+
+    function toggleCustom() {
+      const isCustom = dietTypeEl && dietTypeEl.value === "custom";
+      if (isCustom && !customBox) {
+        customBox = document.createElement("div");
+        customBox.className = "grid grid-cols-3 gap-4 p-4 bg-white/70 border border-slate-200 rounded-xl mt-3";
+        customBox.innerHTML = `
+      <div><label class="block text-sm text-slate-600 mb-1">بروتين (جم/حصة)</label>
+        <input id="customProtein" type="number" min="0" step="1" value="30" class="w-full border rounded-md p-3">
+      </div>
+      <div><label class="block text-sm text-slate-600 mb-1">كربوهيدرات (جم/حصة)</label>
+        <input id="customCarbs" type="number" min="0" step="1" value="35" class="w-full border rounded-md p-3">
+      </div>
+      <div><label class="block text-sm text-slate-600 mb-1">دهون (جم/حصة)</label>
+        <input id="customFat" type="number" min="0" step="1" value="20" class="w-full border rounded-md p-3">
+      </div>`;
+        const anchor = document.getElementById("calorieTarget");
+        if (anchor && anchor.parentElement && anchor.parentElement.parentElement) {
+          anchor.parentElement.parentElement.insertAdjacentElement("afterend", customBox);
+        } else {
+          document.body.appendChild(customBox);
+        }
+      }
+      customProteinEl = document.getElementById("customProtein");
+      customCarbsEl = document.getElementById("customCarbs");
+      customFatEl = document.getElementById("customFat");
+      if (customBox) customBox.classList.toggle("hidden", !isCustom);
+    }
+
+    if (dietTypeEl) {
+      dietTypeEl.addEventListener("change", toggleCustom);
+      toggleCustom();
+    }
+  } catch (e) {
+    console.error(e);
+  }
+}

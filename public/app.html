@@ -430,11 +430,10 @@
     return data;
   }
 
-  /* ===== توليد صورة الطبق وإلصاقها بجانب الاسم (إضافة فقط دون تغيير أي سلوك آخر) ===== */
+  /* ===== توليد صورة الطبق وإلصاقها بجانب الاسم (مع تنبيه واضح عند الفشل) ===== */
   async function generateDishImage(view){
     try{
       if(!view || !view.title) return;
-      // تجهيز حمولة مختصرة من نفس البيانات المعروضة
       const payload = {
         title: view.title,
         ingredients: Array.isArray(view.ingredients) ? view.ingredients.map(i=>i.name).filter(Boolean).slice(0,25) : [],
@@ -448,7 +447,14 @@
         body: JSON.stringify(payload)
       });
       const data = await res.json().catch(()=> ({}));
-      if(!res.ok || !data.ok || !data.image || !data.image.data_url) return;
+
+      if(!res.ok || !data || data.ok===false || !data.image || !data.image.data_url){
+        // ===== التنبيه الجديد عند فشل الصورة =====
+        const err = (data && (data.error||data.note)) || `image_generation_failed (${res.status})`;
+        setBanner("تعذّر توليد صورة الطبق تلقائيًا. تأكد من تفعيل مفتاح Gemini وصلاحيات نموذج الصور.", "amber");
+        pushToast(`فشل صورة الطبق: ${err}`,"error",6000);
+        return;
+      }
 
       // بناء العنوان: صورة مصغرة + النص الحالي
       if(!recipeTitle) return;
@@ -458,7 +464,6 @@
       img.alt = currentText || "صورة الطبق";
       img.decoding = "async";
       img.loading = "lazy";
-      /* نحافظ على التصميم العام؛ تنسيق محلي للصورة فقط */
       img.style.width = "88px";
       img.style.height = "88px";
       img.style.objectFit = "cover";
@@ -475,7 +480,9 @@
       recipeTitle.appendChild(img);
       recipeTitle.appendChild(titleSpan);
     }catch(e){
-      // الحفاظ على الاستقرار دون أي رسائل إضافية
+      // ===== التنبيه عند الاستثناءات غير المتوقعة =====
+      setBanner("حدث خطأ غير متوقع أثناء إنشاء صورة الطبق.", "amber");
+      pushToast(`Image error: ${String(e && e.message || e)}`,"error",6000);
       console.error("image_generation_failed", e);
     }
   }

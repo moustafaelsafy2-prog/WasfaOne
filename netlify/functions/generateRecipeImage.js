@@ -1,7 +1,10 @@
 // netlify/functions/generateRecipeImage.js
-// توليد صورة طبق نهائية بالذكاء الاصطناعي (Gemini) بالاعتماد على عنوان الوصفة + المكونات + طريقة التحضير.
-// لا يغيّر أي API موجود، ووظيفته مستقلة لاستدعائها من الواجهة.
-// يعتمد على مفتاح GEMINI_API_KEY من متغيرات بيئة Netlify.
+// توليد صورة الطبق النهائي عبر Gemini استنادًا لاسم الوصفة + المكونات + خطوات التحضير.
+// إصلاحات:
+// 1) استخدام الترويسة x-goog-api-key بدل ?key=...
+// 2) دعم كلتا الصيغتين inlineData و inline_data عند قراءة الصورة
+// 3) مسار مرِن مع قائمة نماذج وتجربة بدائل تلقائيًا
+// 4) رسائل أخطاء أوضح، مع الحفاظ على نفس واجهة الاستجابة للواجهة الأمامية
 
 // =======================
 // CORS + Helpers
@@ -18,24 +21,25 @@ const bad = (code, error, extra = {}) => ({ statusCode: code, headers: HEADERS, 
 // =======================
 // Config
 // =======================
-// نموذج توليد الصور (Preview عام عبر Gemini API)
-// يمكن تغييره لاحقًا لـ "gemini-2.5-flash-image" عند توافره بشكل عام.
-const GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image-preview";
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// ملاحظة: نستخدم temperature=0 لضمان ثبات أعلى (عدم عشوائية) كما يُطلب بالمشروع.
+// نماذج سنحاولها بالترتيب (الأول المفضل؛ الأخرى بدائل تحسّبًا لتغيير الأسماء/التوافر)
+const CANDIDATE_MODELS = [
+  "gemini-2.5-flash-image-preview",
+  "gemini-2.5-flash-image",
+  "gemini-2.5-flash-image-exp" // احتياطي لبعض البيئات
+];
+
+// ثبات أعلى كما تشترط المواصفات
 const GENERATION_CONFIG = {
   temperature: 0,
   topP: 1,
-  maxOutputTokens: 64,
-  // نماذج توليد الصور تلزم إرجاع نص + صورة معًا (حسب الوثائق الحديثة):
-  // لذا نطلب كلا الموداليتين، رغم أننا سنقرأ الصورة فقط.
-  responseModalities: ["TEXT", "IMAGE"]
+  maxOutputTokens: 64
 };
 
 // =======================
-// Prompt Builder (AR first; EN fallback)
+// Prompt Builder
 // =======================
 function buildPrompt({ title = "", ingredients = [], steps = [], cuisine = "", lang = "ar" }) {
   const titleLine = title ? `اسم الطبق: ${title}` : "اسم الطبق: غير محدد";
@@ -47,90 +51,102 @@ function buildPrompt({ title = "", ingredients = [], steps = [], cuisine = "", l
     : "طريقة التحضير: —";
   const cuiLine = cuisine ? `المطبخ: ${cuisine}` : "المطبخ: متنوع";
 
-  // توجيه أسلوبي واضح لإخراج صورة طبق نهائية عالية الدقة مع زوايا تصوير مناسبة للعرض بجوار الاسم.
   const ar = `
-أنت مصمم أغذية محترف. أنشئ صورة طعام فوتوغرافية عالية الجودة تمثل الشكل النهائي للطبق التالي:
+أنت مصور أطعمة محترف. أنشئ صورة طعام فوتوغرافية عالية الجودة تمثل الشكل النهائي للطبق التالي:
 ${titleLine}
 ${cuiLine}
 ${ingLine}
 ${stepsLine}
 
 [تعليمات النمط]
-- زاوية تصوير: بزاوية 30–45 درجة مع إضاءة طبيعية ناعمة.
-- تقديم راقٍ على طبق مناسب، خلفية محايدة مطبخية، دون نصوص أو شعارات أو علامات مائية إضافية.
-- ألوان واقعية، تفاصيل فاتحة للشهية، تركيز على المكوّنات الرئيسية المذكورة.
-- تجنّب وجود أشخاص/أيدي في الصورة. لا تضع أي كتابة داخل الصورة.
+- زاوية 30–45°، إضاءة طبيعية ناعمة.
+- تقديم راقٍ على طبق مناسب، خلفية مطبخية محايدة.
+- دون أي نصوص/شعارات/علامات مائية داخل الصورة، ودون أشخاص أو أيدي.
+- ألوان واقعية وتفاصيل فاتحة للشهية تُظهر المكونات المذكورة.
 
-أعد الناتج كصورة واحدة فقط تمثل الطبق النهائي بدقة مناسبة للويب.
+أخرج صورة واحدة مناسبة للويب بجودة متوازنة للعرض بجانب العنوان.
 `.trim();
 
   const en = `
-You are a professional food photographer. Generate a high-quality, photorealistic final dish image for:
-Title: ${title || "N/A"}
-Cuisine: ${cuisine || "Mixed"}
+You are a professional food photographer. Generate a single, high-quality photorealistic final dish image for:
+${title ? `Title: ${title}` : "Title: N/A"}
+${cuisine ? `Cuisine: ${cuisine}` : "Cuisine: Mixed"}
 Key ingredients: ${(ingredients || []).join(", ") || "—"}
 Preparation summary: ${(steps || []).join(" then ") || "—"}
 
 [Style]
-- Camera angle 30–45°, soft natural light.
-- Restaurant-grade plating on a clean plate, neutral kitchen backdrop.
-- No text, logos, or watermarks; no people/hands.
-- Emphasize the listed ingredients realistically; appetizing colors.
+- 30–45° camera angle, soft natural light.
+- Restaurant-grade plating, neutral kitchen backdrop.
+- No text/logos/watermarks and no people/hands.
+- Realistic, appetizing colors emphasizing listed ingredients.
 
-Return exactly one final dish image suitable for web display.
+Return exactly one web-suitable image.
 `.trim();
 
   return (lang === "ar" ? ar : en);
 }
 
 // =======================
-// Image Call
+// Gemini Call (with model fallback)
 // =======================
-// نطلب generateContent من نموذج الصور، ونتوقع part يحتوي inlineData (image/png أو image/jpeg) Base64.
-async function callGeminiImage(prompt, size = { width: 768, height: 512 }) {
-  const url = `${GEMINI_BASE}/${encodeURIComponent(GEMINI_IMAGE_MODEL)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+async function callGeminiImage(prompt) {
+  if (!GEMINI_API_KEY) return { ok: false, error: "missing_api_key" };
 
-  // بعض النماذج تدعم "imageGenerationConfig" لتحديد الحجم؛ نمرّرها إذا كانت مدعومة.
-  const body = {
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: {
-      ...GENERATION_CONFIG,
-      // محاولات لضبط الإخراج لحجم مناسب للعرض بجانب العنوان:
-      // ليست كل النماذج تدعم جميع الحقول التالية؛ إذا تم تجاهلها من المزود فلن تتسبب في خطأ.
-      // عند دعم imagesConfig أو similar سنمرر target dimensions.
-      // (نبقيه دفاعيًا ومتوافقًا مع تغييرات واجهة Gemini الحديثة).
-      // ملاحظة: لا نعتمد على image-only؛ المودال يعيد نصًا موجزًا مع الصورة.
-      // responseMimeType: "application/json"
-    },
-    safetySettings: []
-  };
+  let lastErr = null;
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const url = `${GEMINI_BASE}/${encodeURIComponent(model)}:generateContent`;
+      const body = {
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { ...GENERATION_CONFIG },
+        safetySettings: []
+      };
 
-  const resp = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const text = await resp.text();
-  let data = null;
-  try { data = JSON.parse(text); } catch { /* non-JSON or error body */ }
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // 🔧 التصحيح الأساسي: استخدام ترويسة المصادقة بدل querystring
+          "x-goog-api-key": GEMINI_API_KEY
+        },
+        body: JSON.stringify(body)
+      });
 
-  if (!resp.ok) {
-    const msg = data?.error?.message || `HTTP_${resp.status}`;
-    return { ok: false, error: msg };
-  }
+      const raw = await resp.text();
+      let data = null;
+      try { data = JSON.parse(raw); } catch { /* ignore */ }
 
-  // استخرج أول صورة inlineData من الأجزاء
-  const parts = data?.candidates?.[0]?.content?.parts || [];
-  const imgPart = parts.find(p => p?.inlineData && /^image\//i.test(p.inlineData?.mimeType || ""));
-  if (!imgPart?.inlineData?.data || !imgPart?.inlineData?.mimeType) {
-    // بعض الإصدارات تعيد الصور ضمن "files" أو "media"؛ نحاول مسارات بديلة بشكل دفاعي.
-    const alt = parts.find(p => p?.fileData && /^image\//i.test(p.fileData?.mimeType || ""));
-    if (alt?.fileData?.fileUri && alt?.fileData?.mimeType) {
-      return { ok: true, dataUrl: alt.fileData.fileUri, mime: alt.fileData.mimeType, mode: "uri" };
+      if (!resp.ok) {
+        const msg = data?.error?.message || `HTTP_${resp.status}`;
+        lastErr = msg;
+        continue; // جرّب الموديل التالي
+      }
+
+      // ابحث عن أول صورة بأي من الصيغتين inlineData / inline_data
+      const parts = data?.candidates?.[0]?.content?.parts || [];
+      const found = parts.find(p =>
+        (p && p.inlineData && /^image\//i.test(p.inlineData?.mimeType || "")) ||
+        (p && p.inline_data && /^image\//i.test(p.inline_data?.mime_type || ""))
+      );
+
+      if (!found) {
+        lastErr = "no_image_returned";
+        continue;
+      }
+
+      // قراءة البيانات وفق الصيغة المتاحة
+      const mime = found.inlineData?.mimeType || found.inline_data?.mime_type || "image/png";
+      const b64  = found.inlineData?.data      || found.inline_data?.data;
+      if (!b64) { lastErr = "empty_image_data"; continue; }
+
+      const dataUrl = `data:${mime};base64,${b64}`;
+      return { ok: true, dataUrl, mime, model, mode: "inline" };
+    } catch (e) {
+      lastErr = (e && e.message) || String(e);
+      // تابع للموديل التالي
     }
-    return { ok: false, error: "no_image_returned" };
   }
-
-  const mime = imgPart.inlineData.mimeType || "image/png";
-  const b64 = imgPart.inlineData.data;
-  const dataUrl = `data:${mime};base64,${b64}`;
-  return { ok: true, dataUrl, mime, mode: "inline" };
+  return { ok: false, error: lastErr || "image_generation_failed" };
 }
 
 // =======================
@@ -145,35 +161,30 @@ exports.handler = async (event) => {
   try { payload = JSON.parse(event.body || "{}"); }
   catch { return bad(400, "invalid_json_body"); }
 
-  // مدخلات مطلوبة من الواجهة:
-  // title (string), ingredients (string[]), steps (string[]), cuisine (string), lang ("ar"|"en")
+  // مدخلات من الواجهة
   const title = String(payload?.title || "").trim();
   const ingredients = Array.isArray(payload?.ingredients) ? payload.ingredients.slice(0, 25) : [];
   const steps = Array.isArray(payload?.steps) ? payload.steps.slice(0, 12) : [];
   const cuisine = String(payload?.cuisine || "").trim();
   const lang = (payload?.lang === "en") ? "en" : "ar";
 
-  // نبني Prompt
   const prompt = buildPrompt({ title, ingredients, steps, cuisine, lang });
 
-  try {
-    const r = await callGeminiImage(prompt);
-    if (!r.ok) return bad(502, r.error || "image_generation_failed");
-
-    // نعيد Data URL لسهولة العرض مباشرة في <img src="...">
-    return ok({
-      image: {
-        mime: r.mime || "image/png",
-        mode: r.mode || "inline",
-        data_url: r.dataUrl
-      },
-      // ملاحظة: لا نخزن الصورة الآن؛ الواجهة قد تخزنها في حالة المستخدم إن لزم.
-      // اتساق: ثبات أعلى بالـ temperature=0.
-      note: lang === "ar"
-        ? "تم توليد صورة الطبق بنجاح عبر Gemini."
-        : "Dish image generated successfully via Gemini."
-    });
-  } catch (e) {
-    return bad(500, String(e && e.message || e) || "unexpected_error");
+  const r = await callGeminiImage(prompt);
+  if (!r.ok) {
+    // نعيد الخطأ بشكل واضح للواجهة (لكن الواجهة الحالية تتجاهل الفشل ولا تكسر العرض)
+    return bad(502, r.error || "image_generation_failed", { note: "gemini_image_call_failed" });
   }
+
+  return ok({
+    image: {
+      mime: r.mime || "image/png",
+      mode: r.mode || "inline",
+      data_url: r.dataUrl
+    },
+    model: r.model || CANDIDATE_MODELS[0],
+    note: lang === "ar"
+      ? "تم توليد صورة الطبق بنجاح عبر Gemini."
+      : "Dish image generated successfully via Gemini."
+  });
 };

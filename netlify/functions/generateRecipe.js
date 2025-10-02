@@ -7,6 +7,7 @@
 // Enhancements: Arabic normalization, grams-only enforcement, dessert positivity checks,
 // mass–macros plausibility guard, available-ingredients sanitization, target-calorie tightening.
 // NOTE: No change to public API or deployment flow.
+// + NEW: Subscription enforcement by headers (x-auth-token & x-session-nonce), auto-suspend on expiry.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -24,11 +25,51 @@ const MODEL_POOL = [
   "gemini-1.5-flash-latest"
 ];
 
+/* ---------------- GitHub helpers for user auth / policy ---------------- */
+const OWNER = process.env.GITHUB_REPO_OWNER;
+const REPO  = process.env.GITHUB_REPO_NAME;
+const REF   = process.env.GITHUB_REF || "main";
+const GH_TOKEN = process.env.GITHUB_TOKEN;
+const GH_API = "https://api.github.com";
+const USERS_PATH = "data/users.json";
+
+async function ghGetJson(path){
+  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
+    headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
+  });
+  if(!r.ok) throw new Error(`GitHub GET ${path} ${r.status}`);
+  const data = await r.json();
+  const content = Buffer.from(data.content || "", "base64").toString("utf-8");
+  return { json: JSON.parse(content), sha: data.sha };
+}
+
+async function ghPutJson(path, json, sha, message){
+  const content = Buffer.from(JSON.stringify(json, null, 2), "utf-8").toString("base64");
+  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
+    method:"PUT",
+    headers:{ Authorization:`token ${GH_TOKEN}`, "User-Agent":"WasfaOne", "Content-Type":"application/json" },
+    body: JSON.stringify({ message, content, sha, branch: REF })
+  });
+  if(!r.ok) throw new Error(`GitHub PUT ${path} ${r.status}`);
+  return r.json();
+}
+
+function todayDubai(){
+  const now = new Date();
+  return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
+}
+function withinWindow(start, end){
+  const d = todayDubai();
+  if(start && d < start) return false;
+  if(end && d > end) return false;
+  return true;
+}
+
 /* ---------------- HTTP helpers ---------------- */
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, X-Auth-Token, X-Session-Nonce",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringify(obj) });
@@ -583,11 +624,48 @@ function macrosVsMassImplausible(recipe){
   return false;
 }
 
+/* ---------------- Subscription gate (NEW) ---------------- */
+async function ensureActiveSubscription(event) {
+  const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
+  const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
+  if (!token || !nonce) return { ok:false, code:401, msg:"unauthorized" };
+
+  const { json: users, sha } = await ghGetJson(USERS_PATH);
+  const idx = (users||[]).findIndex(u => (u.auth_token||"") === token);
+  if (idx === -1) return { ok:false, code:401, msg:"unauthorized" };
+
+  const user = users[idx];
+  if ((user.session_nonce||"") !== nonce) return { ok:false, code:401, msg:"bad_session" };
+
+  const today = todayDubai();
+  if (user.end_date && today > user.end_date) {
+    user.status = "suspended";
+    user.lock_reason = "expired";
+    users[idx] = user;
+    await ghPutJson(USERS_PATH, users, sha, `generate: auto-suspend expired ${user.email}`);
+    return { ok:false, code:403, msg:"subscription_expired" };
+  }
+
+  if ((String(user.status||"").toLowerCase() !== "active") || !withinWindow(user.start_date, user.end_date)) {
+    return { ok:false, code:403, msg:"inactive_or_out_of_window" };
+  }
+
+  return { ok:true };
+}
+
 /* ---------------- Handler ---------------- */
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return jsonRes(204, {});
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
+
+  // NEW: enforce subscription before any generation
+  try {
+    const gate = await ensureActiveSubscription(event);
+    if (!gate.ok) return bad(gate.code, gate.msg);
+  } catch (e) {
+    return bad(500, "subscription_gate_error");
+  }
 
   let input = {};
   try { input = JSON.parse(event.body || "{}"); }

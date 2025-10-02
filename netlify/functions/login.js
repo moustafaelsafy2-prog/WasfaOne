@@ -2,7 +2,7 @@
 // Netlify Function: login
 // POST: { email, password, device_fingerprint_hash }
 // Updates users.json: bind device if empty, enforce single-device, set session_nonce (refresh only), keep auth_token stable
-// + NEW: enforce subscription window & auto-suspend if expired (status -> "suspended")
+// FIX: Always prioritize subscription expiry/suspension before any device checks.
 
 import crypto from "crypto";
 
@@ -81,25 +81,45 @@ export async function handler(event){
       return { statusCode: 401, body: JSON.stringify({ ok:false, reason:"invalid" }) };
     }
 
-    // NEW: auto-suspend if expired, then block
     const today = todayDubai();
+    const status = String(user.status || "").toLowerCase().trim();
+
+    // 1) If expired today-wise -> force suspend, persist, and stop
     if (user.end_date && today > user.end_date) {
       user.status = "suspended";
       user.lock_reason = "expired";
       users[idx] = user;
       await ghPutJson(USERS_PATH, users, sha, `login: auto-suspend expired ${user.email}`);
-      return { statusCode: 403, body: JSON.stringify({
-        ok:false,
-        reason:"subscription_expired",
-        message:"انتهت صلاحية الاشتراك وتم تعليق الحساب"
-      }) };
+      return {
+        statusCode: 403,
+        body: JSON.stringify({
+          ok:false,
+          reason:"subscription_expired",
+          message:"انتهت صلاحية الاشتراك وتم تعليق الحساب"
+        })
+      };
     }
 
-    if((user.status||"").toLowerCase() !== "active" || !withinWindow(user.start_date, user.end_date)){
+    // 2) If already suspended, prefer "expired" messaging when reason says so
+    if (status === "suspended") {
+      const msg = user.lock_reason === "expired"
+        ? "انتهت صلاحية الاشتراك وتم تعليق الحساب"
+        : "الحساب معلّق";
+      return { statusCode: 403, body: JSON.stringify({ ok:false, reason:"suspended", message: msg }) };
+    }
+
+    // 3) If outside subscription window (before start or after end withinWindow covers both)
+    if (!withinWindow(user.start_date, user.end_date)) {
+      // If before start -> inactive
+      return { statusCode: 403, body: JSON.stringify({ ok:false, reason:"inactive_or_out_of_window" }) };
+    }
+
+    // 4) Must be active
+    if (status !== "active") {
       return { statusCode: 403, body: JSON.stringify({ ok:false, reason:"inactive" }) };
     }
 
-    // enforce single-device
+    // 5) enforce single-device (ONLY after all subscription/status checks)
     if(!user.device_fingerprint){
       user.device_fingerprint = device_fingerprint_hash;
     } else if(user.device_fingerprint !== device_fingerprint_hash){
@@ -110,7 +130,7 @@ export async function handler(event){
       }) };
     }
 
-    // Refresh session_nonce only
+    // 6) Refresh session_nonce only; keep auth_token stable
     user.session_nonce = crypto.randomUUID();
     if(!user.auth_token){
       user.auth_token = crypto.randomUUID(); // assign once

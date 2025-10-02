@@ -1,7 +1,7 @@
 // netlify/functions/generateRecipeImage.js
-// هدف: صورة تعبّر بدقة عن الطبق.
-// الترتيب الأسرع والأدق: Wikimedia Commons (بدون مفتاح) → Pexels → Google (إن توفر) → Replicate → Placeholder.
-// لا إشارات للمزوّد في الاستجابة. يدعم GET للفحص اليدوي.
+// هدف: صورة مُعبّرة فعلاً عن الطبق، مع منع صور الأشخاص أو المشاهد العامة.
+// الترتيب: Wikimedia → Pexels (تصفية صارمة) → Google (إن توفر) → Replicate (negative قوي + seed) → Placeholder.
+// الاستجابة: { ok:true, image:{ data_url, mime, mode } }
 
 const HEADERS = {
   "Content-Type": "application/json; charset=utf-8",
@@ -16,13 +16,20 @@ const PEXELS_KEY    = process.env.PEXELS_API_KEY || "";
 const GEMINI_KEY    = process.env.GEMINI_API_KEY || "";
 const REPLICATE_KEY = process.env.REPLICATE_API_TOKEN || "";
 
+/* ================== أدوات عامة ================== */
 function normalizeList(a, max=25){
   return (Array.isArray(a)?a:[])
     .map(s=>String(s||"").trim()).filter(Boolean).slice(0,max);
 }
 function uniq(arr){ return Array.from(new Set(arr)); }
 function tokenize(s){
-  return String(s||"").toLowerCase().replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim().split(" ").filter(Boolean);
+  return String(s||"")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu," ")
+    .replace(/\s+/g," ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
 }
 function stableSeedFrom(str){
   let h = 2166136261;
@@ -30,7 +37,7 @@ function stableSeedFrom(str){
   return Math.abs(h>>>0);
 }
 
-async function fetchAsDataURL(imageUrl, timeoutMs=20000){
+async function fetchAsDataURL(imageUrl, timeoutMs = 20000){
   const ctrl = new AbortController();
   const t = setTimeout(()=>ctrl.abort(), timeoutMs);
   const resp = await fetch(imageUrl, { signal: ctrl.signal });
@@ -39,38 +46,97 @@ async function fetchAsDataURL(imageUrl, timeoutMs=20000){
   const mime = resp.headers.get("content-type") || "image/jpeg";
   const buf  = Buffer.from(await resp.arrayBuffer());
   const b64  = buf.toString("base64");
-  return { dataUrl:`data:${mime};base64,${b64}`, mime };
+  return { dataUrl: `data:${mime};base64,${b64}`, mime };
 }
 
-/* ========= (A) Wikimedia Commons (بدون مفاتيح) =========
-   - يبحث في صور الموسوعة العامة؛ ممتاز للأطباق المعروفة (تبولة، بابا غنوج، كباب…)
-   - نستخدم generator=search + imageinfo لإرجاع رابط مباشر بحجم مناسب.
-*/
+/* ================== قواعد المطابقة ================== */
+// كلمات ممنوعة (وجودها يُقصي النتيجة) — عربي/إنجليزي
+const BANNED_TOKENS = [
+  "person","people","woman","man","girl","boy","portrait","selfie","model","fitness","yoga","travel",
+  "tourist","lifestyle","fashion","dress","beach","mountain","forest","city","wedding","family","couple",
+  "رجل","امرأة","نساء","بنات","فتاة","شخص","اشخاص","أشخاص","عائلة","طفل","أزياء","سيلفي","رحلة","بحر","شاطئ"
+];
+
+// كلمات مُحبّذة تؤكد أنها أكل/طبق
+const FOOD_HINTS = [
+  "food","dish","plate","plated","meal","cooked","baked","roasted","grilled","stew","soup","salad","kebab","kabob",
+  "kofta","shawarma","rice","meat","chicken","beef","lamb","vegetable","herbs","sauce","garnish","olive","tagine",
+  "mezze","hummus","falafel","fattoush","tabbouleh","baba","moussaka","mandi","kabsa","dolma","mahshi","moussakhan",
+  "cuisine","restaurant","kitchen"
+];
+
+// تحويل اسم الطبق إلى مفاتيح إنجليزية شائعة (للأطباق العربية)
+function dishSynonyms(title){
+  const t = String(title||"").toLowerCase();
+  const m = [];
+  if(/كباب|kebab/.test(t)) m.push("kebab","kabob","grilled meat");
+  if(/كفتة|كفته|kofta/.test(t)) m.push("kofta","kebab","grilled meat");
+  if(/تبوله|تبولة|tabbouleh/.test(t)) m.push("tabbouleh","salad","parsley bulgur salad");
+  if(/فتوش|fattoush/.test(t)) m.push("fattoush","salad");
+  if(/حمص|hummus/.test(t)) m.push("hummus","mezze");
+  if(/بابا غنوج|baba/.test(t)) m.push("baba ganoush","eggplant dip");
+  if(/مشاوي|مشوي|grill/.test(t)) m.push("grilled","barbecue");
+  if(/منسف|كبسة|mandi|kabsa|mansaf/.test(t)) m.push("rice","arab rice dish");
+  if(/مسقعه|moussaka/.test(t)) m.push("moussaka");
+  if(/شاورما|shawarma/.test(t)) m.push("shawarma");
+  return uniq(m);
+}
+
+function cuisineHints(c){
+  const m = String(c||"").toLowerCase();
+  if(/عراقي|iraqi/.test(m)) return ["iraqi","middle eastern","arab","grill"];
+  if(/شامي|levant|syria|leban|فلسطين|اردن/.test(m)) return ["levant","arab","middle eastern","mezze","grill"];
+  if(/مصري|egypt/.test(m)) return ["egyptian","arab","middle eastern","grill"];
+  if(/خليج|saudi|kuwait|emirati|qatari|omani|bahraini/.test(m)) return ["gulf","arab","middle eastern"];
+  if(/تركي|turk/.test(m)) return ["turkish","kebab","meze"];
+  if(/ايراني|فارسي|persian|iran/.test(m)) return ["persian","kebab","saffron"];
+  if(/متوسطي|medit/.test(m)) return ["mediterranean","olive oil","fresh"];
+  return [];
+}
+
+// يحسب نقاط الصورة استنادًا إلى alt/url مع فلترة الممنوعات
+function scoreCandidateText(text, { title, ingredients, cuisine }){
+  const toks = tokenize(text);
+  // اقصاء مباشر إن وجد محظور
+  for(const b of BANNED_TOKENS){ if (toks.includes(b)) return -999; }
+
+  let score = 0;
+  // اسم الطبق
+  const titleTokens = uniq(tokenize(title)).concat(dishSynonyms(title));
+  for (const tk of titleTokens) if (toks.includes(tk)) score += 6;
+
+  // المكونات
+  const ingTokens = uniq(normalizeList(ingredients,6).flatMap(tokenize));
+  for (const tk of ingTokens) if (toks.includes(tk)) score += 2;
+
+  // تلميحات المطبخ
+  for (const tk of cuisineHints(cuisine)) if (toks.includes(tk)) score += 2;
+
+  // تلميحات طعام عامة
+  for (const tk of FOOD_HINTS) if (toks.includes(tk)) score += 1;
+
+  return score;
+}
+
+/* ================== (A) Wikimedia Commons ================== */
 function commonsQueries({ title, cuisine, ingredients }){
   const base = [
     title,
-    (cuisine||"").toString(),
-  ].filter(Boolean);
-  const ing = (ingredients||[]).slice(0,3).join(" ");
-  const qs = uniq([
-    base.join(" "),
     `${title} dish`,
     `${title} food`,
     `${title} ${cuisine} dish`,
-    `${title} ${ing}`,
     `${title} recipe`,
-    // ترجمات شائعة لبعض الكلمات
-    `${title} ${cuisine} طبق`,
-    `${title} ${cuisine} أكلة`
-  ].map(s=>s.trim()).filter(Boolean));
-  return qs;
+  ];
+  const ing = (ingredients||[]).slice(0,3).join(" ");
+  base.push(`${title} ${ing}`);
+  return uniq(base.map(s=>s.trim()).filter(Boolean));
 }
+
 async function tryWikimedia({ title, cuisine, ingredients }){
   const queries = commonsQueries({ title, cuisine, ingredients });
   for (const q of queries){
     try{
-      // نبحث عن صور فقط
-      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=8&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=900&format=json&origin=*`;
+      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}&gsrlimit=12&prop=imageinfo&iiprop=url|mime|size|extmetadata&iiurlwidth=900&format=json&origin=*`;
       const ctrl = new AbortController();
       const timeout = setTimeout(()=>ctrl.abort(), 9000);
       const resp = await fetch(url, { signal: ctrl.signal });
@@ -81,62 +147,50 @@ async function tryWikimedia({ title, cuisine, ingredients }){
       const pages = Object.values(data.query.pages)
         .filter(p=> Array.isArray(p.imageinfo) && p.imageinfo.length);
 
-      // رشّح الصور غير الغذائية (بدائيًا) واختر الأقرب
-      const tokens = uniq(tokenize(`${title} ${cuisine} ${ingredients.slice(0,4).join(" ")}`));
       let best=null, bestScore=-1;
       for(const p of pages){
         const info = p.imageinfo[0];
         const mime = (info.mime||"").toLowerCase();
         if(!/^image\/(jpeg|jpg|png|webp)$/i.test(mime)) continue;
-        const cand = info.thumburl || info.url;
-        if(!cand) continue;
+        const cand = info.thumburl || info.url; if(!cand) continue;
 
-        const nameTok = tokenize(p.title || "");
-        let score = 0;
-        for(const tk of tokens) if(nameTok.includes(tk)) score += 2;
-        if(/dish|food|meal|salad|soup|kebab|kabob|grill|cuisine|plate/i.test(p.title||"")) score += 2;
-        if(info.width>=600) score += 1;
-
-        if(score>bestScore){ bestScore=score; best = { url:cand, mime: info.mime || "image/jpeg" }; }
+        const text = `${p.title||""} ${(info.extmetadata?.ImageDescription?.value||"")}`.replace(/<[^>]+>/g," ");
+        const s = scoreCandidateText(text, { title, ingredients, cuisine });
+        if(s>bestScore){ bestScore=s; best={ url:cand, mime: info.mime||"image/jpeg" }; }
       }
-      if(best){
+      if(best && bestScore>0){
         const { dataUrl, mime } = await fetchAsDataURL(best.url, 15000);
         return { dataUrl, mime, mode:"inline" };
       }
-    }catch(_){ /* جرب الاستعلام التالي */ }
+    }catch(_){}
   }
   return null;
 }
 
-/* ========= (B) Pexels (أسرع صور جاهزة) ========= */
+/* ================== (B) Pexels مع تصفية صارمة ================== */
 async function tryPexels({ title, ingredients, cuisine }){
   if(!PEXELS_KEY) return null;
-  const topIngs = normalizeList(ingredients, 3).join(" ");
-  const query = [title, cuisine, topIngs].filter(Boolean).join(" ").trim() || "dish food plate";
-  const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=10&orientation=landscape`;
+
+  // استعلام مركّب يؤكد أنه عن طبق
+  const enrichedTitle = [title, ...dishSynonyms(title), "food dish", "on plate"].filter(Boolean).join(" ");
+  const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(enrichedTitle)}&per_page=24&orientation=landscape`;
 
   const ctrl = new AbortController();
-  const timeout = setTimeout(()=>ctrl.abort(), 8000);
+  const timeout = setTimeout(()=>ctrl.abort(), 9000);
   const resp = await fetch(url, { headers: { Authorization: PEXELS_KEY }, signal: ctrl.signal });
   clearTimeout(timeout);
 
   const data = await resp.json().catch(()=> ({}));
   if(!resp.ok || !Array.isArray(data?.photos) || !data.photos.length) return null;
 
-  // اختيار مبني على alt/url مثل ويكيميديا
-  const tokens = uniq(tokenize(`${title} ${cuisine} ${ingredients.slice(0,4).join(" ")}`));
   let best=null, bestScore=-1;
   for(const ph of data.photos){
     const text = `${ph?.alt||""} ${ph?.url||""}`.toLowerCase();
-    let s = 0;
-    for(const tk of tokens) if(text.includes(tk)) s += 2;
-    if(/dish|food|plate|grill|kebab|salad|stew|soup|rice|meat|vegetable/i.test(text)) s+=1;
-    if(s>bestScore){
-      bestScore = s;
-      best = ph?.src?.large2x || ph?.src?.large || ph?.src?.medium || ph?.src?.original || null;
-    }
+    const s = scoreCandidateText(text, { title, ingredients, cuisine });
+    if(s>bestScore){ bestScore=s; best = ph?.src?.large2x || ph?.src?.large || ph?.src?.medium || ph?.src?.original || null; }
   }
-  if(!best) return null;
+  // ارفض النتائج السالبة (تحتوي محظورات)
+  if(bestScore<=0 || !best) return null;
 
   try{
     const { dataUrl, mime } = await fetchAsDataURL(best, 15000);
@@ -144,7 +198,7 @@ async function tryPexels({ title, ingredients, cuisine }){
   }catch(_){ return null; }
 }
 
-/* ========= (C) Google Generative Language (إن توفّر نموذج صور) ========= */
+/* ================== (C) Google (إن وُجد نموذج صور) ================== */
 const GL_BASE = "https://generativelanguage.googleapis.com/v1beta";
 let cachedModels = null;
 let cachedImageModel = null;
@@ -172,6 +226,7 @@ function pickImageModelFrom(models){
   if (imageLike?.name) return imageLike.name.replace(/^models\//, "");
   return null;
 }
+
 function buildTextPrompt({ title = "", ingredients = [], steps = [], cuisine = "", lang = "ar" }){
   const titleLine = title ? `اسم الطبق: ${title}` : "اسم الطبق غير محدد";
   const ingLine   = ingredients.length ? `المكوّنات: ${ingredients.join(", ")}` : "المكوّنات: —";
@@ -184,7 +239,8 @@ ${titleLine}
 ${cuiLine}
 ${ingLine}
 ${stepsLine}
-[أسلوب] زاوية 30–45°، إضاءة طبيعية ناعمة، تقديم أنيق، بدون نصوص/شعارات/أشخاص/أيدي.
+- زاوية 30–45°، إضاءة طبيعية، تقديم أنيق على طبق، خلفية مطبخ محايدة.
+- بدون أي نصوص/شعارات/أشخاص/أيدي، وبدون ديكور لا علاقة له بالطعام.
 أخرج صورة واحدة مناسبة للويب.
 `.trim();
 
@@ -194,12 +250,14 @@ Title: ${title || "N/A"}
 Cuisine: ${cuisine || "Mixed"}
 Key ingredients: ${(ingredients||[]).join(", ") || "—"}
 Preparation summary: ${(steps||[]).join(" then ") || "—"}
-[Style] 30–45° angle, soft natural light, elegant plating, no text/logos/people/hands.
+- 30–45° angle, soft natural light, elegant plating on a plate, neutral kitchen backdrop.
+- No text/logos/people/hands, no unrelated props.
 Return exactly one web-suitable image.
 `.trim();
 
   return (lang === "en") ? en : ar;
 }
+
 async function tryGoogleImage(prompt){
   if(!GEMINI_KEY) return null;
   try{
@@ -210,6 +268,7 @@ async function tryGoogleImage(prompt){
     }
     const url = `${GL_BASE}/models/${encodeURIComponent(cachedImageModel)}:generateContent`;
     const body = { contents:[{ role:"user", parts:[{ text: prompt }] }], generationConfig:{ temperature:0, topP:1, maxOutputTokens:64 }, safetySettings:[] };
+
     const ctrl = new AbortController();
     const timeout = setTimeout(()=>ctrl.abort(), 12000);
     const resp = await fetch(url, {
@@ -219,6 +278,7 @@ async function tryGoogleImage(prompt){
       signal: ctrl.signal
     });
     clearTimeout(timeout);
+
     const data = await resp.json().catch(()=> ({}));
     if(!resp.ok) return null;
 
@@ -229,22 +289,38 @@ async function tryGoogleImage(prompt){
       (p && p.fileData    && /^image\//i.test(p.fileData?.mimeType    || ""))
     );
     if(!found) return null;
-    const mime = found.inlineData?.mimeType || found.inline_data?.mime_type || found.fileData?.mimeType || "image/png";
-    const b64  = found.inlineData?.data     || found.inline_data?.data     || null;
-    if(!b64 && found.fileData?.fileUri){
+
+    const mime =
+      found.inlineData?.mimeType ||
+      found.inline_data?.mime_type ||
+      found.fileData?.mimeType ||
+      "image/png";
+
+    const b64 =
+      found.inlineData?.data ||
+      found.inline_data?.data ||
+      null;
+
+    if (!b64 && found.fileData?.fileUri) {
       const { dataUrl, mime: m2 } = await fetchAsDataURL(found.fileData.fileUri, 20000);
       return { dataUrl, mime: m2 || mime, mode:"inline" };
     }
-    if(!b64) return null;
+    if (!b64) return null;
+
     return { dataUrl:`data:${mime};base64,${b64}`, mime, mode:"inline" };
   }catch{ return null; }
 }
 
-/* ========= (D) Replicate (FLUX/SDXL مع Negative) ========= */
+/* ================== (D) Replicate (negative قوي + seed) ================== */
 const REPLICATE_MODEL_CANDIDATES = [
   { owner:"black-forest-labs", name:"flux-schnell" }, // أسرع
   { owner:"stability-ai",      name:"sdxl" }          // أدق
 ];
+
+function negativePrompt(){
+  return "text, watermark, logo, people, person, hands, fingers, portrait, selfie, cartoon, unrealistic, extra objects, wrong ingredients, clutter, low quality, lowres, blurry, artifacts";
+}
+
 async function replicateLatestVersion(owner, name){
   const url = `https://api.replicate.com/v1/models/${owner}/${name}/versions`;
   const ctrl = new AbortController();
@@ -283,28 +359,25 @@ async function replicatePredict(versionId, input, overallTimeoutMs=45000){
     if(Date.now() - t0 > overallTimeoutMs) throw new Error("replicate_timeout");
   }
 }
-function buildGenPrompt(args){ return buildTextPrompt(args); }
-function buildNegativePrompt(){
-  return "text, watermark, logo, person, people, hands, fingers, human, cartoon, drawing, low quality, lowres, blurry, artifacts, wrong ingredients";
-}
-async function tryReplicate(prompt, seed){
+
+async function tryReplicateEnhanced(prompt, seed){
   if(!REPLICATE_KEY) return null;
-  let lastErr=null;
+  let lastErr = null;
   for(const m of REPLICATE_MODEL_CANDIDATES){
     try{
       const version = await replicateLatestVersion(m.owner, m.name);
       const input = (m.name === "sdxl")
-        ? { prompt, negative_prompt: buildNegativePrompt(), width: 768, height: 512, scheduler:"K_EULER", num_inference_steps: 28, guidance_scale: 7.0, seed }
-        : { prompt, negative_prompt: buildNegativePrompt(), width: 768, height: 512, num_inference_steps: 8, seed };
+        ? { prompt, negative_prompt: negativePrompt(), width: 800, height: 600, scheduler:"K_EULER", num_inference_steps: 28, guidance_scale: 7.0, seed }
+        : { prompt, negative_prompt: negativePrompt(), width: 800, height: 600, num_inference_steps: 8, seed };
       const url = await replicatePredict(version, input);
-      const { dataUrl, mime } = await fetchAsDataURL(url, 20000);
+      const { dataUrl, mime } = await fetchAsDataURL(url, 22000);
       return { dataUrl, mime, mode:"inline" };
     }catch(e){ lastErr = e && e.message || String(e); }
   }
   return null;
 }
 
-/* ========= (E) Placeholder ========= */
+/* ================== Placeholder ================== */
 function placeholderDataURL(){
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="256" height="256">
@@ -321,14 +394,13 @@ function placeholderDataURL(){
   return `data:image/svg+xml;utf8,${encoded}`;
 }
 
-/* ========= HTTP Handler ========= */
+/* ================== Handler ================== */
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: HEADERS, body: "" };
 
   if (event.httpMethod === "GET") {
     return ok({
-      info: "generateRecipeImage is alive. Use POST to generate an image.",
-      providers_available: { wikimedia: true, pexels: !!PEXELS_KEY, google_models: !!GEMINI_KEY, replicate: !!REPLICATE_KEY }
+      info: "generateRecipeImage (strict filtering) is alive. Use POST."
     });
   }
 
@@ -336,7 +408,7 @@ exports.handler = async (event) => {
 
   let payload = {};
   try { payload = JSON.parse(event.body || "{}"); }
-  catch { return ok({ image: { mime:"image/svg+xml", mode:"inline", data_url: placeholderDataURL() } }); }
+  catch { return ok({ image:{ mime:"image/svg+xml", mode:"inline", data_url: placeholderDataURL() } }); }
 
   const title = String(payload?.title || "").trim();
   const ingredients = normalizeList(payload?.ingredients, 25);
@@ -344,31 +416,31 @@ exports.handler = async (event) => {
   const cuisine = String(payload?.cuisine || "").trim();
   const lang = (payload?.lang === "en") ? "en" : "ar";
 
-  // 1) Wikimedia Commons أولا (أدق للأطباق المعروفة)
+  // 1) Wikimedia (أدق)
   try{
-    const c = await tryWikimedia({ title, cuisine, ingredients });
-    if(c && c.dataUrl) return ok({ image: { mime: c.mime || "image/jpeg", mode: c.mode || "inline", data_url: c.dataUrl } });
+    const wm = await tryWikimedia({ title, cuisine, ingredients });
+    if(wm && wm.dataUrl) return ok({ image:{ mime: wm.mime || "image/jpeg", mode:"inline", data_url: wm.dataUrl } });
   }catch(_){}
 
-  // 2) Pexels
+  // 2) Pexels (مع تصفية شديدة)
   try{
-    const p = await tryPexels({ title, ingredients, cuisine });
-    if(p && p.dataUrl) return ok({ image: { mime: p.mime || "image/jpeg", mode: p.mode || "inline", data_url: p.dataUrl } });
+    const px = await tryPexels({ title, ingredients, cuisine });
+    if(px && px.dataUrl) return ok({ image:{ mime: px.mime || "image/jpeg", mode:"inline", data_url: px.dataUrl } });
   }catch(_){}
 
   // 3) Google (إن توفر نموذج صور)
   try{
     const g = await tryGoogleImage(buildTextPrompt({ title, ingredients, steps, cuisine, lang }));
-    if(g && g.dataUrl) return ok({ image: { mime: g.mime || "image/png", mode: g.mode || "inline", data_url: g.dataUrl } });
+    if(g && g.dataUrl) return ok({ image:{ mime: g.mime || "image/png", mode:"inline", data_url: g.dataUrl } });
   }catch(_){}
 
-  // 4) Replicate
+  // 4) Replicate (negative + seed)
   try{
     const seed = stableSeedFrom(`${title}|${ingredients.join(",")}|${cuisine}`);
-    const r = await tryReplicate(buildGenPrompt({ title, ingredients, steps, cuisine, lang }), seed);
-    if(r && r.dataUrl) return ok({ image: { mime: r.mime || "image/png", mode: r.mode || "inline", data_url: r.dataUrl } });
+    const rp = await tryReplicateEnhanced(buildTextPrompt({ title, ingredients, steps, cuisine, lang }), seed);
+    if(rp && rp.dataUrl) return ok({ image:{ mime: rp.mime || "image/png", mode:"inline", data_url: rp.dataUrl } });
   }catch(_){}
 
   // 5) Placeholder
-  return ok({ image: { mime: "image/svg+xml", mode: "inline", data_url: placeholderDataURL() } });
+  return ok({ image:{ mime:"image/svg+xml", mode:"inline", data_url: placeholderDataURL() } });
 };

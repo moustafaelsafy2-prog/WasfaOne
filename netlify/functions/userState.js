@@ -1,6 +1,8 @@
 // Netlify Function: userState (GET/PUT)
 // Auth headers required for both: x-auth-token, x-session-nonce must match users.json
 // Storage per-user: data/history/{email_sanitized}.json
+// + NEW: enforce subscription window; auto-suspend if end_date < today and persist to users.json
+
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
@@ -31,6 +33,17 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
+function todayDubai(){
+  const now = new Date();
+  return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
+}
+function withinWindow(start, end){
+  const d = todayDubai();
+  if(start && d < start) return false;
+  if(end && d > end) return false;
+  return true;
+}
+
 async function auth(event){
   const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
   const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
@@ -38,10 +51,32 @@ async function auth(event){
 
   if(!token || !nonce || !email) return { ok:false, statusCode: 401 };
 
-  const { json: users } = await ghGetJson("data/users.json");
-  const user = (users||[]).find(u => (u.email||"").toLowerCase() === email.toLowerCase());
-  if(!user) return { ok:false, statusCode: 401 };
+  const { json: users, sha } = await ghGetJson("data/users.json");
+  const idx = (users||[]).findIndex(u => (u.email||"").toLowerCase() === email.toLowerCase());
+  if(idx === -1) return { ok:false, statusCode: 401 };
+
+  const user = users[idx];
   if(user.auth_token !== token || user.session_nonce !== nonce) return { ok:false, statusCode: 401 };
+
+  // NEW: enforce subscription; auto-suspend on expiry; also normalize when out of window
+  const today = todayDubai();
+  let mutated = false;
+  if (user.end_date && today > user.end_date) {
+    user.status = "suspended";
+    user.lock_reason = "expired";
+    mutated = true;
+  } else if ((user.status||"").toLowerCase() === "active" && !withinWindow(user.start_date, user.end_date)) {
+    // outside window but not expired yet (e.g., before start)
+    user.status = "inactive";
+    user.lock_reason = null;
+    mutated = true;
+  }
+
+  if (mutated) {
+    users[idx] = user;
+    await ghPutJson("data/users.json", users, sha, `userState: normalize ${user.email}`);
+  }
+
   return { ok:true, email, user };
 }
 

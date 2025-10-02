@@ -39,7 +39,7 @@
     "email": "mustafa2@gmail.com",
     "password": "123456",
     "name": "Mustafa2",
-    "status": "suspended",
+    "status": "active",
     "start_date": "2025-09-29",
     "end_date": "2026-10-01",
     "device_fingerprint": null,

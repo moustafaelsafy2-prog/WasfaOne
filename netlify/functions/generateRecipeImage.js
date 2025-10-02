@@ -1,6 +1,6 @@
 // netlify/functions/generateRecipeImage.js
-// توليد/جلب صورة طبق مع "حارس المكوّنات".
-// الترتيب (الأدق بدءًا بالذكاء الاصطناعي): Replicate → Google → Wikimedia → Pexels → Placeholder.
+// نظام صارم ودقيق لتوليد صورة الطبق مع "حارس المكوّنات" + مصادر مجانية لا تتطلب مفاتيح.
+// الترتيب: الذكاء الاصطناعي (Replicate → Google) → Wikimedia Commons → Wikipedia PageImages → Wikidata (P18) → Openverse → Pexels → Placeholder
 // الاستجابة: { ok:true, image:{ data_url, mime, mode } }
 
 const HEADERS = {
@@ -38,7 +38,7 @@ function stableSeedFrom(str){
   for (let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h += (h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24); }
   return Math.abs(h>>>0);
 }
-async function fetchAsDataURL(imageUrl, timeoutMs = 20000){
+async function fetchAsDataURL(imageUrl, timeoutMs = 25000){
   const ctrl = new AbortController();
   const t = setTimeout(()=>ctrl.abort(), timeoutMs);
   const resp = await fetch(imageUrl, { signal: ctrl.signal });
@@ -115,29 +115,21 @@ function cuisineHints(c){
   return [];
 }
 
-/* ============== قاموس تبسيط أسماء المكونات (AR→EN) ============== */
+/* ============== تبسيط أسماء المكونات (AR→EN) ============== */
 const INGLEX = {
-  // بروتينات
   "دجاج":"chicken","فراخ":"chicken","لحمة":"meat","لحم":"meat","غنم":"lamb","ضأن":"lamb","بقر":"beef",
   "سمك":"fish","تونة":"tuna","سلمون":"salmon","روبيان":"shrimp","جمبري":"shrimp",
-  // نشويات
-  "أرز":"rice","رز":"rice","أرز بسمتي":"rice","برغل":"bulgur","كسكسي":"couscous","مكرونة":"pasta","معكرونة":"pasta","خبز":"bread",
-  // خضار وفواكه شائعة
+  "أرز":"rice","رز":"rice","برغل":"bulgur","كسكسي":"couscous","مكرونة":"pasta","معكرونة":"pasta","خبز":"bread",
   "طماطم":"tomato","بندورة":"tomato","خس":"lettuce","جرجير":"arugula","خيار":"cucumber","فلفل":"pepper","بصل":"onion","ثوم":"garlic",
-  "بطاطس":"potato","بطاطا":"potato","ليمون":"lemon","حامض":"lemon","لايم":"lime","زيتون":"olives","فطر":"mushroom","فلفل حار":"chili",
-  // أعشاب
+  "بطاطس":"potato","بطاطا":"potato","ليمون":"lemon","لايم":"lime","زيتون":"olives","فطر":"mushroom","فلفل حار":"chili",
   "بقدونس":"parsley","كزبرة":"cilantro","ريحان":"basil","زعتر":"thyme","أوريجانو":"oregano","روزماري":"rosemary","شبت":"dill","نعناع":"mint",
-  // ألبان وبيض
   "جبن":"cheese","لبن":"yogurt","زبادي":"yogurt","قشدة":"cream","بيض":"egg",
-  // مواد أخرى
   "زيت زيتون":"olive oil","زيت":"oil","ملح":"salt","فلفل أسود":"black pepper","كمون":"cumin","كاري":"curry","كركم":"turmeric",
 };
 const COMMON_VISUAL_ING = [
-  // الأكثر ظهورًا في صور ستوك/توليد — نمنعها إن لم تكن ضمن المسموح
   "tomato","lettuce","cucumber","lemon","lime","parsley","cilantro","basil","oregano","rosemary","dill","mint",
   "olives","mushroom","cheese","egg","bread","pasta","rice","shrimp","salmon","tuna","fish","chicken","beef","lamb"
 ];
-
 function ingredientsAllowedTokens(ingredients){
   const base = [];
   for(const line of (ingredients||[])){
@@ -154,17 +146,15 @@ function ingredientsAllowedTokens(ingredients){
 
 /* =============== قواعد تقييم عامّة + حارس المكوّنات =============== */
 const BANNED_NONFOOD = [
-  "person","people","woman","man","girl","boy","portrait","selfie","model","fitness","yoga","fashion",
-  "travel","tourist","wedding","family","couple","sports","beach","mountain","city","forest",
-  "رجل","امرأة","نساء","بنات","فتاة","شخص","أشخاص","عائلة","زفاف","سياحة","رحلة","شاطئ","غابة","مدينة"
+  "person","people","woman","man","girl","boy","portrait","selfie","hand","hands","fingers",
+  "model","fitness","yoga","fashion","travel","tourist","wedding","family","couple",
+  "sports","beach","mountain","city","forest","رجل","امرأة","نساء","بنات","فتاة","شخص","أشخاص","أيدي","عائلة","زفاف","سياحة","شاطئ","غابة","مدينة"
 ];
-
 const FOOD_HINTS = [
   "food","dish","plate","plated","meal","cooked","baked","roasted","grilled","stew","soup",
   "salad","kebab","kabob","kofta","shawarma","rice","meat","chicken","fish","lamb","vegetable","herbs",
   "sauce","garnish","olive","tagine","mezze","cuisine","kitchen","restaurant","tray","platter","bowl"
 ];
-
 function typeHints(dishType){
   const map = {
     rice: ["rice","pilaf","pulao","biryani","mandi","kabsa","long-grain","saffron","spiced","tray","platter"],
@@ -180,7 +170,6 @@ function typeHints(dishType){
   };
   return map[dishType] || map.generic;
 }
-
 function scoreCandidateText(text, meta){
   const toks = tokenize(text);
   for(const b of BANNED_NONFOOD){ if (toks.includes(b)) return -999; }
@@ -201,7 +190,6 @@ function scoreCandidateText(text, meta){
   }
 
   let score = 0;
-
   for(const tk of uniq(tokenize(title))) if(toks.includes(tk)) score += 6;
   for(const tk of uniq(normalizeList(ingredients,6).flatMap(tokenize))) if(toks.includes(tk)) score += 3;
   for(const tk of cuisineHints(cuisine)) if(toks.includes(tk)) score += 2;
@@ -216,7 +204,7 @@ function scoreCandidateText(text, meta){
   return score;
 }
 
-/* =============== A) Wikimedia Commons =============== */
+/* =============== Wikimedia Commons (مجاني) =============== */
 function commonsQueries({ title, cuisine, ingredients, dishType }){
   const base = [
     title,
@@ -229,7 +217,6 @@ function commonsQueries({ title, cuisine, ingredients, dishType }){
   base.push(`${title} ${ing}`);
   return uniq(base.map(s=>s.trim()).filter(Boolean));
 }
-
 async function tryWikimedia(meta){
   const { title, cuisine, ingredients, dishType } = meta;
   const queries = commonsQueries({ title, cuisine, ingredients, dishType });
@@ -257,7 +244,7 @@ async function tryWikimedia(meta){
         if(s>bestScore){ bestScore=s; best={ url:cand, mime: info.mime||"image/jpeg" }; }
       }
       if(best && bestScore>0){
-        const { dataUrl, mime } = await fetchAsDataURL(best.url, 15000);
+        const { dataUrl, mime } = await fetchAsDataURL(best.url, 18000);
         return { dataUrl, mime, mode:"inline" };
       }
     }catch(_){}
@@ -265,7 +252,101 @@ async function tryWikimedia(meta){
   return null;
 }
 
-/* =============== B) Pexels =============== */
+/* =============== Wikipedia PageImages (مجاني) =============== */
+async function tryWikipediaPageImage(meta){
+  const langs = ["ar","en"];
+  const titleCandidates = uniq([meta.title].concat(
+    meta.title.split(/[()،,-]/).map(s=>s.trim()).filter(Boolean)
+  ));
+  for(const lang of langs){
+    for(const t of titleCandidates){
+      try{
+        const url = `https://${lang}.wikipedia.org/w/api.php?action=query&prop=pageimages|pageterms&format=json&piprop=thumbnail|name&pithumbsize=900&titles=${encodeURIComponent(t)}&origin=*`;
+        const ctrl = new AbortController();
+        const timeout = setTimeout(()=>ctrl.abort(), 8000);
+        const resp = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(timeout);
+        const data = await resp.json().catch(()=> ({}));
+        if(!resp.ok || !data?.query?.pages) continue;
+        const pages = Object.values(data.query.pages);
+        for(const p of pages){
+          const thumb = p?.thumbnail?.source;
+          if(!thumb) continue;
+          const text = `${p?.title||""} ${Array.isArray(p?.terms?.description)?p.terms.description.join(" "):""}`;
+          const s = scoreCandidateText(text, meta);
+          if(s>0){
+            const { dataUrl, mime } = await fetchAsDataURL(thumb, 15000);
+            return { dataUrl, mime: mime || "image/jpeg", mode:"inline" };
+          }
+        }
+      }catch(_){}
+    }
+  }
+  return null;
+}
+
+/* =============== Wikidata SPARQL (P18) — مجاني =============== */
+async function tryWikidataP18(meta){
+  const makeQuery = (label, lang) => `
+    SELECT ?img WHERE {
+      ?item rdfs:label "${label}"@${lang}.
+      ?item wdt:P18 ?img .
+    } LIMIT 1
+  `.trim();
+  const attempts = [
+    { l: meta.title, lang: "ar" },
+    { l: meta.title, lang: "en" },
+  ];
+  for(const a of attempts){
+    try{
+      const url = `https://query.wikidata.org/sparql?format=json&query=${encodeURIComponent(makeQuery(a.l, a.lang))}`;
+      const ctrl = new AbortController();
+      const timeout = setTimeout(()=>ctrl.abort(), 8000);
+      const resp = await fetch(url, { headers:{ "accept":"application/sparql-results+json" }, signal: ctrl.signal });
+      clearTimeout(timeout);
+      const data = await resp.json().catch(()=> ({}));
+      const img = data?.results?.bindings?.[0]?.img?.value;
+      if(!img) continue;
+      const s = scoreCandidateText(`${a.l} wikidata image`, meta);
+      if(s>0){
+        const { dataUrl, mime } = await fetchAsDataURL(img, 20000);
+        return { dataUrl, mime: mime || "image/jpeg", mode:"inline" };
+      }
+    }catch(_){}
+  }
+  return null;
+}
+
+/* =============== Openverse (WordPress) — مجاني =============== */
+async function tryOpenverse(meta){
+  try{
+    const q = [meta.title, meta.dishType, meta.protein, ...cuisineHints(meta.cuisine), "food", "dish"]
+      .filter(Boolean).join(" ");
+    const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&format=json&license_type=all&page_size=24`;
+    const ctrl = new AbortController();
+    const timeout = setTimeout(()=>ctrl.abort(), 8000);
+    const resp = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(timeout);
+    const data = await resp.json().catch(()=> ({}));
+    const results = Array.isArray(data?.results) ? data.results : [];
+    if(!results.length) return null;
+
+    let best=null, bestScore=-1;
+    for(const r of results){
+      const tags = (Array.isArray(r?.tags)?r.tags.map(t=>t?.name||""):"").join(" ");
+      const text = `${r?.title||""} ${r?.description||""} ${tags}`;
+      const s = scoreCandidateText(text, meta);
+      if(s>bestScore){ bestScore=s; best = r?.url || r?.thumbnail || null; }
+    }
+    if(best && bestScore>0){
+      const { dataUrl, mime } = await fetchAsDataURL(best, 20000);
+      return { dataUrl, mime: mime || "image/jpeg", mode:"inline" };
+    }
+  }catch(_){}
+  return null;
+}
+
+/* =============== Pexels (مفتاح اختياري) =============== */
 async function tryPexels(meta){
   if(!PEXELS_KEY) return null;
   const { title, dishType, protein, cuisine } = meta;
@@ -305,7 +386,7 @@ async function tryPexels(meta){
   }catch(_){ return null; }
 }
 
-/* =============== C) Google Generative Language (إن توفر) =============== */
+/* =============== Google Generative Language (إن توفر) =============== */
 const GL_BASE = "https://generativelanguage.googleapis.com/v1beta";
 let cachedModels = null;
 let cachedImageModel = null;
@@ -331,7 +412,6 @@ function pickImageModelFrom(models){
   if (imageAny?.name) return imageAny.name.replace(/^models\//, "");
   return null;
 }
-
 function buildTextPrompt(meta){
   const { title, ingredients, steps, cuisine, dishType, protein, lang, allowedSet } = meta;
 
@@ -383,7 +463,6 @@ ${dishType==="rice" ? "أظهر الأرز فقط إن كان ضمن قائمة 
 
   return (lang==="en") ? en : ar;
 }
-
 async function tryGoogleImage(meta){
   if(!GEMINI_KEY) return null;
   try{
@@ -431,11 +510,13 @@ async function tryGoogleImage(meta){
   }catch{ return null; }
 }
 
-/* =============== D) Replicate (FLUX/SDXL) =============== */
+/* =============== Replicate (توليد صارم + Validator CLIP) =============== */
 const REPLICATE_MODEL_CANDIDATES = [
   { owner:"black-forest-labs", name:"flux-schnell" }, // أسرع
   { owner:"stability-ai",      name:"sdxl" }          // أدق
 ];
+const REPLICATE_VALIDATOR = { owner:"pharmapsychotic", name:"clip-interrogator" };
+
 async function replicateLatestVersion(owner, name){
   const url = `https://api.replicate.com/v1/models/${owner}/${name}/versions`;
   const ctrl = new AbortController();
@@ -448,7 +529,7 @@ async function replicateLatestVersion(owner, name){
   if(!v?.id) throw new Error("replicate_no_versions");
   return v.id;
 }
-async function replicatePredict(versionId, input, overallTimeoutMs=45000){
+async function replicatePredict(versionId, input, overallTimeoutMs=60000){
   const create = await fetch("https://api.replicate.com/v1/predictions", {
     method: "POST",
     headers: { Authorization: `Bearer ${REPLICATE_KEY}`, "Content-Type": "application/json" },
@@ -460,7 +541,7 @@ async function replicatePredict(versionId, input, overallTimeoutMs=45000){
 
   const t0 = Date.now();
   while(true){
-    await new Promise(r=>setTimeout(r, 900));
+    await new Promise(r=>setTimeout(r, 1100));
     const r = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
       headers: { Authorization: `Bearer ${REPLICATE_KEY}` }
     });
@@ -524,20 +605,51 @@ function negativePrompt(meta){
   }
   return uniq(base).join(", ");
 }
-async function tryReplicate(meta, seed){
+async function validateImageByTags(imageUrl, meta){
+  try{
+    const version = await replicateLatestVersion(REPLICATE_VALIDATOR.owner, REPLICATE_VALIDATOR.name);
+    const input = { image: imageUrl, mode: "fast" };
+    const result = await replicatePredict(version, input);
+    let tagsText = "";
+    if(typeof result === "string" && /^https?:/.test(result)){
+      const r = await fetch(result); tagsText = await r.text();
+    }else{
+      tagsText = JSON.stringify(result||{});
+    }
+    const text = tagsText.toLowerCase();
+    for(const b of ["person","people","hand","hands","finger","portrait","selfie","man","woman","girl","boy"]) {
+      if (text.includes(b)) return { ok:false, reason:`validator_person_${b}` };
+    }
+    const { allowedSet } = meta;
+    for(const cand of COMMON_VISUAL_ING){
+      const t = cand.replace(/s$/,"");
+      if (text.includes(t) && !allowedSet.has(t)) return { ok:false, reason:`validator_ingredient_${t}` };
+    }
+    return { ok:true };
+  }catch(_){ return { ok:true, soft:true }; }
+}
+async function tryReplicateStrict(meta, seed){
   if(!REPLICATE_KEY) return null;
   const prompt = buildReplicatePrompt(meta);
   const neg = negativePrompt(meta);
-  for(const m of REPLICATE_MODEL_CANDIDATES){
-    try{
-      const version = await replicateLatestVersion(m.owner, m.name);
-      const input = (m.name === "sdxl")
-        ? { prompt, negative_prompt: neg, width: 800, height: 600, scheduler:"K_EULER", num_inference_steps: 28, guidance_scale: 7.0, seed }
-        : { prompt, negative_prompt: neg, width: 800, height: 600, num_inference_steps: 10, seed };
-      const url = await replicatePredict(version, input);
-      const { dataUrl, mime } = await fetchAsDataURL(url, 22000);
-      return { dataUrl, mime, mode:"inline" };
-    }catch(_){ /* جرّب التالي */ }
+  const seeds = [seed, seed+1337, seed+7777];
+  for(const model of REPLICATE_MODEL_CANDIDATES){
+    let versionId = null;
+    try{ versionId = await replicateLatestVersion(model.owner, model.name); }
+    catch(_){ continue; }
+    for(const sd of seeds){
+      try{
+        const input = (model.name === "sdxl")
+          ? { prompt, negative_prompt: neg, width: 832, height: 624, scheduler:"K_EULER", num_inference_steps: 28, guidance_scale: 7.5, seed: sd }
+          : { prompt, negative_prompt: neg, width: 832, height: 624, num_inference_steps: 12, seed: sd };
+        const url = await replicatePredict(versionId, input);
+        const check = await validateImageByTags(url, meta);
+        if(check.ok){
+          const { dataUrl, mime } = await fetchAsDataURL(url, 22000);
+          return { dataUrl, mime, mode:"inline" };
+        }
+      }catch(_){}
+    }
   }
   return null;
 }
@@ -565,8 +677,8 @@ exports.handler = async (event) => {
 
   if (event.httpMethod === "GET") {
     return ok({
-      info: "generateRecipeImage (AI-first with ingredient-guard) is alive. Use POST to generate an image.",
-      providers_available: { replicate: !!REPLICATE_KEY, google_models: !!GEMINI_KEY, wikimedia: true, pexels: !!PEXELS_KEY }
+      info: "generateRecipeImage (AI-first + free sources + ingredient-guard) is alive. Use POST to generate an image.",
+      providers_available: { replicate: !!REPLICATE_KEY, google_models: !!GEMINI_KEY, wikimedia: true, wikipedia: true, wikidata: true, openverse: true, pexels: !!PEXELS_KEY }
     });
   }
 
@@ -588,31 +700,49 @@ exports.handler = async (event) => {
 
   const meta = { title, ingredients, steps, cuisine, lang, protein, dishType, allowedSet };
 
-  // 1) Replicate (الأدق والأكثر تحكمًا)
+  // 1) Replicate (محاولات + Validator)
   try{
     const seed = stableSeedFrom(`${title}|${ingredients.join(",")}|${cuisine}|${protein}|${dishType}`);
-    const r = await tryReplicate(meta, seed);
+    const r = await tryReplicateStrict(meta, seed);
     if(r && r.dataUrl) return ok({ image:{ mime: r.mime || "image/png", mode: r.mode || "inline", data_url: r.dataUrl } });
   }catch(_){}
 
-  // 2) Google Generative Language (إن توفر نموذج صور)
+  // 2) Google (إن توفر نموذج صور)
   try{
     const g = await tryGoogleImage(meta);
     if(g && g.dataUrl) return ok({ image:{ mime: g.mime || "image/png", mode: g.mode || "inline", data_url: g.dataUrl } });
   }catch(_){}
 
-  // 3) Wikimedia Commons (صور موسوعية دقيقة إن وُجدت)
+  // 3) Wikimedia Commons
   try{
     const w = await tryWikimedia(meta);
     if(w && w.dataUrl) return ok({ image:{ mime: w.mime || "image/jpeg", mode: w.mode || "inline", data_url: w.dataUrl } });
   }catch(_){}
 
-  // 4) Pexels (ستوك مُصفى)
+  // 4) Wikipedia PageImages
+  try{
+    const pi = await tryWikipediaPageImage(meta);
+    if(pi && pi.dataUrl) return ok({ image:{ mime: pi.mime || "image/jpeg", mode: pi.mode || "inline", data_url: pi.dataUrl } });
+  }catch(_){}
+
+  // 5) Wikidata (P18)
+  try{
+    const wd = await tryWikidataP18(meta);
+    if(wd && wd.dataUrl) return ok({ image:{ mime: wd.mime || "image/jpeg", mode: wd.mode || "inline", data_url: wd.dataUrl } });
+  }catch(_){}
+
+  // 6) Openverse (مجاني)
+  try{
+    const ov = await tryOpenverse(meta);
+    if(ov && ov.dataUrl) return ok({ image:{ mime: ov.mime || "image/jpeg", mode: ov.mode || "inline", data_url: ov.dataUrl } });
+  }catch(_){}
+
+  // 7) Pexels (اختياري بمفتاح)
   try{
     const p = await tryPexels(meta);
     if(p && p.dataUrl) return ok({ image:{ mime: p.mime || "image/jpeg", mode: p.mode || "inline", data_url: p.dataUrl } });
   }catch(_){}
 
-  // 5) Placeholder
+  // 8) Placeholder
   return ok({ image:{ mime:"image/svg+xml", mode:"inline", data_url: placeholderDataURL() } });
 };

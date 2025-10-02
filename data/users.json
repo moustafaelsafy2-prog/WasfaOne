@@ -39,12 +39,12 @@
     "email": "mustafa2@gmail.com",
     "password": "123456",
     "name": "Mustafa2",
-    "status": "suspended",
+    "status": "active",
     "start_date": "2025-09-29",
-    "end_date": "2025-10-01",
+    "end_date": "2025-10-03",
     "device_fingerprint": "cb0aa318aa729bc92f04984fd936002fc647fd82f4d6293776de6b5fa9ebb7ff",
     "session_nonce": "1bec87df-99e7-42cb-840e-ec0220df06d4",
-    "lock_reason": "expired",
+    "lock_reason": null,
     "auth_token": "2ab6f588-fa12-41b2-917a-7f1480d32cf1"
   }
 ]

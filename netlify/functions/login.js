@@ -1,10 +1,12 @@
 // /netlify/functions/login.js
-// Netlify Function: login (HTTP codes disambiguation)
-// - 410 Gone  -> subscription_expired (suspended due to end_date)
-// - 409 Conflict -> inactive_or_out_of_window
-// - 423 Locked -> device_locked (ONLY for device mismatch)
-// - 401 -> invalid credentials
-// - 200 -> success
+// Netlify Function: login (disambiguated status codes - NO 409 ANYWHERE)
+// Mapping:
+//   - 410 Gone            -> subscription_expired (auto-suspend persisted)
+//   - 451 Unavailable     -> suspended (non-expired reasons)
+//   - 412 Precondition    -> inactive_or_out_of_window / inactive
+//   - 423 Locked          -> device_locked (ONLY this case shows "device" message)
+//   - 401 Unauthorized    -> invalid credentials
+//   - 200 OK              -> success
 
 import crypto from "crypto";
 
@@ -67,7 +69,7 @@ function withinWindow(start, end){
 function norm(x){ return String(x||"").trim().toLowerCase(); }
 
 /* ---------------- helpers ---------------- */
-function json(code, payload, reason, message){
+function respond(code, payload, reason, message){
   return {
     statusCode: code,
     headers: {
@@ -83,7 +85,7 @@ function json(code, payload, reason, message){
 /* ---------------- Handler ---------------- */
 export async function handler(event){
   if(event.httpMethod !== "POST"){
-    return json(405, { ok:false, reason:"method_not_allowed" }, "method_not_allowed");
+    return respond(405, { ok:false, reason:"method_not_allowed" }, "method_not_allowed");
   }
 
   try{
@@ -93,34 +95,35 @@ export async function handler(event){
     const deviceHash = String(body.device_fingerprint_hash||"").trim();
 
     if(!email || !password || !deviceHash){
-      return json(400, { ok:false, reason:"missing_fields" }, "missing_fields", "حقول مفقودة");
+      return respond(400, { ok:false, reason:"missing_fields" }, "missing_fields", "حقول مفقودة");
     }
 
     const { json: users, sha } = await ghGetJson(USERS_PATH);
     const idx = users.findIndex(u => String(u.email||"").toLowerCase().trim() === email);
     if(idx === -1){
-      return json(401, { ok:false, reason:"invalid" }, "invalid_credentials", "بيانات الدخول غير صحيحة");
+      return respond(401, { ok:false, reason:"invalid" }, "invalid_credentials", "بيانات الدخول غير صحيحة");
     }
 
     const user = users[idx];
     if(String(user.password||"") !== password){
-      return json(401, { ok:false, reason:"invalid" }, "invalid_credentials", "بيانات الدخول غير صحيحة");
+      return respond(401, { ok:false, reason:"invalid" }, "invalid_credentials", "بيانات الدخول غير صحيحة");
     }
 
-    // normalize dates & status
+    // Normalize dates & status
     const startN = normalizeDate(user.start_date);
     const endN   = normalizeDate(user.end_date);
     const status = norm(user.status);
 
-    // 1) If already suspended -> return 409 with clear message (not 403 to avoid FE mapping)
+    // 1) Already suspended (non-expired or expired but flag present)
     if (status === "suspended") {
       const msg = norm(user.lock_reason) === "expired"
         ? "انتهت صلاحية الاشتراك وتم تعليق الحساب"
         : "هذا الحساب معلّق";
-      return json(409, { ok:false, reason:"suspended", message: msg }, "suspended", msg);
+      // Use 451 to avoid any FE mapping on 403/409
+      return respond(451, { ok:false, reason:"suspended", message: msg }, "suspended", msg);
     }
 
-    // 2) If expired by date -> flip to suspended, persist, and return 410 Gone
+    // 2) Expired by date -> auto-suspend & 410 Gone
     const today = todayDubai();
     if (endN && cmpDate(today, endN) > 0) {
       user.status = "suspended";
@@ -128,33 +131,33 @@ export async function handler(event){
       users[idx] = user;
       await ghPutJson(USERS_PATH, users, sha, `login: auto-suspend expired ${user.email}`);
       const msg = "انتهت صلاحية الاشتراك وتم تعليق الحساب";
-      return json(410, { ok:false, reason:"subscription_expired", message: msg }, "subscription_expired", msg);
+      return respond(410, { ok:false, reason:"subscription_expired", message: msg }, "subscription_expired", msg);
     }
 
-    // 3) Outside subscription window OR not active -> 409 Conflict
+    // 3) Outside window or not active -> 412 (no 409)
     if (!withinWindow(startN, endN)) {
-      return json(409, { ok:false, reason:"inactive_or_out_of_window" }, "inactive_or_out_of_window", "خارج فترة الاشتراك");
+      return respond(412, { ok:false, reason:"inactive_or_out_of_window" }, "inactive_or_out_of_window", "خارج فترة الاشتراك");
     }
     if (status !== "active") {
-      return json(409, { ok:false, reason:"inactive" }, "inactive", "الحساب غير نشط");
+      return respond(412, { ok:false, reason:"inactive" }, "inactive", "الحساب غير نشط");
     }
 
-    // 4) Device logic (ONLY after all above checks)
+    // 4) Device logic — ONLY here -> 423 Locked
     if(!user.device_fingerprint){
       user.device_fingerprint = deviceHash;
     } else if(user.device_fingerprint !== deviceHash){
       const msg = "الحساب مرتبط بجهاز آخر. لإعادة الربط: 00971502061209";
-      return json(423, { ok:false, reason:"device_locked", message: msg }, "device_locked", msg);
+      return respond(423, { ok:false, reason:"device_locked", message: msg }, "device_locked", msg);
     }
 
-    // 5) Tokens
+    // 5) Tokens & persist
     user.session_nonce = crypto.randomUUID();
     if(!user.auth_token) user.auth_token = crypto.randomUUID();
 
     users[idx] = user;
     await ghPutJson(USERS_PATH, users, sha, `login: refresh session for ${user.email}`);
 
-    return json(200, {
+    return respond(200, {
       ok: true,
       name: user.name || "",
       email: user.email,
@@ -163,6 +166,6 @@ export async function handler(event){
     });
 
   }catch(err){
-    return json(500, { ok:false, error: String(err && err.message || err) }, "exception", "خطأ في الخادم");
+    return respond(500, { ok:false, error: String(err && err.message || err) }, "exception", "خطأ في الخادم");
   }
 }

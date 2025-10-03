@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WasfaOne — إنشاء حساب</title>
+
+  <!-- Fonts & Tailwind (مطابقة للصفحات الأخرى) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- الأنماط العامة للمشروع للحفاظ على الهوية -->
+  <link rel="stylesheet" href="/public/assets/styles.css" />
+
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    :root { --primary:#ef4444; --acc1:#10b981; --acc2:#3b82f6; }
+    body { font-family:"Cairo", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Inter", sans-serif; }
+    .btn { transition:transform .15s ease, box-shadow .15s ease; }
+    .btn:hover { transform: scale(1.02); box-shadow: 0 8px 18px rgba(0,0,0,.08); }
+    .card { background:white; border-radius:1rem; padding:1rem; box-shadow: 0 10px 20px rgba(0,0,0,.04); }
+    @media (prefers-color-scheme: dark){
+      .card{ background:#0f172a; }
+      body{ color:#e2e8f0; background:#0b1220; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+  <!-- Header -->
+  <header class="border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur z-10">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img id="logoImg" class="h-9 w-auto" alt="Logo" />
+        <h1 id="siteTitle" class="font-extrabold text-lg">WasfaOne</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <a id="whatsappBtn" href="#" target="_blank" class="btn inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-green-600 text-white text-sm">
+          <span>WhatsApp</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-5xl mx-auto px-4 py-10">
+    <div class="grid md:grid-cols-2 gap-6 items-stretch">
+      <!-- Intro / Plans CTA -->
+      <section class="card p-6">
+        <h2 class="text-2xl font-extrabold mb-2">ابدأ تجربتك المجانية 7 أيام</h2>
+        <p class="opacity-80 mb-4">جرّب الأداة بالكامل. بعد التجربة يمكنك الترقية لاشتراك شهري (29 درهم) أو سنوي (25 درهم/شهر — فوترة سنوية).</p>
+        <ul class="space-y-2 text-sm">
+          <li class="flex items-center gap-2"><span class="badge">✅</span> حساب لكل جهاز — حماية من الإساءة.</li>
+          <li class="flex items-center gap-2"><span class="badge">✅</span> ترى كل الأنظمة الغذائية — الفرق فقط في الحد اليومي أثناء التجربة.</li>
+          <li class="flex items-center gap-2"><span class="badge">✅</span> يمكنك الترقية في أي وقت عبر واتساب.</li>
+        </ul>
+        <a href="/public/index.html#plans" class="mt-4 inline-block text-sm underline underline-offset">عرض الخطط</a>
+      </section>
+
+      <!-- Signup Form -->
+      <section class="card p-6">
+        <h2 class="text-xl font-bold mb-4">إنشاء حساب جديد</h2>
+
+        <div id="status" class="hidden text-sm mb-3"></div>
+        <div id="error" class="hidden text-sm mb-3 text-red-600"></div>
+
+        <form id="signupForm" class="space-y-4">
+          <div>
+            <label class="lbl" for="name">الاسم</label>
+            <input id="name" type="text" required class="inp" placeholder="اسمك الكامل" />
+          </div>
+          <div>
+            <label class="lbl" for="email">البريد الإلكتروني</label>
+            <input id="email" type="email" required class="inp" placeholder="you@example.com" />
+          </div>
+          <div>
+            <label class="lbl" for="password">كلمة المرور</label>
+            <input id="password" type="password" required class="inp" placeholder="••••••••" minlength="6" />
+          </div>
+
+          <button id="submitBtn" type="submit" class="btn w-full px-4 py-2 rounded-md bg-[color:var(--primary)] text-white font-bold">
+            إنشاء حساب
+          </button>
+
+          <p class="text-sm opacity-80 mt-2">لديك حساب؟ <a href="/public/login.html" class="underline underline-offset">تسجيل الدخول</a></p>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="mt-10 border-t border-slate-200 dark:border-slate-800">
+    <div class="max-w-5xl mx-auto px-4 py-6 text-sm flex items-center justify-between">
+      <p id="footerLine">للاشتراك أو التجديد: 00971502061209 — واتساب/اتصال</p>
+      <a id="footerWhatsapp" href="#" target="_blank" class="btn px-3 py-1.5 rounded-md bg-green-600 text-white">WhatsApp</a>
+    </div>
+  </footer>
+
+  <script>
+    // ===== تحميل الإعدادات للهوية والروابط (logo / site names / WhatsApp) =====
+    async function loadSettings(){
+      try{
+        const r = await fetch("/data/settings.json?ts=" + Date.now(), { cache:"no-store" });
+        if(!r.ok) return;
+        const s = await r.json();
+        document.getElementById("logoImg").src = s?.branding?.logo_url || "";
+        document.getElementById("logoImg").alt = (s?.images_meta?.hero?.alt_ar || "شعار");
+        document.getElementById("siteTitle").textContent = s?.branding?.site_name_ar || "وصفة ون";
+        document.getElementById("whatsappBtn").href = s?.contact?.whatsapp_link || "#";
+        document.getElementById("footerWhatsapp").href = s?.contact?.whatsapp_link || "#";
+      }catch(e){ /* تجاهل */ }
+    }
+
+    // ===== توليد بصمة جهاز ثابتة (متوافقة وظيفيًا مع سياسة "جهاز واحد") =====
+    async function sha256(text){
+      const enc = new TextEncoder().encode(text);
+      const buf = await crypto.subtle.digest("SHA-256", enc);
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+    }
+    async function getDeviceFingerprint(){
+      const nav = window.navigator || {};
+      const scr = window.screen || {};
+      const tz  = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      const raw = [
+        nav.userAgent, nav.language, nav.platform,
+        scr.width, scr.height, scr.colorDepth, tz,
+        // إضافة قيم ثابتة آمنة حتى لا تُكسر الهوية عند تغيّر طفيف
+        "fp:v1"
+      ].join("|");
+      return await sha256(raw);
+    }
+
+    // ===== واجهة المستخدم: رسائل ودّية =====
+    function show(id, msg, isError=false){
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.textContent = msg || "";
+      el.classList.toggle("hidden", !msg);
+      if(id === "status"){
+        el.classList.toggle("text-emerald-700", !!msg && !isError);
+        el.classList.toggle("text-red-600", isError);
+      }
+    }
+
+    // ===== إرسال نموذج التسجيل =====
+    const form = document.getElementById("signupForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      show("status", "جاري إنشاء الحساب ...");
+      show("error", "");
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "جاري المعالجة ...";
+
+      try{
+        const name = document.getElementById("name").value.trim();
+        const email = document.getElementById("email").value.trim().toLowerCase();
+        const password = document.getElementById("password").value;
+
+        if(!name || !email || !password){ throw new Error("الرجاء إدخال جميع البيانات"); }
+        if(password.length < 6){ throw new Error("كلمة المرور يجب ألا تقل عن 6 أحرف"); }
+
+        const device_fingerprint_hash = await getDeviceFingerprint();
+
+        const res = await fetch("/.netlify/functions/signup", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ name, email, password, device_fingerprint_hash })
+        });
+        const data = await res.json().catch(()=>({ ok:false, reason:"bad_json" }));
+
+        if(!data.ok){
+          const msg = data.message || "تعذر إنشاء الحساب";
+          show("status", "");
+          show("error", msg);
+        } else {
+          // نجاح — توجيه إلى صفحة الدخول مع رسالة
+          const q = new URLSearchParams({ created:"1", email });
+          window.location.href = "/public/login.html?" + q.toString();
+        }
+      } catch(err){
+        show("status", "");
+        show("error", err.message || "حدث خطأ غير متوقّع");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "إنشاء حساب";
+      }
+    });
+
+    (async function init(){
+      await loadSettings(); // الهوية والروابط
+    })();
+  </script>
+</body>
+</html>

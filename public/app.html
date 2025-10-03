@@ -35,7 +35,7 @@
     .tl-pill .grams{ display:block; font-weight:900; font-size:18px; margin-top:4px }
     .tl-energy{ background:#fef2f2; border-color:#f87171; color:#b91c1c } .tl-protein{ background:#eff6ff; border-color:#60a5fa; color:#1e40af } .tl-carbs{ background:#f0fdf4; border-color:#4ade80; color:#15803d } .tl-fat{ background:#fffbeb; border-color:#facc15; color:#a16207 }
     .panel{ position:sticky; top:24px; background:#fff; border:1px solid var(--line); border-radius:22px; padding:22px; box-shadow:0 12px 30px rgba(0,0,0,.04) }
-    .ingredient-list li{ position:relative; padding-right:1.5rem; line-height:1.9; margin-bottom:.5rem; color:var(--muted) }
+    .ingredient-list li{ position:relative; padding-right:1.5rem; line-height:1.9; margin-bottom:.5rem; color: var(--muted) }
     .ingredient-list li::before{ content:''; position:absolute; right:0; top:10px; width:8px; height:8px; border-radius:50%; background:var(--brand); box-shadow:0 0 8px rgba(239,68,68,.5) }
     .steps-list{ counter-reset:step; position:relative; padding-right:25px; margin-right:15px }
     .steps-list::before{ content:''; position:absolute; right:0; top:16px; bottom:16px; width:2px; background:repeating-linear-gradient(to bottom,var(--line),var(--line) 4px,transparent 4px,transparent 8px); z-index:0 }
@@ -204,7 +204,7 @@
         </h3>
         <div id="preparationSteps" class="steps-list"></div>
 
-        <!-- قسم طريقة التقديم -->
+        <!-- قسم طريقة التقديم (من الخادم فقط) -->
         <div class="mt-8">
           <h3 class="section-title">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16"/><path d="M10 2v2"/><path d="M14 2v2"/><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 10h8"/><path d="M8 14h6"/></svg>
@@ -218,7 +218,6 @@
 
   <!-- زر ونافذة محادثة واتساب -->
   <button id="chatFab" class="chat-fab">
-    <!-- أيقونة أكثر وضوحًا: فقاعة دردشة + قلب صحة -->
     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V6a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/>
       <path d="M14.5 8.5l-2.5 2.5-1.5-1.5-2 2"/>
@@ -251,7 +250,8 @@
   // inputs
   const mealType=$('mealType'), cuisine=$('cuisine'), dietType=$('dietType'),
         calorieTarget=$('calorieTarget'), commonAllergy=$('commonAllergy'),
-        customAllergy=$('customAllergy'), availableIngredients=$('availableIngredients'),
+        customAllergy=$('customAllergy'),
+        availableIngredients=$('availableIngredients'),
         btn=$('generateBtn'), spin=$('loadingIndicator'),
         statusMsg=$('statusMsg'), errMsg=$('errorMsg'),
         banner=$('banner'), toast=$('toast'), dietHelp=$('dietHelp'),
@@ -273,10 +273,8 @@
     setTimeout(()=>{ d.style.opacity='0'; d.style.transform='translateY(-4px)'; }, ms-400);
     setTimeout(()=>d.remove(), ms);
   }
-
   function setStatus(text="", good=true){
-    statusMsg.classList.remove('status-pop-in');
-    void statusMsg.offsetWidth;
+    statusMsg.classList.remove('status-pop-in'); void statusMsg.offsetWidth;
     statusMsg.textContent=text;
     statusMsg.classList.toggle('hidden', !text);
     statusMsg.classList.toggle('text-blue-600', good);
@@ -286,10 +284,8 @@
   function setError(text=""){ errMsg.textContent=text; errMsg.classList.toggle('hidden', !text) }
   function setBanner(text="", tone="amber"){
     if(!text){ banner.classList.add('hidden'); banner.textContent=""; return; }
-    banner.textContent=text;
-    banner.classList.remove('hidden','amber','red');
-    if(tone==="red") banner.classList.add('red');
-    if(tone==="amber") banner.classList.add('amber');
+    banner.textContent=text; banner.classList.remove('hidden','amber','red');
+    if(tone==="red") banner.classList.add('red'); if(tone==="amber") banner.classList.add('amber');
   }
 
   function resetView(){
@@ -348,26 +344,6 @@
     return data;
   }
 
-  /* ===== Assistant API ===== */
-  async function callAssistantAPI(messages){
-    const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
-    if(!sess || !sess.auth_token || !sess.session_nonce){
-      window.location.replace("login.html"); return { ok:false };
-    }
-    const r=await fetch(API_ASSISTANT,{
-      method:"POST",
-      headers:{
-        "Content-Type":"application/json",
-        "x-auth-token": sess.auth_token,
-        "x-session-nonce": sess.session_nonce
-      },
-      body: JSON.stringify({ messages, lang:"ar" })
-    });
-    const data = await r.json().catch(()=> ({}));
-    if(!r.ok || !data.ok) throw new Error(data?.error || `assistant_failed (${r.status})`);
-    return data;
-  }
-
   /* ===== توليد صورة الطبق ===== */
   async function generateDishImage(view){
     try{
@@ -379,7 +355,9 @@
         cuisine: (document.getElementById('cuisine')?.value || ""),
         lang: "ar"
       };
-      const res = await fetch(API_IMAGE_ENDPOINT, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload) });
+      const res = await fetch("/.netlify/functions/generateRecipeImage", {
+        method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(payload)
+      });
       const data = await res.json().catch(()=> ({}));
       if(!res.ok || !data || data.ok===false || !data.image || !data.image.data_url){
         const err = (data && (data.error||data.note)) || `image_generation_failed (${res.status})`;
@@ -387,7 +365,6 @@
         pushToast(`فشل صورة الطبق: ${err}`,"error",6000);
         return;
       }
-      if(!recipeTitle) return;
       const currentText = view.title;
       const img = document.createElement("img");
       img.src = data.image.data_url; img.alt = currentText || "صورة الطبق";
@@ -436,7 +413,7 @@
     stepsBox.innerHTML = cleanSteps.map(s=>`<div class="step"><p>${s}</p></div>`).join("");
     renderTL(view.macros);
 
-    // طريقة التقديم من الخادم فقط
+    // طريقة التقديم القادمة من الخادم (ملتزمة بالنظام الغذائي)
     if (Array.isArray(view.servingSuggestions) && view.servingSuggestions.length){
       servingList.innerHTML = view.servingSuggestions.map(s=>`<li>${s}</li>`).join("");
     } else {
@@ -463,20 +440,20 @@
 
   function parseAvailableList(text){
     if(!text) return [];
-    const parts = text.split(/[\n,،]+/).map(s=>s.trim()).filter(Boolean).map(s=>s.replace(/\s+/g,' '));
+    const parts = text.split(/[\ن,\n,،]+/).map(s=>s.trim()).filter(Boolean).map(s=>s.replace(/\s+/g,' '));
     return Array.from(new Set(parts));
   }
 
   async function generate(){
     setError(""); setStatus("جارٍ التوليد …", true);
-    btn.disabled=true; $('loadingIndicator').classList.remove('hidden');
+    btn.disabled=true; spin.classList.remove('hidden');
     try{
       const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
       if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
-      const custom = isCustomDiet();
+      const custom = (String(dietType.value)==='custom');
       if(custom){
         const p=+customProtein.value||0, c=+customCarbs.value||0, f=+customFat.value||0;
-        if(p<=0 && c<=0 && f<=0){ setError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); btn.disabled=false; $('loadingIndicator').classList.add('hidden'); return; }
+        if(p<=0 && c<=0 && f<=0){ setError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); btn.disabled=false; spin.classList.add('hidden'); return; }
         calorieTarget.value = calcCaloriesFromMacros(p,c,f);
       }
       const payload={
@@ -499,7 +476,7 @@
       setError(e.message||"فشل التوليد");
       pushToast(e.message||"فشل التوليد","error",5000);
     }finally{
-      btn.disabled=false; $('loadingIndicator').classList.add('hidden');
+      btn.disabled=false; spin.classList.add('hidden');
     }
   }
 
@@ -509,11 +486,13 @@
       if(!res.ok) throw new Error("settings_fetch_failed");
       const s = await res.json();
       const diets = Array.isArray(s?.diet_systems) ? s.diet_systems : [];
+
       if (diets.length){
         dietType.innerHTML = diets.map(d=>`<option value="${d.id}">${d.name_ar}</option>`).join("");
         const first = diets[0];
         dietHelp.textContent = first?.description_ar ? `مثال (${first.name_ar}): ${first.description_ar}` : "";
       }
+
       function handleDietChange(){
         const dId = dietType.value;
         const custom = (dId==='custom');
@@ -547,6 +526,24 @@
     div.innerHTML = `${String(text||"").replace(/\n/g,'<br>')}<span class="time">${nowTime()}</span>`;
     chatBody.appendChild(div);
     chatBody.scrollTop = chatBody.scrollHeight;
+  }
+  async function callAssistantAPI(messages){
+    const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
+    if(!sess || !sess.auth_token || !sess.session_nonce){
+      window.location.replace("login.html"); return { ok:false };
+    }
+    const r=await fetch(API_ASSISTANT,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "x-auth-token": sess.auth_token,
+        "x-session-nonce": sess.session_nonce
+      },
+      body: JSON.stringify({ messages, lang:"ar" })
+    });
+    const data = await r.json().catch(()=> ({}));
+    if(!r.ok || !data.ok) throw new Error(data?.error || `assistant_failed (${r.status})`);
+    return data;
   }
   async function sendChat(){
     const t = (chatInput.value||"").trim();
@@ -588,17 +585,15 @@
       });
     }
 
-    // فتح الدردشة: اطلب التحية وبدء الأسئلة من الخادم (لا رسائل جاهزة محليًا)
+    // فتح الدردشة: يبدأ الخادم المحادثة (ذكاء اصطناعي فقط)
     chatFab.addEventListener('click', async ()=>{
       chatPanel.style.display = 'flex';
       if (chatState.messages.length===0){
         try{
-          const { reply } = await callAssistantAPI([]); // خادم يبدأ المحادثة
+          const { reply } = await callAssistantAPI([]); // يبدأ الخادم التحية والأسئلة
           chatState.messages.push({ role:"assistant", content: reply });
           pushMsg("assistant", reply);
-        }catch(e){
-          pushToast(String(e?.message||e), "error", 5000);
-        }
+        }catch(e){ pushToast(String(e?.message||e), "error", 5000); }
       }
     });
     chatClose.addEventListener('click', ()=> chatPanel.style.display='none');

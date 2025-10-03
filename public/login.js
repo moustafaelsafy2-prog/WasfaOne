@@ -1,172 +1,202 @@
-// /public/login.js
-// WasfaOne — Login (frontend)
-// يعتمد على Netlify Function: /.netlify/functions/login
-// يُخزّن الجلسة في localStorage باسم "wasfa_session" ثم يوجّه إلى app.html
+// /netlify/functions/login.js
+// Login with strong reasoned responses (ALL errors return 200 + ok:false)
+// This avoids FE hardcoded mapping of non-200 -> "device linked".
+// Order: suspended -> expired -> out_of_window -> inactive -> device -> success.
 
-(function () {
-  "use strict";
+import crypto from "crypto";
 
-  // ===== عناصر الواجهة =====
-  let form, emailInp, passInp, errBox, submitBtn;
+const OWNER = process.env.GITHUB_REPO_OWNER;
+const REPO  = process.env.GITHUB_REPO_NAME;
+const REF   = process.env.GITHUB_REF || "main";
+const GH_TOKEN = process.env.GITHUB_TOKEN;
 
-  // ===== أدوات مساعدة =====
-  const $ = (sel) => document.querySelector(sel);
+const GH_API = "https://api.github.com";
+const USERS_PATH = "data/users.json";
 
-  function showErr(msg) {
-    errBox.textContent = msg || "";
-    errBox.classList.toggle("hidden", !msg);
+/* ------------- GitHub helpers ------------- */
+async function ghGetJson(path){
+  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
+    headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
+  });
+  if(!r.ok) throw new Error(`GitHub GET ${path} ${r.status}`);
+  const data = await r.json();
+  const content = Buffer.from(data.content || "", "base64").toString("utf-8");
+  return { json: JSON.parse(content), sha: data.sha };
+}
+async function ghPutJson(path, json, sha, message){
+  const content = Buffer.from(JSON.stringify(json, null, 2), "utf-8").toString("base64");
+  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `token ${GH_TOKEN}`,
+      "User-Agent":"WasfaOne",
+      "Content-Type":"application/json"
+    },
+    body: JSON.stringify({ message, content, sha, branch: REF })
+  });
+  if(!r.ok) throw new Error(`GitHub PUT ${path} ${r.status}`);
+  return r.json();
+}
+
+/* ------------- Date & status utils ------------- */
+function todayDubai(){
+  return new Date().toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
+}
+function normalizeDate(s){
+  if (!s) return null;
+  const t = String(s).trim();
+  const m = t.match(/^\s*(\d{4})\D?(\d{1,2})\D?(\d{1,2})\s*$/);
+  if (!m) return null;
+  const y = m[1];
+  const mo = String(Math.max(1, Math.min(12, Number(m[2])))).padStart(2,"0");
+  const d  = String(Math.max(1, Math.min(31, Number(m[3])))).padStart(2,"0");
+  return `${y}-${mo}-${d}`;
+}
+function cmpDate(a,b){ if(!a||!b) return 0; return a<b?-1:a>b?1:0; }
+function withinWindow(start, end){
+  const today = todayDubai();
+  const s = normalizeDate(start);
+  const e = normalizeDate(end);
+  if (s && cmpDate(today, s) < 0) return false; // before start
+  if (e && cmpDate(today, e) > 0) return false; // after end
+  return true;
+}
+function norm(x){ return String(x||"").trim().toLowerCase(); }
+
+/* ------------- Response helpers (ALL errors as 200) ------------- */
+function emitOk(payload){
+  return {
+    statusCode: 200,
+    headers: { "Content-Type":"application/json; charset=utf-8", "Cache-Control":"no-store" },
+    body: JSON.stringify(payload),
+  };
+}
+function emitError(reason, ar, en, extra = {}){
+  return {
+    statusCode: 200, // IMPORTANT: force FE to read body instead of mapping by status code
+    headers: {
+      "Content-Type":"application/json; charset=utf-8",
+      "Cache-Control":"no-store",
+      "X-Error-Reason": reason,
+      "X-UI-Message-Ar": encodeURIComponent(ar),
+      "X-UI-Message-En": encodeURIComponent(en),
+    },
+    body: JSON.stringify({ ok:false, reason, message: ar, message_en: en, ...extra }),
+  };
+}
+
+/* ------------- Handler ------------- */
+export async function handler(event){
+  if(event.httpMethod !== "POST"){
+    return emitError("method_not_allowed", "الطريقة غير مسموحة", "Method Not Allowed");
   }
 
-  // تحذير: فتح عبر file:// يعطل fetch
-  function ensureHttpServing() {
-    if (location.protocol === "file:") {
-      showErr("رجاءً شغّل الموقع عبر خادم (Netlify أو خادم محلي). فتح الملف مباشرة يمنع الاتصال بالخادم.");
-      return false;
+  try{
+    const body = JSON.parse(event.body||"{}");
+    const email = String(body.email||"").toLowerCase().trim();
+    const password = String(body.password||"");
+    const deviceHash = String(body.device_fingerprint_hash||"").trim();
+
+    if(!email || !password || !deviceHash){
+      return emitError("missing_fields", "بيانات مفقودة", "Missing required fields");
     }
-    return true;
+
+    const { json: users, sha } = await ghGetJson(USERS_PATH);
+    const idx = users.findIndex(u => String(u.email||"").toLowerCase().trim() === email);
+    if(idx === -1){
+      return emitError("invalid_credentials", "بيانات الدخول غير صحيحة", "Invalid credentials");
+    }
+
+    const user = users[idx];
+    if(String(user.password||"") !== password){
+      return emitError("invalid_credentials", "بيانات الدخول غير صحيحة", "Invalid credentials");
+    }
+
+    // Normalize dates & status
+    const startN = normalizeDate(user.start_date);
+    const endN   = normalizeDate(user.end_date);
+    const status = norm(user.status);
+
+    // 1) Already suspended -> specific message
+    if (status === "suspended") {
+      const isExpired = norm(user.lock_reason) === "expired";
+      const ar = isExpired ? "انتهت صلاحية الاشتراك وتم تعليق الحساب" : "هذا الحساب معلّق";
+      const en = isExpired ? "Your subscription has expired and your account is suspended" : "This account is suspended";
+      return emitError("suspended", ar, en, { lock_reason: user.lock_reason || null });
+    }
+
+    // 2) Expired by date -> auto-suspend & persist
+    const today = todayDubai();
+    if (endN && cmpDate(today, endN) > 0) {
+      user.status = "suspended";
+      user.lock_reason = "expired";
+      users[idx] = user;
+      await ghPutJson(USERS_PATH, users, sha, `login: auto-suspend expired ${user.email}`);
+      return emitError(
+        "subscription_expired",
+        "انتهت صلاحية الاشتراك وتم تعليق الحساب",
+        "Your subscription has expired and your account is suspended",
+        { lock_reason: "expired" }
+      );
+    }
+
+    // 3) Outside window
+    if (!withinWindow(startN, endN)) {
+      return emitError(
+        "inactive_or_out_of_window",
+        "الحساب خارج فترة الاشتراك",
+        "Account is out of subscription window"
+      );
+    }
+
+    // 4) Not active
+    if (status !== "active") {
+      return emitError(
+        "inactive",
+        "الحساب غير نشط",
+        "Account is not active"
+      );
+    }
+
+    // 5) Device checks (only reached if all above passed)
+    if(!user.device_fingerprint){
+      user.device_fingerprint = deviceHash;
+    } else if(user.device_fingerprint !== deviceHash){
+      return emitError(
+        "device_locked",
+        "الحساب مرتبط بجهاز آخر. لإعادة الربط: 00971502061209",
+        "This account is linked to another device. For relink: 00971502061209"
+      );
+    }
+
+    // 6) Tokens & persist
+    user.session_nonce = crypto.randomUUID();
+    if(!user.auth_token) user.auth_token = crypto.randomUUID();
+
+    users[idx] = user;
+    await ghPutJson(USERS_PATH, users, sha, `login: refresh session for ${user.email}`);
+
+    // (جديد) إرجاع حقول الخطة ليستفيد منها الـ FE مباشرة
+    const plan = user.plan ?? null;
+    const trial_expires_at = user.trial_expires_at ?? null;
+    const daily_limit = Object.prototype.hasOwnProperty.call(user, "daily_limit") ? user.daily_limit : null;
+    const used_today = Object.prototype.hasOwnProperty.call(user, "used_today") ? user.used_today : null;
+    const last_reset = user.last_reset ?? null;
+
+    return emitOk({
+      ok: true,
+      name: user.name || "",
+      email: user.email,
+      token: user.auth_token,
+      session_nonce: user.session_nonce,
+      plan,
+      trial_expires_at,
+      daily_limit,
+      used_today,
+      last_reset
+    });
+
+  }catch(err){
+    return emitError("exception", "حدث خطأ في الخادم", "Server error", { error: String(err && err.message || err) });
   }
-
-  // توليد/قراءة معرّف جهاز ثابت
-  function getOrCreateDeviceId() {
-    let id = localStorage.getItem("wasfa_device_id");
-    if (!id && crypto.randomUUID) {
-      id = crypto.randomUUID();
-      localStorage.setItem("wasfa_device_id", id);
-    }
-    if (!id) {
-      id = String(Math.random()).slice(2);
-      localStorage.setItem("wasfa_device_id", id);
-    }
-    return id;
-  }
-
-  // حساب SHA-256 (hex) لسلسلة
-  async function sha256Hex(str) {
-    const data = new TextEncoder().encode(str);
-    const hashBuf = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(hashBuf))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-  }
-
-  // بصمة جهاز مبسّطة + تجزئة
-  async function computeDeviceFingerprintHash() {
-    const deviceId = getOrCreateDeviceId();
-    const parts = [
-      navigator.userAgent,
-      navigator.language,
-      `${screen.width}x${screen.height}`,
-      screen.colorDepth,
-      new Date().getTimezoneOffset(),
-      navigator.platform,
-      navigator.hardwareConcurrency || 0,
-      deviceId,
-    ].join("|");
-    return sha256Hex(parts);
-  }
-
-  // تخزين الجلسة
-  function saveSession(data, fpHash) {
-    const session = {
-      email: data.email,
-      name: data.name || "",
-      auth_token: data.token,
-      session_nonce: data.session_nonce,
-      device_fingerprint: fpHash,
-      login_at: new Date().toISOString(),
-    };
-    localStorage.setItem("wasfa_session", JSON.stringify(session));
-  }
-
-  // نداء الـ Function
-  async function callLogin(email, password, fpHash) {
-    const r = await fetch("/.netlify/functions/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-        device_fingerprint_hash: fpHash,
-      }),
-    }).catch(() => null);
-
-    if (!r) throw new Error("تعذر الاتصال بالخادم");
-    let data = null;
-    try {
-      data = await r.json();
-    } catch (_) {
-      data = null;
-    }
-
-    if (!r.ok || !data) {
-      throw new Error(`نأسف حيث هذا الحساب مرتبط بجهاز أخر (${r?.status || "?"})`);
-    }
-    if (!data.ok) {
-      // خرائط رسائل الخطأ الشائعة من Function
-      switch (data.reason) {
-        case "invalid":
-          throw new Error("بيانات الدخول غير صحيحة");
-        case "inactive":
-          throw new Error("الحساب غير نشط أو خارج فترة الاشتراك");
-        case "device_locked":
-        case "device":
-          throw new Error(data.message || "الحساب مرتبط بجهاز آخر");
-        case "missing_fields":
-          throw new Error("حقول ناقصة: البريد/كلمة المرور/بصمة الجهاز");
-        default:
-          throw new Error(data.message || "فشل تسجيل الدخول");
-      }
-    }
-    return data;
-  }
-
-  // معالج الإرسال
-  async function handleLogin(ev) {
-    ev.preventDefault();
-    showErr("");
-
-    if (!ensureHttpServing()) return;
-
-    const email = (emailInp.value || "").trim().toLowerCase();
-    const password = (passInp.value || "").trim();
-
-    if (!email || !password) {
-      showErr("الرجاء إدخال البريد الإلكتروني وكلمة المرور");
-      return;
-    }
-
-    submitBtn.disabled = true;
-
-    try {
-      const fpHash = await computeDeviceFingerprintHash();
-      const data = await callLogin(email, password, fpHash);
-      saveSession(data, fpHash);
-      // تحويل إلى التطبيق
-      window.location.href = "app.html";
-    } catch (e) {
-      showErr(e.message || "تعذر إتمام تسجيل الدخول");
-    } finally {
-      submitBtn.disabled = false;
-    }
-  }
-
-  // تهيئة الصفحة
-  function boot() {
-    form = $("#login-form");
-    emailInp = $("#email");
-    passInp = $("#password");
-    errBox = $("#login-error");
-    submitBtn = form ? form.querySelector('button[type="submit"]') : null;
-
-    if (!form || !emailInp || !passInp || !errBox || !submitBtn) {
-      console.error("Login page elements missing.");
-      showErr("خطأ في عناصر الصفحة. تأكد من معرفات الحقول والأزرار.");
-      return;
-    }
-
-    form.addEventListener("submit", handleLogin);
-  }
-
-  document.addEventListener("DOMContentLoaded", boot);
-})();
-
+}

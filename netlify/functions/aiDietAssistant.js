@@ -1,15 +1,15 @@
 // netlify/functions/aiDietAssistant.js
-// Fully-AI WhatsApp-like diet assistant (Arabic) — ذكي جدًا، سياقي، مهني، يراجع كل المحادثة، ويملأ البيانات الناقصة.
-// ✅ الميزات الجوهرية:
-//   1) يردّ التحية ويرحّب دون افتراض أهداف.
-//   2) يلتزم بالنطاق الغذائي فقط، ويعيد توجيه أي سؤال خارج التغذية بلطف.
-//   3) يطبع المحادثة ذهنيًا (normalize) ليحتمل الأخطاء الإملائية والأرقام العربية، ثم يستخرج الخانات (Slots).
-//   4) مدير نوايا (Intents) + ملء خانات: يحدد المطلوب لكل نية ويطلب فقط الناقص بسؤال واحد أو اثنين.
-//   5) منع التكرار: إذا لم يُجب المستخدم عن سؤالٍ محدد، يُعاد نفس السؤال مرة واحدة بلطف مع سبب الحاجة (Anti-loop).
-//   6) يتابع عند رسائل التأكيد القصيرة (نعم/تمام/أوكي) دون اعتذار ويكمل المسار السابق.
-//   7) حساب TDEE/السعرات (Mifflin–St Jeor) + عامل نشاط + عجز مدروس لخسارة الوزن، مع تذكير 4/4/9 عند الحاجة.
-//   8) أسلوب عربي فصيح موجز (3–8 أسطر)، سؤال واحد أو سؤالان كحد أقصى.
-//   9) نفس بوابة الاشتراك والـ model pool المستخدمة في توليد الوصفات.
+// Fully-AI WhatsApp-like diet assistant (Arabic) — ذكي جدًا، مرن، سياقي، “يفكّر” كإنسان منضبط بالنطاق.
+// ✅ الميزات الجوهرية بعد الإصلاح:
+//   1) يردّ التحية ويرحّب دون افتراض أهداف مسبقة.
+//   2) يطبع النص العربي (normalize) ويتحمل الأخطاء الإملائية والأرقام العربية والاختصارات.
+//   3) “إدارة خانات” ذكية (وزن/طول/عمر/جنس/نشاط/هدف/نظام/حساسيات...) مع ملء تدريجي وسؤال المفقود فقط.
+//   4) كشف نوايا + “نية معلّقة” مستخلَصة من سؤال البوت السابق؛ “نعم/تمام/أوكي” تعني التنفيذ الفوري.
+//   5) حساب TDEE/السعرات (Mifflin–St Jeor) + عامل نشاط + عجز/فائض وفق الهدف، مع ماكروز مقترحة، ونُسَق للكيتو.
+//   6) مانع التكرار والحلقات: إعادة السؤال مرة واحدة بلطف مع سبب الحاجة، ثم يقدّم قالب إدخال سطر واحد.
+//   7) التزام أسلوبي: عربي فصيح مبسّط، موجز (3–8 أسطر)، بحد أقصى سؤالين في الرسالة، بلا زخارف.
+//   8) نطاق غذائي فقط؛ أي خارج النطاق يُعاد توجيهه بلطف إلى موضوع التغذية.
+//   9) نفس بوابة الاشتراك وحوض النماذج كما في generateRecipe.
 //
 // POST { messages:[{role,content}], lang?: "ar", scope?: "diet_only" } -> { ok, reply, model }
 
@@ -112,7 +112,7 @@ async function ensureActiveSubscription(event) {
 /* ===== Regex guards & shortcuts ===== */
 // لا نرفض التحية أو التأكيد القصير حتى لو بلا كلمات تغذوية.
 const SCOPE_ALLOW_RE =
-  /(?:سعرات|كالوري|كالور|ماكروز|بروتين|دهون|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|غذائ|صيام|كيتو|لو ?كارب|متوسطي|داش|نباتي|سعر حراري|مؤشر جلايسيمي|حساسي|تحسس|سكري|ضغط|كلى|كبد|كوليسترول|وجبات|تقسيم السعرات|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf|cut|bulk|maintenance)/i;
+  /(?:سعرات|كالوري|كالور|ماكروز|بروتين|دهون|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|غذائ|صيام|الكيتو|كيتو|لو ?كارب|متوسطي|داش|نباتي|سعر حراري|مؤشر جلايسيمي|حساسي|تحسس|سكري|ضغط|كلى|كبد|كوليسترول|وجبات|تقسيم السعرات|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf|cut|bulk|maintenance)/i;
 
 const GREET_RE = /^(?:\s*(?:السلام\s*عليكم|وعليكم\s*السلام|مرحبا|مرحباً|أهلًا|اهلاً|هلا|مساء الخير|صباح الخير|سلام)\b|\s*السلام\s*)$/i;
 const ACK_RE   = /^(?:نعم|اي|إي|ايوه|أيوه|أجل|تمام|حسنًا|حسنا|طيب|اوكي|أوكي|Ok|OK|Yes|Okay)\s*\.?$/i;
@@ -120,25 +120,24 @@ const ACK_RE   = /^(?:نعم|اي|إي|ايوه|أيوه|أجل|تمام|حسن�
 /* =========================
    تطبيع عربي قبل الاستخراج
    ========================= */
-const AR_DIGITS = /[\u0660-\u0669]/g;       // ٠-٩
-const AR_PEH    = /پ/g;  // احتياطي
-const AR_GAF    = /گ/g;  // احتياطي
+const AR_DIGITS = /[\u0660-\u0669]/g; // ٠-٩
 const TASHKEEL  = /[\u064B-\u0652]/g;
-const EXTRA     = /[^\S\r\n]+/g;
 
 const COMMON_FIXES = [
   [/خصارة|خساره|خصاره/g, "خسارة"],
   [/سقليل|سليل|قليل ?الحرك[هة]م?|قليل الحركه/g, "قليل الحركة"],
+  [/خفيف ?الحرك[هة]?/g, "خفيف الحركة"],
   [/طؤل|طؤلي|طول[ي]?/g, "طول"],
   [/وزني|الوزن/g, "وزن"],
   [/عمري|العمر/g, "عمر"],
   [/سم(?=\d)/g, "سم "],
   [/كجم|كغ|كيلو ?جرام|كيلو جرام/g, "كجم"],
-  [/ك(?=\s|$)/g, "كجم"],
+  [/\bك\b(?=\s|$)/g, "كجم"],
   [/سم(?=\s|$)/g, "سم"],
   [/نشاطي|مستوى النشاط/g, "نشاط"],
   [/ذكر|رجل/g, "ذكر"],
   [/أنثى|امرأة|انثى/g, "أنثى"],
+  [/\bالكيتو\b/g, "كيتو"]
 ];
 
 function arabicDigitsToLatin(s){
@@ -149,7 +148,6 @@ function normalizeArabic(s=""){
   t = arabicDigitsToLatin(t);
   t = t.replace(TASHKEEL,"");
   for (const [re, rep] of COMMON_FIXES){ t = t.replace(re, rep); }
-  t = t.replace(AR_PEH,"ب").replace(AR_GAF,"ك");
   t = t.replace(/\s+/g," ").trim();
   return t;
 }
@@ -157,24 +155,23 @@ function normalizeArabic(s=""){
 /* ==============================
    استخراج الخانات (Slots) الذكي
    ============================== */
-// Regex مرنة للأرقام مع الوحدات
 const NUM = "(\\d{1,3}(?:[\\.,]\\d{1,2})?)";
 const WEIGHT_RE = new RegExp(`(?:وزن|وزنك|weight)[:=\\s]*${NUM}\\s*(?:كجم|kg)?`,"i");
 const HEIGHT_RE = new RegExp(`(?:طول|طولك|height)[:=\\s]*${NUM}\\s*(?:سم|cm)?`,"i");
 const AGE_RE    = new RegExp(`(?:عمر|عمرك|age)[:=\\s]*(${NUM})`,"i");
 const SEX_RE    = /\b(ذكر|أنثى)\b/i;
-const GOAL_RE   = /(خسارة|نقص|تنزيل|تخسيس|زيادة|بناء|تثبيت)\s*(?:وزن|عضل|كتلة)?/i;
-const DIET_RE   = /(كيتو|لو ?كارب|متوسطي|داش|نباتي|paleo|صيام متقطع)/i;
+const GOAL_RE   = /(خسارة|نقص|تنزيل|تخسيس|زيادة|بناء|تثبيت)\s*(?:وزن|دهون|عضل|كتلة)?/i;
+const DIET_RE   = /(الكيتو|كيتو|لو ?كارب|متوسطي|داش|نباتي|paleo|صيام متقطع)/i;
 const ALLERGY_RE= /(حساسي(?:ة|ات)|لا(?: أتحمل| أتناول)|تحسس)\s*[:=]?\s*([^.\n،]+)/i;
-const ACT_RE    = /(خامل|قليل الحركة|خفيف|متوسط|عال(?:ي)?(?:\s*النشاط)?|sedentary|light|moderate|active)/i;
+const ACT_RE    = /(خامل|قليل الحركة|خفيف الحركة|خفيف|متوسط|عال(?:ي)?(?:\s*النشاط)?|sedentary|light|moderate|active)/i;
 const DISEASE_RE= /(سكر[يي]?|ضغط|كلى|كبد|دهون(?: على)? الكبد|كوليسترول|نقرس)/i;
 
 function mapActivity(aRaw=""){
   const s = aRaw.toLowerCase();
   if (/خامل|قليل/.test(s) || /sedentary/.test(s)) return "sedentary";
-  if (/خفيف|light/.test(s)) return "light";
+  if (/خفيف/.test(s) || /light/.test(s)) return "light";
   if (/متوسط|moderate/.test(s)) return "moderate";
-  if (/عال/.test(s) || /active/.test(s)) return "active";
+  if (/عال|active/.test(s)) return "active";
   return null;
 }
 function mapGoal(gRaw=""){
@@ -190,7 +187,6 @@ function mapSex(sexRaw=""){
   if (/أنثى/.test(s)) return "female";
   return null;
 }
-
 function tryNum(x){ if (x==null) return null; const n = Number(String(x).replace(",",".")); return Number.isFinite(n)? n : null; }
 
 function extractProfileFromMessages(messages){
@@ -199,8 +195,7 @@ function extractProfileFromMessages(messages){
     sex: null, activity: null, preferred_diet: null, allergies: [], conditions: []
   };
   for (const m of messages){
-    const original = String(m.content||"");
-    const text = normalizeArabic(original);
+    const text = normalizeArabic(String(m.content||""));
 
     const w = text.match(WEIGHT_RE); if (w) profile.weight_kg = tryNum(w[1]);
     const h = text.match(HEIGHT_RE); if (h) profile.height_cm = tryNum(h[1]);
@@ -208,7 +203,7 @@ function extractProfileFromMessages(messages){
     const sx= text.match(SEX_RE);    if (sx) profile.sex = mapSex(sx[1]) || profile.sex;
 
     const g = text.match(GOAL_RE);   if (g) profile.goal = mapGoal(g[0]) || profile.goal;
-    const d = text.match(DIET_RE);   if (d) profile.preferred_diet = d[1];
+    const d = text.match(DIET_RE);   if (d) profile.preferred_diet = d[1].replace(/^الكيتو$/,"كيتو");
 
     const act= text.match(ACT_RE);   if (act) profile.activity = mapActivity(act[1]) || profile.activity;
 
@@ -219,16 +214,13 @@ function extractProfileFromMessages(messages){
       for (const item of list){ if (!profile.allergies.includes(item)) profile.allergies.push(item); }
     }
 
-    // دعم صيغة سريعة: "181 سم 104 ك 38 عام ذكر قليل الحركة"
-    // الطول
+    // دعم صيغة سريعة: "181 سم 104 كجم 38 عام ذكر خفيف الحركة"
     if (profile.height_cm==null){
       const h2 = text.match(new RegExp(`${NUM}\\s*سم`,"i")); if (h2) profile.height_cm = tryNum(h2[1]);
     }
-    // الوزن
     if (profile.weight_kg==null){
       const w2 = text.match(new RegExp(`${NUM}\\s*(?:كجم|kg)`,"i")); if (w2) profile.weight_kg = tryNum(w2[1]);
     }
-    // العمر رقم عارٍ متبوع ب (عام|سنة)
     if (profile.age==null){
       const a2 = text.match(new RegExp(`${NUM}\\s*(?:عام|سنة)`,"i")); if (a2) profile.age = tryNum(a2[1]);
     }
@@ -257,7 +249,7 @@ ${JSON.stringify(profile, null, 2)}
 const INTENTS = [
   {
     id: "calc_tdee_macros",
-    re: /(احسب|حساب)\s+(?:سعرات|tdee|الاحتياج|طاقة|ماكروز|macros)|(?:سعراتي|كم\s+سعره)|(?:اريد|أريد)\s+حساب\s+(?:سعرات|ماكروز)|(?:السعرات\s*اول[اًا]?)/i,
+    re: /(احسب|حساب)\s+(?:سعرات|tdee|الاحتياج|طاقة|ماكروز|macros)|(?:سعراتي|كم\s+سعره)|(?:أريد|اريد)\s+حساب\s+(?:سعرات|ماكروز)|(?:السعرات\s*اول[اًا]?)/i,
     needs: ["goal","weight_kg","height_cm","age","activity","sex"]
   },
   {
@@ -279,15 +271,12 @@ const INTENTS = [
 
 function detectIntent(text){
   const t = normalizeArabic(text||"");
-  for (const it of INTENTS){
-    if (it.re.test(t)) return it;
-  }
+  for (const it of INTENTS){ if (it.re.test(t)) return it; }
   if (/(ماكروز|سعرات|tdee|رجيم|نظام|خطة|وجبات)/i.test(t)){
     return { id:"generic_diet_help", re:/./, needs:["goal","weight_kg","height_cm","age","activity","sex"] };
   }
   return null;
 }
-
 function inferMissing(profile, needs){
   const missing = [];
   for (const key of (needs||[])){
@@ -295,7 +284,6 @@ function inferMissing(profile, needs){
   }
   return missing;
 }
-
 function humanizeMissing(missing){
   const map = {
     goal: "هدفك الحالي (خسارة/زيادة وزن أو بناء عضل…)",
@@ -316,7 +304,6 @@ function humanizeMissing(missing){
    ================== */
 function mifflinStJeor({ sex, weight_kg, height_cm, age }){
   if (!sex || !weight_kg || !height_cm || !age) return null;
-  // BMR = (10 * weight) + (6.25 * height) - (5 * age) + s
   const base = (10*weight_kg) + (6.25*height_cm) - (5*age) + (sex==="male"? 5 : -161);
   return Math.max(800, Math.round(base));
 }
@@ -336,14 +323,26 @@ function calcTargets(profile){
   let target = tdee;
   if (profile.goal === "loss")      target = Math.max(1000, Math.round(tdee * 0.8));  // عجز ~20%
   else if (profile.goal === "gain") target = Math.round(tdee * 1.1);                   // فائض ~10%
-  // توزيع ماكروز افتراضي بسيط (يمكن للموديل شرحه):
-  // بروتين 1.6–2.2 جم/كجم (نختار 1.8 افتراضيًا)، دهون 25–30%، والباقي كارب.
+
+  // توزيع ماكروز افتراضي:
+  // - إن كان النظام كيتو: كارب منخفض ~5–10% من السعرات، بروتين معتدل ~1.8 جم/كجم، والباقي دهون.
+  // - غير ذلك: بروتين ~1.8 جم/كجم، دهون ~28% سعرات، والباقي كارب.
+  const isKeto = String(profile.preferred_diet||"").includes("كيتو");
   const protein_g = Math.round((profile.weight_kg || 70) * 1.8);
-  const fat_kcal  = Math.round(target * 0.28);
-  const fat_g     = Math.round(fat_kcal / 9);
-  const prot_kcal = protein_g * 4;
-  const carb_kcal = Math.max(0, target - fat_kcal - prot_kcal);
-  const carbs_g   = Math.round(carb_kcal / 4);
+  let carbs_g, fat_g;
+
+  if (isKeto){
+    const carbs_kcal  = Math.round(target * 0.07); // 7% وسط 5–10%
+    const fat_kcal    = Math.max(0, target - (protein_g*4) - carbs_kcal);
+    carbs_g           = Math.round(carbs_kcal / 4);
+    fat_g             = Math.round(fat_kcal / 9);
+  } else {
+    const fat_kcal    = Math.round(target * 0.28);
+    fat_g             = Math.round(fat_kcal / 9);
+    const carb_kcal   = Math.max(0, target - (protein_g*4) - fat_kcal);
+    carbs_g           = Math.round(carb_kcal / 4);
+  }
+
   return { bmr, tdee, target, protein_g, fat_g, carbs_g };
 }
 
@@ -365,7 +364,7 @@ function systemPrompt(){
 - لا مواضيع خارج التغذية، ولا تشخيص طبي أو جرعات دواء.
 
 [الأسلوب]
-- عند التحية: ردّ التحية وعرّف نفسك ثم اسأل عن الهدف والبيانات الأساسية (وزن/طول/عمر/نشاط) في سؤال واحد أو سؤالين.
+- عند التحية: ردّ التحية وعرّف نفسك ثم اسأل عن الهدف والبيانات الأساسية (وزن/طول/عمر/جنس/نشاط) في سؤال واحد أو سؤالين.
 - عند رسالة تأكيد قصيرة: تابع مباشرةً آخر إجراء منطقي (حساب/ترشيح/خطة) بلا اعتذار.
 - إذا لم يُجب المستخدم عن سؤالك: أعد طرح **نفس السؤال** بلطف وبصياغة مباشرة، مع جملة قصيرة توضح سبب الحاجة.
 - إذا طرح المستخدم سؤالًا جديدًا يتطلّب بيانات ناقصة: راجع التاريخ، واطلب **فقط المفقود** لإكمال الإجابة الدقيقة (سؤال واحد أو سؤالان).
@@ -388,16 +387,13 @@ function sanitizeReply(t=""){
   s = s.replace(/\n{3,}/g,"\n\n").trim();        // تقليم الأسطر
   return s;
 }
-
 function toGeminiContents(messages){
-  // نمرر التاريخ كما هو (للفهم العام)، لكن الاستخراج تم على النسخة المُطبَّعة.
   const hist = (Array.isArray(messages)? messages : []).slice(-16);
   return hist.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
     parts: [{ text: String(m.content||"") }]
   }));
 }
-
 function lastUserMessage(messages){
   for (let i = messages.length - 1; i >= 0; i--){
     if (messages[i].role === "user") return String(messages[i].content||"");
@@ -412,7 +408,7 @@ function lastAssistantMessage(messages){
 }
 
 /* ===== Re-ask & continuation helpers ===== */
-const CORE_Q_HINTS = /(هدفك|هدفك\s+الحالي|وزنك|طولك|عمرك|نشاطك)/i;
+const CORE_Q_HINTS = /(هدفك|هدفك\s+الحالي|وزنك|طولك|عمرك|جنسك|نشاطك)/i;
 function userProvidedCoreData(textRaw){
   const text = normalizeArabic(textRaw||"");
   return !!(
@@ -429,7 +425,7 @@ function needsReAsk(messages){
   const lastBot  = lastAssistantMessage(messages) || "";
   if (!lastBot) return false;
   const botAskedQuestion = /[؟?]\s*$/.test(lastBot) || CORE_Q_HINTS.test(lastBot);
-  const userNonAnswer = (!lastUser.trim()) || GREET_RE.test(lastUser) || ACK_RE.test(lastUser) || (!userProvidedCoreData(lastUser) && !SCOPE_ALLOW_RE.test(lastUser));
+  const userNonAnswer = (!lastUser.trim()) || GREET_RE.test(lastUser) || (!userProvidedCoreData(lastUser) && !SCOPE_ALLOW_RE.test(lastUser));
   return botAskedQuestion && userNonAnswer;
 }
 function buildReAskPrompt(messages){
@@ -483,15 +479,28 @@ function buildPersonalizerHint(lastMsg){
 function buildComputeCaloriesPrompt(profile, targets){
   const p = { ...profile };
   const t = { ...targets };
-  // نجعل الموديل يقدّم الجواب مهنيًا وبالعربية الموجزة:
+  const readableActivity = {sedentary:"قليل/خامل", light:"خفيف", moderate:"متوسط", active:"عالٍ"}[p.activity] || p.activity;
+  const readableGoal = {loss:"خسارة", gain:"زيادة", maintain:"تثبيت"}[p.goal] || p.goal;
+
   const text = `
 لديك كل البيانات اللازمة لحساب السعرات والماكروز. اكتب ردًا عربيًا موجزًا ومحترفًا:
-- أكّد الاستلام: ذكر، عمر ${p.age}، طول ${p.height_cm} سم، وزن ${p.weight_kg} كجم، نشاط ${p.activity}، هدف ${p.goal}.
-- اعرض BMR و TDEE وهدف السعرات اليومي (${t.target} ك.سع) مع الإشارة إلى سبب العجز/الفائض حسب الهدف.
-- اقترح ماكروز تقريبية: بروتين ~${t.protein_g} جم، دهون ~${t.fat_g} جم، كارب ~${t.carbs_g} جم.
+- أكّد الاستلام: ${p.sex==="male"?"ذكر":"أنثى"}, عمر ${p.age}، طول ${p.height_cm} سم، وزن ${p.weight_kg} كجم، نشاط ${readableActivity}، هدف ${readableGoal}${p.preferred_diet?`, نظام مفضل: ${p.preferred_diet}`:""}.
+- اعرض BMR ≈ ${t.bmr} ك.سع، TDEE ≈ ${t.tdee} ك.سع، والهدف اليومي ≈ ${t.target} ك.سع وفق الهدف.
+- اقترح الماكروز: بروتين ≈ ${t.protein_g} جم، دهون ≈ ${t.fat_g} جم، كربوهيدرات ≈ ${t.carbs_g} جم${String(p.preferred_diet||"").includes("كيتو")?" (منخفضة حفاظًا على الكيتوزيس)":""}.
 - ذكّر بصيغة الطاقة: السعرات = 4P + 4C + 9F.
-- أختم بسؤال واحد فقط (مثال: هل تفضّل تقسيمًا معينًا للوجبات أو نظامًا محددًا؟).`.trim();
+- اختم بسؤال واحد فقط (مثل: هل تريد تقسيم السعرات على 3–5 وجبات أو تفضّل خطة أسبوعية مختصرة؟).`.trim();
   return { role:"user", parts:[{ text }] };
+}
+
+/* ===== Pending intent detection from assistant question ===== */
+const PENDING_PATTERNS = [
+  { id:"calc_tdee_macros", re: /(أحسب|أقوم بحساب|هل ترغب(?:\/)?(?: تريد)? في? حساب)\s+(?:السعرات|الماكروز|الاحتياج|tdee)/i },
+  { id:"calc_tdee_macros", re: /(هل\s+أعطيك|هل\s+ترغب\s+بمعرفة)\s+(?:الأرقام|السعرات|الماكروز)/i }
+];
+function detectPendingIntentFromAssistant(assistantText){
+  const t = normalizeArabic(assistantText||"");
+  for (const p of PENDING_PATTERNS){ if (p.re.test(t)) return { id:p.id }; }
+  return null;
 }
 
 /* ===== Model call ===== */
@@ -554,60 +563,93 @@ exports.handler = async (event) => {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const scope = String(body.scope||"diet_only").toLowerCase();
 
-  // تجهيز السياق
   const lastUser = lastUserMessage(messages);
   const lastBot  = lastAssistantMessage(messages);
 
+  // ملف مستخدم من كامل التاريخ
   const profile  = extractProfileFromMessages(messages);
   const memoryCard = buildMemoryCard(profile);
 
+  // ==== ترتيب اتخاذ القرار (مهم جدًا لتفادي الحلقة) ====
   let contents;
 
+  // 1) لا تاريخ → تحية وجمع أساسي
   if (!messages.length) {
-    // لا تاريخ: تحية وتعريف مختصر + جمع بيانات أساسية
     contents = [ buildGreetingPrompt() ];
-  } else if (GREET_RE.test(normalizeArabic(lastUser || ""))) {
-    // تحية/سلام فقط → رحّب واسأل حياديًا
+  }
+  // 2) تحية صِرف → رحّب واسأل
+  else if (GREET_RE.test(normalizeArabic(lastUser||""))) {
     contents = [ buildGreetingPrompt() ];
-  } else if (needsReAsk(messages)) {
-    // المستخدم لم يجب على السؤال → أعد نفس السؤال بلطف + سبب الحاجة
+  }
+  // 3) تأكيدات قصيرة (نعم/تمام/أوكي) → تابع النية المعلّقة أو المسار السابق
+  else if (ACK_RE.test((lastUser||"").trim())) {
+    // حاول استنتاج نية معلّقة من سؤال البوت السابق
+    const pending = detectPendingIntentFromAssistant(lastBot||"");
+    if (pending && pending.id === "calc_tdee_macros"){
+      // إن كانت خانات الحساب مكتملة → احسب فورًا
+      const miss = inferMissing(profile, INTENTS.find(i=>i.id==="calc_tdee_macros").needs);
+      if (!miss.length){
+        const targets = calcTargets(profile);
+        if (targets){
+          contents = [
+            ...(memoryCard ? [memoryCard] : []),
+            buildComputeCaloriesPrompt(profile, targets)
+          ];
+        } else {
+          // احتياطيًا إن تعذر الحساب لأي سبب
+          contents = [
+            ...(memoryCard ? [memoryCard] : []),
+            buildMissingInfoPrompt({id:"calc_tdee_macros"}, profile, inferMissing(profile, INTENTS.find(i=>i.id==="calc_tdee_macros").needs), lastUser)
+          ];
+        }
+      } else {
+        // اطلب المفقود فقط
+        contents = [
+          ...(memoryCard ? [memoryCard] : []),
+          buildMissingInfoPrompt({id:"calc_tdee_macros"}, profile, miss, lastUser)
+        ];
+      }
+    } else {
+      // لا نية معلقة واضحة → تابع المسار السابق بتلميح متابعة
+      contents = [
+        ...(memoryCard ? [memoryCard] : []),
+        ...toGeminiContents(messages.slice(-8)),
+        buildContinuationHint(lastBot, lastUser)
+      ];
+    }
+  }
+  // 4) لم يُجب على سؤال سابق → أعد نفس السؤال مرة واحدة بلطف
+  else if (needsReAsk(messages)) {
     contents = [ buildReAskPrompt(messages) ];
-  } else if (ACK_RE.test((lastUser||"").trim())) {
-    // تأكيد قصير → تابع المسار السابق
-    contents = [
-      ...(memoryCard ? [memoryCard] : []),
-      ...toGeminiContents(messages.slice(-8)),
-      buildContinuationHint(lastBot, lastUser)
-    ];
-  } else {
-    // تحديد نية
+  }
+  // 5) تحليل نية من رسالة المستخدم الحالية
+  else {
     const intent = detectIntent(lastUser || "");
     const missing = intent ? inferMissing(profile, intent.needs) : [];
 
-    // حارس النطاق: لا نرفض إن كان هناك سياق تغذوي قريب
+    // حارس النطاق: اسمح بسياق تغذوي قريب
     const recentContextHasDiet = messages.slice(-6).some(m => SCOPE_ALLOW_RE.test(String(m.content||"")));
     const isOffscope = (scope === "diet_only") && lastUser && !SCOPE_ALLOW_RE.test(lastUser) && !recentContextHasDiet;
 
     if (isOffscope){
       contents = [ buildOffScopePrompt() ];
     } else if (intent && missing.length){
-      // سؤال جديد يتطلب بيانات ناقصة → نطلب فقط المفقود
-      const known = memoryCard ? [memoryCard] : [];
       contents = [
-        ...known,
+        ...(memoryCard ? [memoryCard] : []),
         buildMissingInfoPrompt(intent, profile, missing, lastUser)
       ];
     } else if (intent && intent.id === "calc_tdee_macros"){
-      // لدينا كل المطلوب للحساب → نفّذ
+      // مكتمل → احسب فورًا على الخادم
       const targets = calcTargets(profile);
-      if (!targets){
-        // احترازيًا، إن فشل الحساب نطلب المفقود (لن نصل هنا عادة)
-        const miss = inferMissing(profile, INTENTS.find(i=>i.id==="calc_tdee_macros").needs);
-        contents = [ buildMissingInfoPrompt({id:"calc_tdee_macros"}, profile, miss, lastUser) ];
-      } else {
+      if (targets){
         contents = [
           ...(memoryCard ? [memoryCard] : []),
           buildComputeCaloriesPrompt(profile, targets)
+        ];
+      } else {
+        contents = [
+          ...(memoryCard ? [memoryCard] : []),
+          buildMissingInfoPrompt({id:"calc_tdee_macros"}, profile, inferMissing(profile, INTENTS.find(i=>i.id==="calc_tdee_macros").needs), lastUser)
         ];
       }
     } else {
@@ -630,3 +672,27 @@ exports.handler = async (event) => {
 
   return bad(502, "All models failed for your key/region on v1beta", { errors, tried: MODEL_POOL });
 };
+
+/* ===== Helpers for prompts used above (declared after handler for readability) ===== */
+function buildMissingInfoPrompt(intent, profile, missing, lastMsg){
+  const known = Object.keys(profile||{})
+    .map(k => `${k}: ${Array.isArray(profile[k]) ? profile[k].join(", ") : profile[k]}`)
+    .join(", ");
+  const list = humanizeMissing(missing).join("، ");
+  const intro = intent?.id === "calc_tdee_macros"
+    ? "لأحسب احتياجك بدقة"
+    : intent?.id === "meal_plan"
+      ? "لأبني لك خطة وجبات دقيقة"
+      : intent?.id === "recommend_diet"
+        ? "لأرشّح نظامًا مناسبًا لك"
+        : "لأقدّم لك جوابًا دقيقًا";
+  const text = `
+رسالة المستخدم:\n"""${normalizeArabic(lastMsg)}"""\n
+المعلومات المتوفرة: ${known || "لا شيء مسجّل"}.
+المعلومات الناقصة: ${list}.
+اكتب ردًا عربيًا موجزًا ومحترفًا:
+- اشرح بجملة واحدة لماذا تحتاج هذه البيانات لإكمال الطلب (${intro}).
+- اطلب فقط العناصر الناقصة بصياغة مباشرة (سؤال واحد أو سؤالان كحد أقصى).
+- بلا افتراضات، بلا إطالة، وبلا زخارف.`.trim();
+  return { role:"user", parts:[{ text }] };
+}

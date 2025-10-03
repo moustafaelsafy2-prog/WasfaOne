@@ -1,6 +1,7 @@
 // netlify/functions/aiDietAssistant.js
-// Fully-AI WhatsApp-like diet assistant (Arabic), strict diet-only scope.
-// - كل الردود تُولّد من النموذج (لا قوالب ثابتة سوى الحواجز).
+// Fully-AI WhatsApp-like diet assistant (Arabic), strict diet-only scope, ذكي جدًا ومخصص.
+// - كل الردود تُولَّد من النموذج (لا قوالب ثابتة سوى الحواجز).
+// - يراجع المحادثة كاملة، يستخلص ملف مستخدم، يرد السلام والتحية، مرن ومهني.
 // - نفس بوابة الاشتراك مثل generateRecipe (x-auth-token, x-session-nonce).
 // - نفس حوض النماذج (Gemini family).
 // - POST { messages:[{role,content}], lang?: "ar", scope?: "diet_only" } -> { ok, reply, model }.
@@ -10,13 +11,13 @@ const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /* ===== Same model pool as generateRecipe ===== */
 const MODEL_POOL = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-exp",
   "gemini-1.5-pro-latest",
   "gemini-1.5-pro",
   "gemini-1.5-pro-001",
   "gemini-pro",
   "gemini-1.0-pro",
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-exp",
   "gemini-1.5-flash",
   "gemini-1.5-flash-001",
   "gemini-1.5-flash-latest"
@@ -24,14 +25,14 @@ const MODEL_POOL = [
 
 /* ===== GitHub helpers for subscription gate ===== */
 const OWNER = process.env.GITHUB_REPO_OWNER;
-const REPO  = process.env.GITHUB_REPO_NAME;
+theREPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
 const GH_TOKEN = process.env.GITHUB_TOKEN;
 const GH_API = "https://api.github.com";
 const USERS_PATH = "data/users.json";
 
 async function ghGetJson(path){
-  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
+  const r = await fetch(`${GH_API}/repos/${OWNER}/${theREPO}/contents/${path}?ref=${REF}`, {
     headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
   });
   if(!r.ok) throw new Error(`GitHub GET ${path} ${r.status}`);
@@ -41,7 +42,7 @@ async function ghGetJson(path){
 }
 async function ghPutJson(path, json, sha, message){
   const content = Buffer.from(JSON.stringify(json, null, 2), "utf-8").toString("base64");
-  const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
+  const r = await fetch(`${GH_API}/repos/${OWNER}/${theREPO}/contents/${path}`, {
     method:"PUT",
     headers:{ Authorization:`token ${GH_TOKEN}`, "User-Agent":"WasfaOne", "Content-Type":"application/json" },
     body: JSON.stringify({ message, content, sha, branch: REF })
@@ -102,45 +103,44 @@ async function ensureActiveSubscription(event) {
 }
 
 /* ===== Diet-only scope guard (server-side) ===== */
-const SCOPE_ALLOW_RE = /(?:سعرات|كالور|ماكروز|بروتين|دهون|كار|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|غذائ|صيام|كيتو|لو كارب|متوسطي|داش|نباتي|نباتيه|سعر حراري|مؤشر جلايسيمي|حساسي|تحسس|سكري|ضغط|كلى|كبد|كوليسترول|وجبات|تقسيم السعرات|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf)/i;
+const SCOPE_ALLOW_RE = /(?:سعرات|كالوري|كالور|ماكروز|بروتين|دهون|كار|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|غذائ|صيام|كيتو|لو ?كارب|متوسطي|داش|نباتي|نباتيه|سعر حراري|مؤشر جلايسيمي|حساسي|تحسس|سكري|ضغط|كلى|كبد|كوليسترول|وجبات|تقسيم السعرات|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf|حراق|نقص وزن|زيادة وزن|كتلة عضلية|cut|bulk|maintenance)/i;
 
 /* ===== Greetings & off-scope detection ===== */
-const GREET_RE = /^(?:\s*(?:السلام\s*عليكم|وعليكم\s*السلام|مرحبا|مرحباً|أهلًا|اهلاً|هلا|مساء الخير|صباح الخير)\b|^\s*السلام\s*$)/i;
+const GREET_RE = /^(?:\s*(?:السلام\s*عليكم|وعليكم\s*السلام|مرحبا|مرحباً|أهلًا|اهلاً|هلا|مساء الخير|صباح الخير|سلام)\b|^\s*السلام\s*$)/i;
 
-/* ===== System prompt (قوي، شخصي، عربي، مرن، 2 أسئلة كحد أقصى) =====
-   مُحسّن ليفهم سياق المستخدم، يخصص الرد، يرحّب، ويعيد التوجيه عند الخروج عن النطاق.
-*/
+/* ===== System prompt (قوي، شخصي، عربي، مرن، 2 أسئلة كحد أقصى) ===== */
 function systemPrompt(){
   return `
 أنت مساعد تغذية عربي يعمل بأسلوب دردشة واتساب، ودود وعملي ودقيق. هدفك تقديم إرشاد غذائي عملي ومخصص.
 [النطاق المسموح]
-- كل ما يتعلق بالتغذية والعادات الغذائية وأنظمة الحِمية (كيتو/متوسطي/داش/نباتي/لو-كارب/صيام متقطع…)، تقسيم السعرات والماكروز (4/4/9)، بدائل المكونات، تقييم الوجبات، الحساسيات، إدارة الوزن، الترطيب، توقيت الوجبات، تجهيز الوجبات مسبقًا، تكييف الوصفات مع ظروف بسيطة شائعة.
+- كل ما يتعلق بالتغذية والعادات الغذائية وأنظمة الحِمية (كيتو/متوسطي/داش/نباتي/لو-كارب/صيام متقطع…)، تقسيم السعرات والماكروز (4/4/9)، بدائل المكونات، تقييم الوجبات، الحساسيات، إدارة الوزن، الترطيب، توقيت الوجبات، تجهيز الوجبات مسبقًا، تكييف الوصفات مع ظروف شائعة بسيطة.
 [المحظور]
-- أي موضوع خارج التغذية (برمجة، سياسة، دين، أسواق، علاقات، إلخ)، أو طب عالي الخطورة/تشخيص/جرعات أدوية.
+- أي موضوع خارج التغذية (برمجة، سياسة، دين، أسواق، علاقات…)، أو طب عالي الخطورة/تشخيص/جرعات أدوية.
 [الأسلوب]
 - رحّب وردّ السلام إن وُجد، ثم قدّم ردًا موجزًا للغاية (3–8 أسطر) واضحًا وشخصيًا مبنيًا على رسالة المستخدم.
 - لا تستخدم الوجوه التعبيرية أو الزخارف.
 - استخدم نقاط موجزة عند الحاجة.
-- اطرح **سؤالًا واحدًا أو سؤالين بحد أقصى** لاستكمال البيانات أو التأكد من الهدف.
-- عند الخروج عن النطاق: اعتذر بلطف، ووضّح أنك متخصص بالتغذية فقط، ثم اقترح إعادة صياغة السؤال ضمن التغذية مع **سؤال واحد موجّه** للعودة للنطاق.
+- اطرح **سؤالًا واحدًا أو سؤالين بحد أقصى** لاستكمال البيانات.
+- عند الخروج عن النطاق: اعتذر بلطف، ووضّح أنك متخصص بالتغذية فقط، ثم اقترح إعادة صياغة السؤال ضمن التغذية مع **سؤال موجّه واحد** للعودة للنطاق.
 [حسابات وتذكيرات]
 - ذكّر عند الحاجة أن السعرات = (4×البروتين + 4×الكربوهيدرات + 9×الدهون).
 - لا تعطِ أرقامًا طبية دقيقة لحالات خاصة؛ انصح بمراجعة مختص عند الضرورة.
-[التخصيص الذكي]
-- استخلص الهدف (إنقاص/زيادة وزن، ضبط سكر، أداء رياضي…) من كلام المستخدم.
-- التقط إشارات الحساسية أو التفضيلات (نباتي، لا ألبان…).
-- عند السلام أو التحية فقط، قدّم تعريفًا قصيرًا بنفسك واسأل عن الهدف والبيانات الأساسية (وزن/طول/عمر/نشاط) في سؤال واحد أو اثنين.
+[الذاكرة والسياق]
+- راجع المحادثة كاملة، واستفد من ملف المستخدم المُلخّص (إن وُجد) لربط الردود ببعضها.
+- إن ذكر المستخدم قياسات أو حساسية أو تفضيلات من قبل، فاعتبرها افتراضيًا حتى يغيّرها.
 `.trim();
 }
 
 /* ===== Utilities ===== */
 function sanitizeReply(t=""){
-  // إزالة أي أسوار كود أو حشو زائد
-  let s = String(t||"").replace(/```[\s\S]*?```/g,"").trim();
+  let s = String(t||"");
+  // إزالة أسوار الأكواد والحشو
+  s = s.replace(/```[\s\S]*?```/g,"").trim();
   // منع الوجوه التعبيرية الشائعة
   s = s.replace(/[\u{1F300}-\u{1FAFF}]/gu,"");
-  // تقليم فراغات زائدة
+  // تقليم أسطر زائدة
   s = s.replace(/\n{3,}/g,"\n\n").trim();
+  // لا نحب المخرجات الفارغة
   return s;
 }
 
@@ -160,6 +160,62 @@ function lastUserMessage(messages){
   return "";
 }
 
+/* ===== Lightweight conversation memory extractor (smart profile) ===== */
+// نلتقط آخر القيم المذكورة في المحادثة لبناء "ملف مستخدم" موجز
+const WEIGHT_RE = /(?:وزني|الوزن|weight)\s*[:=]?\s*(\d{2,3})\s*(?:ك?جم|kg)?/i;
+const HEIGHT_RE = /(?:طولي|الطول|height)\s*[:=]?\s*(\d{2,3})\s*(?:س?م|cm)?/i;
+const AGE_RE    = /(?:عمري|العمر|age)\s*[:=]?\s*(\d{1,2})\s*(?:سنة|عام)?/i;
+const GOAL_RE   = /(نقص|تنزيل|خسارة|تخسيس|cut|bulk|زيادة|بناء|تثبيت|حفاظ)\s*(?:\w+\s*)?(?:وزن|عضل|كتلة)?/i;
+const DIET_RE   = /(كيتو|لو ?كارب|متوسطي|داش|نباتي|vegan|lchf|paleo|صيام متقطع)/i;
+const ALLERGY_RE= /(حساسي(?:ة|ات)|لا(?: أتحمل| أتناول)|تحسس)\s*[:=]?\s*([^.\n،]+)/i;
+const ACT_RE    = /(خامل|خفيف|متوسط|عال(?:ي)? النشاط|sedentary|light|moderate|active)/i;
+const DISEASE_RE= /(سكر[ي|]|ضغط|كلى|كبد|دهون(?: على)? الكبد|كوليسترول|نقرس)/i;
+
+function extractProfileFromMessages(messages){
+  const profile = {
+    goal: null,
+    weight_kg: null,
+    height_cm: null,
+    age: null,
+    activity: null,
+    preferred_diet: null,
+    allergies: [],
+    conditions: []
+  };
+  for (const m of messages){
+    const text = String(m.content||"");
+    const w = text.match(WEIGHT_RE); if (w) profile.weight_kg = Number(w[1]);
+    const h = text.match(HEIGHT_RE); if (h) profile.height_cm = Number(h[1]);
+    const a = text.match(AGE_RE);    if (a) profile.age = Number(a[1]);
+    const g = text.match(GOAL_RE);   if (g) profile.goal = g[0];
+    const d = text.match(DIET_RE);   if (d) profile.preferred_diet = d[1];
+    const act= text.match(ACT_RE);   if (act) profile.activity = act[1];
+    const dis= text.match(DISEASE_RE); if (dis && !profile.conditions.includes(dis[1])) profile.conditions.push(dis[1]);
+    const al = text.match(ALLERGY_RE); if (al){
+      const list = al[2].split(/[،,]/).map(s=>s.trim()).filter(Boolean);
+      for (const item of list){ if (!profile.allergies.includes(item)) profile.allergies.push(item); }
+    }
+  }
+  // نظّف الحقول الفارغة
+  if (!profile.allergies.length) delete profile.allergies;
+  if (!profile.conditions.length) delete profile.conditions;
+  Object.keys(profile).forEach(k=> (profile[k]==null || profile[k]==="") && delete profile[k]);
+  return profile;
+}
+
+function buildMemoryCard(profile){
+  const hasKeys = profile && Object.keys(profile).length;
+  if (!hasKeys) return null;
+  return {
+    role:"user",
+    parts:[{ text:
+`ملف المستخدم (مستخلص من المحادثة السابقة):
+${JSON.stringify(profile, null, 2)}
+
+استخدم هذه المعطيات كأساس افتراضي حتى يغيّرها المستخدم. اختصر الرد وخصّص التوصيات وفقًا لها.` }]
+  };
+}
+
 /* ===== Content shapers ===== */
 function buildGreetingPrompt(){
   return {
@@ -167,8 +223,8 @@ function buildGreetingPrompt(){
     parts:[{ text:
 `وُجدت تحية/سلام من المستخدم. اكتب ردًا موجزًا عربيًا:
 - ابدأ بالسلام المناسب والتحية الودية.
-- عرّف نفسك كمساعد تغذية يقدّم إرشادًا غذائيًا عمليًا ومخصصًا.
-- اطلب الهدف الحالي للمستخدم (مثال: نزول وزن، بناء عضل، ضبط سكر…).
+- عرّف نفسك كمساعد تغذية يقدّم إرشادًا عمليًا ومخصصًا.
+- اطلب الهدف الحالي (نزول/زيادة وزن، بناء عضل، ضبط سكر…).
 - اطلب في سؤال واحد أو سؤالين فقط: الوزن، الطول، العمر، ومستوى النشاط (خام).
 - بدون وجوه تعبيرية أو زخارف، وبنبرة عملية مشجعة.` }] }
 }
@@ -184,11 +240,11 @@ function buildOffScopePrompt(){
 }
 
 function buildPersonalizerHint(lastMsg){
-  // تلميحات إضافية للنموذج لاستخراج سياق أعمق بدون زيادة الإطالة
   const hints = [
     "حلّل الرسالة لاستخراج الهدف الغذائي والتفضيلات والحساسيات والقيود.",
     "اختصر الرد لثلاثة إلى ثمانية أسطر مع نقاط موجزة إن لزم.",
-    "اقترح بدائل عملية وبسيطة من نفس المطبخ إن ذكر المستخدم أطعمة محددة.",
+    "اقترح أنظمة ملائمة وبدائل عملية مع تبرير مختصر.",
+    "اربط الرد بما سبق في المحادثة وذكّر بالمعلومات المهمة إن لزم.",
     "استخدم سؤالًا واحدًا أو سؤالين فقط لاستكمال البيانات."
   ].join("\n- ");
   return {
@@ -204,8 +260,7 @@ async function callModel(model, contents, timeoutMs = 24000){
   const body = {
     systemInstruction: { role:"system", parts:[{ text: systemPrompt() }] },
     contents,
-    // ميل أقل للعشوائية مع بقاء السلاسة
-    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 900 },
+    generationConfig: { temperature: 0.25, topP: 0.9, maxOutputTokens: 900 },
     safetySettings: []
   };
 
@@ -261,26 +316,25 @@ exports.handler = async (event) => {
 
   // تجهيز المحادثة للموديل
   const lastUser = lastUserMessage(messages);
+  const profile = extractProfileFromMessages(messages);
+  const memoryCard = buildMemoryCard(profile);
 
   let contents;
   if (!messages.length) {
     // لا تاريخ: تحية وتعريف مختصر + جمع بيانات أساسية
-    contents = [
-      buildGreetingPrompt()
-    ];
+    contents = [ buildGreetingPrompt() ];
   } else if (GREET_RE.test(lastUser || "")) {
     // تحية/سلام فقط
-    contents = [
-      buildGreetingPrompt()
-    ];
+    contents = [ buildGreetingPrompt() ];
   } else {
     // حارس النطاق (تحقق سريع)
     const offscope = (scope === "diet_only") && lastUser && !SCOPE_ALLOW_RE.test(lastUser);
     if (offscope){
       contents = [ buildOffScopePrompt() ];
     } else {
-      // حوار طبيعي مع تلميحات تخصيص ذكية
+      // حوار طبيعي مع ذاكرة وتلميحات تخصيص ذكية
       contents = [
+        ...(memoryCard ? [memoryCard] : []),
         ...toGeminiContents(messages),
         buildPersonalizerHint(lastUser||"")
       ];

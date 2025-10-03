@@ -5,15 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WasfaOne — إنشاء حساب</title>
 
-  <!-- Fonts & Tailwind (مطابقة للصفحات الأخرى) -->
+  <!-- Fonts & Tailwind -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- الأنماط العامة للمشروع للحفاظ على الهوية -->
+  <!-- Styles (هوية المشروع) -->
   <link rel="stylesheet" href="/public/assets/styles.css" />
-
   <meta name="color-scheme" content="light dark" />
   <style>
     :root { --primary:#ef4444; --acc1:#10b981; --acc2:#3b82f6; }
@@ -24,6 +23,11 @@
     @media (prefers-color-scheme: dark){
       .card{ background:#0f172a; }
       body{ color:#e2e8f0; background:#0b1220; }
+    }
+    .lbl{ display:block; font-size:.9rem; margin-bottom:.25rem; opacity:.9 }
+    .inp{ width:100%; border:1px solid rgba(148,163,184,.35); border-radius:.6rem; background:white; padding:.6rem .75rem; outline:none; }
+    @media (prefers-color-scheme: dark){
+      .inp{ background:#0b1220; border-color:#24324d; color:#e2e8f0; }
     }
   </style>
 </head>
@@ -46,14 +50,14 @@
   <!-- Main -->
   <main class="max-w-5xl mx-auto px-4 py-10">
     <div class="grid md:grid-cols-2 gap-6 items-stretch">
-      <!-- Intro / Plans CTA -->
+      <!-- Intro -->
       <section class="card p-6">
         <h2 class="text-2xl font-extrabold mb-2">ابدأ تجربتك المجانية 7 أيام</h2>
         <p class="opacity-80 mb-4">جرّب الأداة بالكامل. بعد التجربة يمكنك الترقية لاشتراك شهري (29 درهم) أو سنوي (25 درهم/شهر — فوترة سنوية).</p>
         <ul class="space-y-2 text-sm">
-          <li class="flex items-center gap-2"><span class="badge">✅</span> حساب لكل جهاز — حماية من الإساءة.</li>
-          <li class="flex items-center gap-2"><span class="badge">✅</span> ترى كل الأنظمة الغذائية — الفرق فقط في الحد اليومي أثناء التجربة.</li>
-          <li class="flex items-center gap-2"><span class="badge">✅</span> يمكنك الترقية في أي وقت عبر واتساب.</li>
+          <li class="flex items-center gap-2"><span>✅</span> حساب لكل جهاز — حماية من الإساءة.</li>
+          <li class="flex items-center gap-2"><span>✅</span> ترى كل الأنظمة الغذائية — الفرق فقط في الحد اليومي خلال التجربة.</li>
+          <li class="flex items-center gap-2"><span>✅</span> يمكنك الترقية في أي وقت عبر واتساب.</li>
         </ul>
         <a href="/public/index.html#plans" class="mt-4 inline-block text-sm underline underline-offset">عرض الخطط</a>
       </section>
@@ -62,8 +66,8 @@
       <section class="card p-6">
         <h2 class="text-xl font-bold mb-4">إنشاء حساب جديد</h2>
 
-        <div id="status" class="hidden text-sm mb-3"></div>
-        <div id="error" class="hidden text-sm mb-3 text-red-600"></div>
+        <div id="status" class="hidden text-sm mb-3 text-emerald-700 dark:text-emerald-200"></div>
+        <div id="error" class="hidden text-sm mb-3 text-red-600 dark:text-rose-300"></div>
 
         <form id="signupForm" class="space-y-4">
           <div>
@@ -98,21 +102,22 @@
   </footer>
 
   <script>
-    // ===== تحميل الإعدادات للهوية والروابط (logo / site names / WhatsApp) =====
-    async function loadSettings(){
+    // ===== تحميل الإعدادات (شعار/اسم/واتساب) =====
+    (async function loadSettings(){
       try{
-        const r = await fetch("/data/settings.json?ts=" + Date.now(), { cache:"no-store" });
+        const r = await fetch("/data/settings.json?ts="+Date.now(), { cache:"no-store" });
         if(!r.ok) return;
         const s = await r.json();
+        const wa = s?.contact?.whatsapp_link || "#";
         document.getElementById("logoImg").src = s?.branding?.logo_url || "";
-        document.getElementById("logoImg").alt = (s?.images_meta?.hero?.alt_ar || "شعار");
+        document.getElementById("logoImg").alt = s?.images_meta?.hero?.alt_ar || "شعار";
         document.getElementById("siteTitle").textContent = s?.branding?.site_name_ar || "وصفة ون";
-        document.getElementById("whatsappBtn").href = s?.contact?.whatsapp_link || "#";
-        document.getElementById("footerWhatsapp").href = s?.contact?.whatsapp_link || "#";
+        document.getElementById("whatsappBtn").href = wa;
+        document.getElementById("footerWhatsapp").href = wa;
       }catch(e){ /* تجاهل */ }
-    }
+    })();
 
-    // ===== توليد بصمة جهاز ثابتة (متوافقة وظيفيًا مع سياسة "جهاز واحد") =====
+    // ===== بصمة الجهاز (Hash ثابت) =====
     async function sha256(text){
       const enc = new TextEncoder().encode(text);
       const buf = await crypto.subtle.digest("SHA-256", enc);
@@ -125,25 +130,20 @@
       const raw = [
         nav.userAgent, nav.language, nav.platform,
         scr.width, scr.height, scr.colorDepth, tz,
-        // إضافة قيم ثابتة آمنة حتى لا تُكسر الهوية عند تغيّر طفيف
         "fp:v1"
       ].join("|");
       return await sha256(raw);
     }
 
-    // ===== واجهة المستخدم: رسائل ودّية =====
-    function show(id, msg, isError=false){
+    // ===== UI helpers =====
+    function show(id, msg){
       const el = document.getElementById(id);
       if(!el) return;
       el.textContent = msg || "";
       el.classList.toggle("hidden", !msg);
-      if(id === "status"){
-        el.classList.toggle("text-emerald-700", !!msg && !isError);
-        el.classList.toggle("text-red-600", isError);
-      }
     }
 
-    // ===== إرسال نموذج التسجيل =====
+    // ===== إرسال النموذج =====
     const form = document.getElementById("signupForm");
     const submitBtn = document.getElementById("submitBtn");
 
@@ -151,7 +151,6 @@
       e.preventDefault();
       show("status", "جاري إنشاء الحساب ...");
       show("error", "");
-
       submitBtn.disabled = true;
       submitBtn.textContent = "جاري المعالجة ...";
 
@@ -189,10 +188,6 @@
         submitBtn.textContent = "إنشاء حساب";
       }
     });
-
-    (async function init(){
-      await loadSettings(); // الهوية والروابط
-    })();
   </script>
 </body>
 </html>

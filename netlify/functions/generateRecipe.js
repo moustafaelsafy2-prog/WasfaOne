@@ -8,7 +8,6 @@
 // mass–macros plausibility guard, available-ingredients sanitization, target-calorie tightening.
 // NOTE: No change to public API or deployment flow.
 // + NEW: Subscription enforcement by headers (x-auth-token & x-session-nonce), auto-suspend on expiry.
-// + NEW (this revision): 7-day trial support + daily reset & daily limit counters (Asia/Dubai).
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -625,7 +624,7 @@ function macrosVsMassImplausible(recipe){
   return false;
 }
 
-/* ---------------- Subscription gate (existing) ---------------- */
+/* ---------------- Subscription gate (NEW) ---------------- */
 async function ensureActiveSubscription(event) {
   const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
   const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
@@ -654,65 +653,13 @@ async function ensureActiveSubscription(event) {
   return { ok:true };
 }
 
-/* ---------------- NEW: helpers for trial & counters ---------------- */
-async function getUserByAuth(event){
-  const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
-  const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
-  const { json: users, sha } = await ghGetJson(USERS_PATH);
-  const idx = (users||[]).findIndex(u => (u.auth_token||"") === token);
-  if (idx === -1) return { users:null, sha:null, idx:-1, user:null };
-  const user = users[idx];
-  if ((user.session_nonce||"") !== nonce) return { users, sha, idx, user:null };
-  return { users, sha, idx, user };
-}
-
-function dubaiToday(){ return todayDubai(); }
-
-function isTrialEnded(user){
-  const exp = String(user?.trial_expires_at||"").trim();
-  if(!exp) return false;
-  const d = dubaiToday();
-  return d > exp;
-}
-
-function hasDailyLimitReached(user){
-  if (!user || String(user?.plan||"") !== "trial") return false;
-  const lim = user.daily_limit;
-  if (lim === null || typeof lim === "undefined") return false;
-  const used = Number(user.used_today||0);
-  return Number.isFinite(lim) && Number.isFinite(used) && used >= lim;
-}
-
-async function resetDailyIfNeeded(users, sha, idx){
-  if (!users || idx < 0) return { changed:false };
-  const user = users[idx];
-  const today = dubaiToday();
-  const last = String(user.last_reset||"").trim();
-  if (last && last === today) return { changed:false };
-  // reset
-  user.used_today = 0;
-  user.last_reset = today;
-  users[idx] = user;
-  await ghPutJson(USERS_PATH, users, sha, `generate: daily reset ${user.email}`);
-  return { changed:true };
-}
-
-async function bumpDailyCounter(users, sha, idx){
-  if (!users || idx < 0) return;
-  const user = users[idx];
-  const used = Number(user.used_today||0);
-  user.used_today = Number.isFinite(used) ? used + 1 : 1;
-  users[idx] = user;
-  await ghPutJson(USERS_PATH, users, sha, `generate: used_today++ ${user.email}`);
-}
-
 /* ---------------- Handler ---------------- */
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return jsonRes(204, {});
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
 
-  // Existing subscription gate (status/window/device/session):contentReference[oaicite:3]{index=3}
+  // NEW: enforce subscription before any generation
   try {
     const gate = await ensureActiveSubscription(event);
     if (!gate.ok) return bad(gate.code, gate.msg);
@@ -720,38 +667,6 @@ exports.handler = async (event) => {
     return bad(500, "subscription_gate_error");
   }
 
-  // NEW: load user for trial/limit logic
-  let users, sha, idx, user;
-  try {
-    const got = await getUserByAuth(event);
-    users = got.users; sha = got.sha; idx = got.idx; user = got.user;
-    if (!user) return bad(401, "unauthorized_user_context");
-  } catch (e){
-    return bad(500, "user_context_error");
-  }
-
-  // 1) Daily reset (Asia/Dubai)
-  try {
-    await resetDailyIfNeeded(users, sha, idx);
-  } catch (e){
-    // non-fatal — continue
-  }
-
-  // 2) Trial expiry (if plan=trial)
-  if (String(user.plan||"") === "trial" && isTrialEnded(user)) {
-    const msg_ar = "انتهت فترة التجربة المجانية. للمتابعة، يرجى الترقية للاشتراك الشهري (29 درهم) أو السنوي (25 درهم/شهر).";
-    const msg_en = "Your 7-day trial has ended. Please upgrade to continue (Monthly AED 29 / Yearly AED 25/mo).";
-    return bad(403, "trial_expired", { message_ar: msg_ar, message_en: msg_en });
-  }
-
-  // 3) Daily limit during trial
-  if (String(user.plan||"") === "trial" && hasDailyLimitReached(user)) {
-    const msg_ar = "لقد وصلت للحد اليومي للوصفات في فترة التجربة. قم بالترقية للحصول على وصفات غير محدودة.";
-    const msg_en = "You have reached today’s trial limit. Upgrade for unlimited recipes.";
-    return bad(403, "trial_daily_limit_reached", { message_ar: msg_ar, message_en: msg_en });
-  }
-
-  // Parse input
   let input = {};
   try { input = JSON.parse(event.body || "{}"); }
   catch { return bad(400, "invalid_json_body"); }
@@ -839,9 +754,6 @@ exports.handler = async (event) => {
     // Final normalize again (idempotent)
     rec.macros = reconcileCalories(rec.macros);
     if (Array.isArray(rec.ingredients)) rec.ingredients = enforceGramHints(rec.ingredients);
-
-    // NEW: bump daily counter only after a successful recipe generation
-    try { await bumpDailyCounter(users, sha, idx); } catch(e){ /* non-fatal */ }
 
     return ok({ recipe: rec, model });
   }

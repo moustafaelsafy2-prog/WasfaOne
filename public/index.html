@@ -2,224 +2,895 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WasfaOne — الصفحة الرئيسية</title>
-
-  <!-- Fonts & Tailwind -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wasfa - وصفتك الصحية تبدأ هنا</title>
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- AOS Animation Library -->
+  <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
 
-  <!-- Styles (هوية المشروع) -->
-  <link rel="stylesheet" href="/public/assets/styles.css" />
+  <!-- Lucide Icons (CDN) -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-  <meta name="color-scheme" content="light dark" />
   <style>
-    :root { --primary:#ef4444; --acc1:#10b981; --acc2:#3b82f6; }
-    body { font-family:"Cairo", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Inter", sans-serif; }
-    .btn { transition:transform .15s ease, box-shadow .15s ease; }
-    .btn:hover { transform: scale(1.02); box-shadow: 0 10px 24px rgba(0,0,0,.08); }
-    .card { border:1px solid rgba(148,163,184,.3); border-radius:1rem; background:white; }
-    .card:hover { transform: translateY(-2px); }
-    .badge { display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:.75rem; padding:.15rem .5rem; border-radius:.5rem; }
-    .badge-primary { background:#fee2e2; color:#991b1b; }
-    .badge-ghost { background:transparent; border:1px dashed rgba(148,163,184,.5); color:inherit; }
-    @media (prefers-color-scheme: dark){
-      .card{ background:#0f172a; border-color:#1f2a44; }
-      body{ color:#e2e8f0; background:#0b1220; }
-      .badge-primary{ background:#7f1d1d; color:#fecaca; }
+    :root {
+      --brand: #ef4444;
+      --brand-dark: #dc2626;
+      --ink: #0f172a;
+      --muted: #475569;
+      --soft-bg: #f7f7f9;
+      --line: #e5e7eb;
+      --accent-green: #10b981;
+      --accent-blue: #3b82f6;
+      --accent-amber: #f59e0b;
+      --accent-purple: #8b5cf6;
     }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: var(--soft-bg);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .brand-title {
+      background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      padding: 0 4px;
+    }
+
+    .pro-card {
+      background: linear-gradient(180deg, #fff, #fafafa);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      padding: 2.5rem;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.08);
+      transition: transform 0.3s, box-shadow 0.3s;
+      will-change: transform;
+    }
+    .pro-card:hover { transform: translateY(-10px); box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15); }
+
+    .icon-chip {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, rgba(239,68,68,0.12), rgba(239,68,68,0.05));
+      border: 1px solid rgba(239,68,68,0.25);
+      box-shadow: 0 12px 24px -12px rgba(239,68,68,0.35);
+    }
+    .icon-chip.green {
+      background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(16,185,129,0.05));
+      border-color: rgba(16,185,129,0.25);
+      box-shadow: 0 12px 24px -12px rgba(16,185,129,0.35);
+    }
+    .icon-chip.blue {
+      background: linear-gradient(135deg, rgba(59,130,246,0.12), rgba(59,130,246,0.05));
+      border-color: rgba(59,130,246,0.25);
+      box-shadow: 0 12px 24px -12px rgba(59,130,246,0.35);
+    }
+    .icon-chip.amber {
+      background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.05));
+      border-color: rgba(245,158,11,0.25);
+      box-shadow: 0 12px 24px -12px rgba(245,158,11,0.35);
+    }
+    .icon-chip.purple {
+      background: linear-gradient(135deg, rgba(139,92,246,0.12), rgba(139,92,246,0.05));
+      border-color: rgba(139,92,246,0.25);
+      box-shadow: 0 12px 24px -12px rgba(139,92,246,0.35);
+    }
+
+    .divider {
+      height: 1px;
+      background: linear-gradient(to left, transparent, var(--line), transparent);
+      margin: 3rem auto;
+      width: 80%;
+    }
+
+    .sticky-header {
+      backdrop-filter: blur(10px);
+      background-color: rgba(255, 255, 255, 0.8);
+      border-bottom: 1px solid var(--line);
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .sticky-header.scrolled {
+      background-color: rgba(255, 255, 255, 0.92);
+      box-shadow: 0 10px 30px -20px rgba(0,0,0,0.25);
+    }
+
+    .nav-link.active {
+      color: var(--brand);
+      position: relative;
+    }
+    .nav-link.active::after {
+      content: "";
+      position: absolute; bottom: -6px; inset-inline: 0; margin-inline: auto;
+      width: 28px; height: 3px; border-radius: 9999px; background: var(--brand);
+    }
+
+    .hero {
+      position: relative; height: 70vh; background: #000; overflow: hidden;
+    }
+    @media (min-width: 768px) { .hero { height: 80vh; } }
+    .hero-bg {
+      position: absolute; inset: 0;
+      background-size: cover; background-position: center;
+      transform: translate3d(0, 0, 0); will-change: transform;
+      background-image: url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop');
+    }
+    .hero-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.55));
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; color: white; padding: 1rem;
+    }
+
+    /* Carousel */
+    .carousel { position: relative; overflow: hidden; }
+    .carousel-track { display: flex; gap: 2rem; transition: transform 500ms ease; will-change: transform; }
+    .slide { min-width: 100%; }
+    .carousel-nav { display: flex; gap: 0.75rem; justify-content: center; margin-top: 1rem; }
+    .dot { width: 10px; height: 10px; border-radius: 9999px; background: #cbd5e1; transition: transform 0.2s, background 0.2s; }
+    .dot.active { background: var(--brand); transform: scale(1.15); }
+
+    .whatsapp-fab {
+      position: fixed; bottom: 18px; inset-inline-end: 18px; z-index: 60;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 58px; height: 58px; border-radius: 9999px; background: #10b981; color: #fff;
+      box-shadow: 0 20px 30px -10px rgba(16,185,129,0.45);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .whatsapp-fab:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 28px 40px -12px rgba(16,185,129,0.55); }
+
+    .cta-button {
+      position: relative; overflow: hidden;
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      border-radius: 14px; padding: 16px 32px; font-weight: 700;
+      color: white; background: var(--brand);
+      box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2), 0 2px 4px -2px rgba(239, 68, 68, 0.1);
+      transition: all 0.2s ease-in-out;
+    }
+    .cta-button:hover { background: var(--brand-dark); transform: translateY(-2px) scale(1.02); box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.35); }
+    .cta-button::after {
+      content: ""; position: absolute; inset: -2px; border-radius: 16px;
+      background: radial-gradient(120px 120px at var(--mx, 50%) var(--my, 50%), rgba(239,68,68,0.25), transparent 60%);
+      opacity: 0; transition: opacity 0.2s ease; pointer-events: none;
+    }
+    .cta-button.is-hovering::after { opacity: 1; }
+    .ripple { position: absolute; border-radius: 9999px; transform: translate(-50%, -50%); pointer-events: none; animation: ripple 600ms ease-out forwards; background: rgba(255,255,255,0.35); }
+    @keyframes ripple { from { width: 0; height: 0; opacity: 0.6; } to { width: 340px; height: 340px; opacity: 0; } }
+
+    .faq-item { border: 1px solid var(--line); border-radius: 16px; background: #fff; }
+    .faq-q { cursor: pointer; }
+
+    /* Wave separator */
+    .wave { display: block; width: 100%; line-height: 0; }
+    .wave path { fill: #ffffff; }
+
+    /* Counter progress bar */
+    .progress { height: 4px; width: 100%; background: #f1f5f9; border-radius: 9999px; overflow: hidden; }
+    .progress > span { display: block; width: 0%; height: 100%; background: var(--brand); border-radius: 9999px; transition: width 1200ms ease; }
+
+    /* Quote card */
+    .quote-card {
+      background: linear-gradient(180deg, #fff, #fafafa);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 1.25rem;
+      box-shadow: 0 14px 28px -18px rgba(0,0,0,.12);
+    }
+    .quote-mark {
+      width: 38px; height: 38px; border-radius: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25);
+      margin-bottom: .5rem;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,.55);
+      display: none; align-items: center; justify-content: center; z-index: 70;
+      padding: 16px;
+    }
+    .modal {
+      width: 100%; max-width: 720px; border-radius: 24px; background: #fff; border: 1px solid var(--line);
+      box-shadow: 0 30px 60px -20px rgba(0,0,0,.25);
+      overflow: hidden; transform: translateY(12px) scale(.98); opacity: 0; transition: .25s ease;
+    }
+    .modal.open { transform: translateY(0) scale(1); opacity: 1; }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; padding: 18px 22px; border-bottom:1px solid var(--line); }
+    .modal-body { padding: 18px 22px 22px; }
+    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    @media (max-width:768px){ .modal-grid{grid-template-columns:1fr} }
+    .contact-card { border:1px solid var(--line); border-radius:18px; padding:14px; background:#fff; }
+    .contact-card:hover { box-shadow: 0 12px 30px rgba(0,0,0,.06); transform: translateY(-2px); transition: .2s ease; }
+    .contact-btn { display:flex; align-items:center; justify-content:center; gap:.5rem; border-radius:12px; padding:12px; font-weight:800; color:#fff }
+    .btn-wa { background:#10b981; }
+    .btn-call { background:#ef4444; }
+
   </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
+<body class="antialiased">
 
   <!-- Header -->
-  <header class="border-b border-slate-200/70 dark:border-slate-800/70 sticky top-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur z-10">
-    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <img id="logoImg" class="h-9 w-auto" alt="Logo" />
-        <h1 id="siteTitle" class="font-extrabold text-lg">WasfaOne</h1>
-      </div>
-      <nav class="hidden md:flex items-center gap-6">
-        <a href="#features" class="text-sm hover:opacity-80">المزايا</a>
-        <a href="#plans" class="text-sm hover:opacity-80">الخطط</a>
-        <a href="/public/login.html" class="text-sm hover:opacity-80">تسجيل الدخول</a>
+  <header class="sticky top-0 z-50 sticky-header" id="siteHeader">
+    <div class="container mx-auto flex justify-between items-center p-4">
+      <div class="text-3xl font-black brand-title">Wasfa</div>
+      <nav class="hidden md:flex items-center space-x-8 space-x-reverse">
+        <a href="#features" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">لماذا نحن؟</a>
+        <a href="#how-it-works" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">كيف نعمل؟</a>
+        <a href="#trial" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">تجربة مجانية</a>
+        <a href="#trusted" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">يثقون بنا</a>
+        <a href="#stats" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأرقام</a>
+        <a href="#testimonials" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">آراء المستخدمين</a>
+        <a href="#faq" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأسئلة</a>
       </nav>
-      <div class="flex items-center gap-3">
-        <a id="whatsappBtn" href="#" target="_blank" class="btn inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-green-600 text-white text-sm">
-          <span>WhatsApp</span>
-        </a>
-      </div>
+      <a href="login.html" class="hidden md:inline-block px-6 py-2 rounded-lg font-bold bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] transition">
+        الدخول للأداة
+      </a>
     </div>
   </header>
 
   <!-- Hero -->
-  <section class="relative">
-    <div class="max-w-6xl mx-auto px-4 py-12 md:py-16 grid md:grid-cols-2 gap-8 items-center">
-      <div>
-        <h2 class="text-3xl md:text-4xl font-extrabold leading-tight">
-          وصفات دقيقة بالعربية، <span class="text-[color:var(--primary)]">بالجرام</span> وضمن أهدافك.
-        </h2>
-        <p class="mt-3 text-slate-600 dark:text-slate-300">
-          صمّم وجبتك حسب السعرات والماكروز، مع التزام صارم بالأنظمة الغذائية والحساسيات—كل ذلك في ثوانٍ.
-        </p>
-        <div class="mt-5 flex flex-wrap gap-3">
-          <a href="/public/signup.html" class="btn px-4 py-2 rounded-md bg-[color:var(--primary)] text-white font-bold">
-            جرّب مجانًا 7 أيام
-          </a>
-          <a href="#plans" class="btn px-4 py-2 rounded-md bg-slate-100 dark:bg-slate-800">
-            خطط وأسعار
-          </a>
-        </div>
-        <p class="text-xs mt-3 opacity-70">جهاز واحد لكل حساب — حماية من الإساءة.</p>
-      </div>
-      <div class="relative">
-        <div class="card p-6">
-          <h3 class="text-lg font-bold mb-2">ما الذي يميّز WasfaOne؟</h3>
-          <ul class="list-disc pr-5 space-y-1 text-sm">
-            <li>التزام صارم بوحدات <b>الجرام</b> لكل المكوّنات.</li>
-            <li>حساب سعرات وفق 4/4/9 بدقة مع تطابق الماكروز.</li>
-            <li>أنظمة غذائية احترافية + حساسيّات + مكوّناتك المتاحة.</li>
-            <li>وصفات عربية واضحة بخطوات قصيرة.</li>
-          </ul>
-        </div>
-      </div>
+  <section class="hero" data-parallax>
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-overlay">
+      <h1 class="text-4xl md:text-6xl font-black mb-4 leading-tight" data-aos="fade-down">
+        وصفتك الأولى لصحة أفضل
+      </h1>
+      <p class="text-lg md:text-xl max-w-3xl mb-8 text-gray-200" data-aos="fade-up" data-aos-delay="200">
+        اكتشف مئات الوصفات الصحية والشهية التي تناسب أهدافك. الطبخ الصحي أصبح أسهل وأكثر متعة من أي وقت مضى.
+      </p>
+      <a href="login.html" class="cta-button" data-aos="fade-up" data-aos-delay="400" id="ctaStart">
+        <span>ابدأ رحلتك الصحية الآن</span>
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+      </a>
     </div>
   </section>
 
-  <!-- Features (مختصر) -->
-  <section id="features" class="py-8 md:py-10">
-    <div class="max-w-6xl mx-auto px-4 grid md:grid-cols-3 gap-4">
-      <div class="card p-5">
-        <div class="badge badge-primary">دقة غذائية</div>
-        <h4 class="mt-2 font-bold">سعرات وجرامات منضبطة</h4>
-        <p class="text-sm opacity-80 mt-1">الطاقة محسوبة من الماكروز مباشرة، والتوليد يضمن الجرام فقط بلا “كوب/ملعقة”.</p>
-      </div>
-      <div class="card p-5">
-        <div class="badge badge-primary">مرونة</div>
-        <h4 class="mt-2 font-bold">أنظمة وحساسيات ومكوّناتك</h4>
-        <p class="text-sm opacity-80 mt-1">اختر النظام، أضف حساسياتك، وحدد مكوّناتك المتاحة—نولّد وصفة مطابقة.</p>
-      </div>
-      <div class="card p-5">
-        <div class="badge badge-primary">سهولة</div>
-        <h4 class="mt-2 font-bold">العربية أولاً</h4>
-        <p class="text-sm opacity-80 mt-1">كل شيء بالعربية الفصحى: المكوّنات، الخطوات، والتعليمات الدقيقة.</p>
-      </div>
-    </div>
-  </section>
+  <div class="container mx-auto p-6 md:p-8">
 
-  <!-- Plans (مقارنة احترافية بكروت صف واحد) -->
-  <section id="plans" class="py-10 md:py-14 border-t border-slate-200/70 dark:border-slate-800/70">
-    <div class="max-w-6xl mx-auto px-4">
-      <div class="flex items-end justify-between gap-4 mb-6">
-        <div>
-          <h3 class="text-2xl md:text-3xl font-extrabold">خطط الاشتراك</h3>
-          <p class="opacity-70 text-sm mt-1">اختر الخطة المناسبة—يمكنك الترقية في أي وقت.</p>
-        </div>
-        <a href="/public/login.html" class="text-sm underline underline-offset-4">لديك حساب؟ سجّل الدخول</a>
-      </div>
+      <!-- Features -->
+      <section id="features" class="py-16">
+        <div class="pro-card" data-aos="fade-up">
+          <h2 class="text-3xl md:text-4xl font-black text-center mb-12">لماذا Wasfa هو خيارك الأفضل؟</h2>
 
-      <!-- صف واحد على الشاشات الواسعة -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch">
-        <!-- Trial -->
-        <div class="card p-6 flex flex-col">
-          <div class="flex items-center justify-between">
-            <h4 class="text-xl font-bold">تجربة 7 أيام</h4>
-            <span class="badge badge-ghost">للجدد</span>
+          <div class="grid md:grid-cols-3 gap-8 text-center">
+            <!-- 1 -->
+            <div class="group" data-aos="fade-up" data-aos-delay="100">
+              <img src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=1200&auto=format&fit=crop" alt="وجبة صحية متوازنة" class="w-full h-48 object-cover rounded-2xl shadow-md mb-5 transition-transform duration-300 group-hover:scale-[1.03]">
+              <div class="flex items-center justify-center gap-3 mb-3">
+                <span class="icon-chip"><i data-lucide="sparkles" class="w-6 h-6" style="stroke-width:2.5;"></i></span>
+                <h3 class="text-2xl font-bold">وصفات صحية مبتكرة</h3>
+              </div>
+              <p class="leading-relaxed text-[var(--muted)]">وصفات ممتعة وسهلة بإعدادات واضحة ومكونات متاحة.</p>
+            </div>
+            <!-- 2 -->
+            <div class="group" data-aos="fade-up" data-aos-delay="200">
+              <img src="https://images.unsplash.com/photo-1506354666786-959d6d497f1a?q=80&w=1200&auto=format&fit=crop" alt="مكونات طازجة محسوبة السعرات" class="w-full h-48 object-cover rounded-2xl shadow-md mb-5 transition-transform duration-300 group-hover:scale-[1.03]">
+              <div class="flex items-center justify-center gap-3 mb-3">
+                <span class="icon-chip green"><i data-lucide="gauge" class="w-6 h-6" style="stroke-width:2.5;"></i></span>
+                <h3 class="text-2xl font-bold">اعرف قيمة وجبتك</h3>
+              </div>
+              <p class="leading-relaxed text-[var(--muted)]">تحليل واضح للسعرات والماكروز يساعدك على اتخاذ قرار صحي.</p>
+            </div>
+            <!-- 3 -->
+            <div class="group" data-aos="fade-up" data-aos-delay="300">
+              <img src="https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=1200&auto=format&fit=crop" alt="تنوع وصفات ومطابخ متعددة" class="w-full h-48 object-cover rounded-2xl shadow-md mb-5 transition-transform duration-300 group-hover:scale-[1.03]">
+              <div class="flex items-center justify-center gap-3 mb-3">
+                <span class="icon-chip blue"><i data-lucide="infinity" class="w-6 h-6" style="stroke-width:2.5;"></i></span>
+                <h3 class="text-2xl font-bold">وداعاً للملل</h3>
+              </div>
+              <p class="leading-relaxed text-[var(--muted)]">تنويع مستمر يحافظ على حماسك ويثري تجاربك اليومية.</p>
+            </div>
           </div>
-          <p class="mt-1 text-3xl font-extrabold"><span class="text-[color:var(--primary)]">مجانًا</span><span class="text-sm font-medium opacity-70"> / 7 أيام</span></p>
-          <p class="text-sm opacity-75 mt-1">جميع الأنظمة متاحة للعرض • حد يومي معقول للتجربة</p>
-
-          <ul class="mt-4 space-y-2 text-sm flex-1">
-            <li>✅ توليد وصفات بالعربية وبدقة جرام</li>
-            <li>✅ كل الأنظمة الغذائية والحساسيات</li>
-            <li>✅ حساب سعرات 4/4/9 تلقائي</li>
-            <li>⚠️ حد يومي للوصفات أثناء التجربة</li>
-            <li>🔒 حساب مرتبط بجهاز واحد</li>
-          </ul>
-
-          <a href="/public/signup.html" class="btn mt-5 w-full px-4 py-2 rounded-md bg-[color:var(--primary)] text-white font-bold text-center">
-            جرّب مجانًا الآن
-          </a>
         </div>
+      </section>
 
-        <!-- Monthly -->
-        <div class="card p-6 flex flex-col ring-2 ring-[color:var(--primary)]/20">
-          <div class="flex items-center justify-between">
-            <h4 class="text-xl font-bold">شهري</h4>
-            <span class="badge badge-primary">الأكثر شيوعًا</span>
+      <div class="divider"></div>
+
+      <!-- How it works -->
+      <section id="how-it-works" class="py-16">
+        <h2 class="text-3xl md:text-4xl font-black text-center mb-16" data-aos="fade-up">خطوات بسيطة لحياة صحية</h2>
+        <div class="grid md:grid-cols-3 gap-12 text-center">
+            <div class="flex flex-col items-center" data-aos="fade-up" data-aos-delay="100">
+                <div class="icon-chip mb-6"><i data-lucide="user-plus" class="w-7 h-7" style="stroke-width:2.5;"></i></div>
+                <h3 class="text-2xl font-bold mb-2">1. سجّل حسابك</h3>
+                <p class="text-[var(--muted)]">انضم خلال ثوانٍ وافتح عالمًا من الوصفات الصحية.</p>
+            </div>
+            <div class="flex flex-col items-center" data-aos="fade-up" data-aos-delay="200">
+                <div class="icon-chip green mb-6"><i data-lucide="search-check" class="w-7 h-7" style="stroke-width:2.5;"></i></div>
+                <h3 class="text-2xl font-bold mb-2">2. اختر وصفتك</h3>
+                <p class="text-[var(--muted)]">استكشف واختر ما يناسب يومك وأهدافك.</p>
+            </div>
+            <div class="flex flex-col items-center" data-aos="fade-up" data-aos-delay="300">
+                <div class="icon-chip blue mb-6"><i data-lucide="check-circle-2" class="w-7 h-7" style="stroke-width:2.5;"></i></div>
+                <h3 class="text-2xl font-bold mb-2">3. اطبخ واستمتع</h3>
+                <p class="text-[var(--muted)]">اتبع الخطوات السهلة وقدّم وجبة لذيذة.</p>
+            </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Free Trial (Demo only, non-AI) -->
+      <section id="trial" class="py-16">
+        <div class="pro-card" data-aos="fade-up">
+          <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center gap-3">
+              <span class="icon-chip blue"><i data-lucide="wand-2" class="w-6 h-6"></i></span>
+              <h2 class="text-3xl md:text-4xl font-black">تجربة مجانية (مثال)</h2>
+            </div>
+            <span class="text-sm font-semibold text-[var(--muted)]">لا تستخدم الذكاء الاصطناعي — مثال توضيحي فقط</span>
           </div>
-          <p class="mt-1 text-3xl font-extrabold"><span class="text-[color:var(--primary)]">29</span> درهم<span class="text-sm font-medium opacity-70"> / شهر</span></p>
-          <p class="text-sm opacity-75 mt-1">وصفات غير محدودة يوميًا • دعم عبر واتساب</p>
 
-          <ul class="mt-4 space-y-2 text-sm flex-1">
-            <li>✅ غير محدود يوميًا</li>
-            <li>✅ خطط أسبوعية جاهزة</li>
-            <li>✅ كل الأنظمة + حساسيّات</li>
-            <li>✅ دعم واتساب أولوية</li>
-            <li>🔒 حساب مرتبط بجهاز واحد</li>
-          </ul>
+          <div class="grid lg:grid-cols-3 gap-8">
+            <!-- Controls -->
+            <div class="lg:col-span-1">
+              <div class="rounded-2xl border border-[var(--line)] bg-white p-5 mb-5">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="icon-chip"><i data-lucide="target" class="w-5 h-5"></i></span>
+                  <h3 class="font-bold">هدفك الغذائي</h3>
+                </div>
+                <select id="demoGoal" class="w-full rounded-xl border px-4 py-3 outline-none focus:ring-2 focus:ring-[var(--brand)]">
+                  <option value="loss">خفض الوزن</option>
+                  <option value="gain">زيادة العضلات</option>
+                  <option value="balance" selected>توازن صحي</option>
+                </select>
+              </div>
 
-          <a id="monthlyBtn" href="#" target="_blank" class="btn mt-5 w-full px-4 py-2 rounded-md bg-[color:var(--primary)] text-white font-bold text-center">
-            اشترك شهريًا الآن
-          </a>
-        </div>
+              <div class="rounded-2xl border border-[var(--line)] bg-white p-5">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="icon-chip green"><i data-lucide="salad" class="w-5 h-5"></i></span>
+                  <h3 class="font-bold">مكوّنات متاحة</h3>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <label class="inline-flex items-center gap-2"><input type="checkbox" value="chicken" checked> دجاج</label>
+                  <label class="inline-flex items-center gap-2"><input type="checkbox" value="oats"> شوفان</label>
+                  <label class="inline-flex items-center gap-2"><input type="checkbox" value="eggs" checked> بيض</label>
+                  <label class="inline-flex items-center gap-2"><input type="checkbox" value="broccoli" checked> بروكلي</label>
+                  <label class="inline-flex items-center gap-2"><input type="checkbox" value="avocado"> أفوكادو</label>
+                  <label class="inline-flex items-center gap-2"><input type="checkbox" value="rice"> أرز</label>
+                </div>
+              </div>
 
-        <!-- Yearly -->
-        <div class="card p-6 flex flex-col">
-          <div class="flex items-center justify-between">
-            <h4 class="text-xl font-bold">سنوي</h4>
-            <span class="badge badge-ghost">الأوفر</span>
+              <button id="demoGenerate" class="cta-button mt-5 w-full justify-center">
+                <i data-lucide="sparkles" class="w-5 h-5"></i>
+                <span>عرض مثال وصفة</span>
+              </button>
+            </div>
+
+            <!-- Result -->
+            <div class="lg:col-span-2">
+              <div class="rounded-2xl border border-[var(--line)] p-6 bg-white/90 shadow-sm min-h-[260px]">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-xl font-black">النتيجة</h3>
+                  <span class="text-xs text-[var(--muted)]">شكل المخرجات فقط — للتجربة</span>
+                </div>
+                <div id="demoCard" class="text-[var(--muted)]">
+                  اضغط “عرض مثال وصفة” لتشاهد كيف ستبدو النتيجة.
+                </div>
+              </div>
+            </div>
           </div>
-          <p class="mt-1 text-3xl font-extrabold"><span class="text-[color:var(--primary)]">25</span> درهم<span class="text-sm font-medium opacity-70"> / شهر</span></p>
-          <p class="text-xs opacity-75 mt-1">يتم احتسابها سنويًا (فوترة سنوية)</p>
-          <ul class="mt-4 space-y-2 text-sm flex-1">
-            <li>✅ غير محدود يوميًا</li>
-            <li>✅ خطط أسبوعية + شهرية + قائمة تسوق</li>
-            <li>✅ كل الأنظمة + حساسيّات</li>
-            <li>✅ دعم واتساب أولوية</li>
-            <li>🔒 حساب مرتبط بجهاز واحد</li>
-          </ul>
-
-          <a id="yearlyBtn" href="#" target="_blank" class="btn mt-5 w-full px-4 py-2 rounded-md bg-slate-100 dark:bg-slate-800 text-center">
-            اشترك سنويًا الآن
-          </a>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Trusted By — Arabic sectors only -->
+      <section id="trusted" class="py-16">
+        <div class="pro-card" data-aos="fade-up">
+          <h2 class="text-3xl md:text-4xl font-black text-center mb-10">يثقون بنا</h2>
+          <p class="text-center text-[var(--muted)] max-w-2xl mx-auto mb-8">
+            نخدم شرائح متعددة من المجتمع والمنشآت.
+          </p>
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-6 items-stretch">
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white text-center">
+              <div class="icon-chip mb-3"><i data-lucide="building-2" class="w-6 h-6"></i></div>
+              <div class="font-black text-xl">مؤسسات</div>
+              <div class="text-[var(--muted)] text-sm mt-1">شركات وهيئات</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white text-center">
+              <div class="icon-chip green mb-3"><i data-lucide="dumbbell" class="w-6 h-6"></i></div>
+              <div class="font-black text-xl">صالات رياضية</div>
+              <div class="text-[var(--muted)] text-sm mt-1">أندية ومراكز لياقة</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white text-center">
+              <div class="icon-chip blue mb-3"><i data-lucide="landmark" class="w-6 h-6"></i></div>
+              <div class="font-black text-xl">جهات حكومية</div>
+              <div class="text-[var(--muted)] text-sm mt-1">مبادرات صحية</div>
+            </div>
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white text-center">
+              <div class="icon-chip amber mb-3"><i data-lucide="user-check" class="w-6 ه-6"></i></div>
+              <div class="font-black text-xl">مدربون أفراد</div>
+              <div class="text-[var(--muted)] text-sm mt-1">تغذية ولياقة</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Stats — varied animations (no languages here) -->
+      <section id="stats" class="py-16">
+        <div class="pro-card" data-aos="fade-up">
+          <h2 class="text-3xl md:text-4xl font-black text-center mb-10">أرقام تتحدث</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            
+            <!-- Unlimited -->
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white" data-anim="zoom">
+              <div class="icon-chip mb-3"><i data-lucide="infinity" class="w-6 h-6"></i></div>
+              <div class="text-4xl font-black">غير محدود</div>
+              <div class="text-[var(--muted)] mt-1 mb-4">عدد الوصفات (بالذكاء الاصطناعي)</div>
+              <div class="progress"><span style="background: var(--accent-purple)"></span></div>
+            </div>
+
+            <!-- Users -->
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white" data-anim="bounce">
+              <div class="icon-chip green mb-3"><i data-lucide="users" class="w-6 h-6"></i></div>
+              <div class="flex items-baseline gap-1">
+                <div class="text-4xl font-black counter" data-target="250000" data-suffix="+">0</div>
+              </div>
+              <div class="text-[var(--muted)] mt-1 mb-4">مستخدم سعيد</div>
+              <div class="progress"><span style="background: var(--accent-green)"></span></div>
+            </div>
+
+            <!-- Satisfaction -->
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white" data-anim="slide">
+              <div class="icon-chip blue mb-3"><i data-lucide="sparkle" class="w-6 h-6"></i></div>
+              <div class="flex items-baseline gap-1">
+                <div class="text-4xl font-black counter" data-target="99" data-suffix="%">0</div>
+              </div>
+              <div class="text-[var(--muted)] mt-1 mb-4">نسبة رضا</div>
+              <div class="progress"><span style="background: var(--accent-blue)"></span></div>
+            </div>
+
+            <!-- Awards -->
+            <div class="p-6 rounded-2xl border border-[var(--line)] bg-white" data-anim="fade">
+              <div class="icon-chip amber mb-3"><i data-lucide="trophy" class="w-6 h-6"></i></div>
+              <div class="flex items-baseline gap-1">
+                <div class="text-4xl font-black counter" data-target="15" data-suffix="+">0</div>
+              </div>
+              <div class="text-[var(--muted)] mt-1 mb-1">جوائز وشراكات</div>
+              <div class="mt-4 progress"><span style="background: var(--accent-amber)"></span></div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- Testimonials — 6 total, 3 slides, 2 per slide, quote style -->
+      <section id="testimonials" class="py-16">
+        <h2 class="text-3xl md:text-4xl font-black text-center mb-12" data-aos="fade-up">ماذا يقول مستخدمونا؟</h2>
+        <div class="carousel" data-aos="fade-up" data-aos-delay="100">
+          <div class="carousel-track" id="carouselTrack">
+            <!-- Slide 1 -->
+            <div class="slide">
+              <div class="grid md:grid-cols-2 gap-6">
+                <div class="quote-card">
+                  <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
+                  <p class="text-[var(--muted)] leading-relaxed">"أفضل أداة لتنظيم وجباتي — واضحة وتختصر الوقت."</p>
+                  <div class="mt-3 text-sm font-semibold">— سارة</div>
+                </div>
+                <div class="quote-card">
+                  <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
+                  <p class="text-[var(--muted)] leading-relaxed">"خيارات متنوعة يوميًا، بلا ملل وبطعم رائع."</p>
+                  <div class="mt-3 text-sm font-semibold">— أحمد</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide 2 -->
+            <div class="slide">
+              <div class="grid md:grid-cols-2 gap-6">
+                <div class="quote-card">
+                  <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
+                  <p class="text-[var(--muted)] leading-relaxed">"واجهة أنيقة وتجربة سلسلة للوصول لوصفة مناسبة."</p>
+                  <div class="mt-3 text-sm font-semibold">— ليلى</div>
+                </div>
+                <div class="quote-card">
+                  <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
+                  <p class="text-[var(--muted)] leading-relaxed">"الماكروز واضحة والتحكم بالمكوّنات سهل."</p>
+                  <div class="mt-3 text-sm font-semibold">— محمد</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide 3 -->
+            <div class="slide">
+              <div class="grid md:grid-cols-2 gap-6">
+                <div class="quote-card">
+                  <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
+                  <p class="text-[var(--muted)] leading-relaxed">"تنويع الوصفات أنقذ روتيني — صحية ولذيذة."</p>
+                  <div class="mt-3 text-sm font-semibold">— نور</div>
+                </div>
+                <div class="quote-card">
+                  <div class="quote-mark"><i data-lucide="quote" class="w-5 h-5"></i></div>
+                  <p class="text-[var(--muted)] leading-relaxed">"حلول سريعة وواضحة — أنصح بها."</p>
+                  <div class="mt-3 text-sm font-semibold">— رامي</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="carousel-nav mt-6" id="carouselDots" aria-label="التنقل بين الآراء"></div>
+        </div>
+      </section>
+
+      <div class="divider"></div>
+
+      <!-- FAQ (concise) -->
+      <section id="faq" class="py-16">
+        <h2 class="text-3xl md:text-4xl font-black text-center mb-10" data-aos="fade-up">الأسئلة الشائعة</h2>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="100">
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">هل الأداة تعمل من المتصفح؟</span>
+              <i data-lucide="chevron-down" class="w-5 h-5"></i>
+            </button>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، لا حاجة لتثبيت.</div>
+          </div>
+          <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="150">
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">هل يمكن تجربة الأداة مجانًا؟</span>
+              <i data-lucide="chevron-down" class="w-5 h-5"></i>
+            </button>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">اطّلع على “تجربة مجانية (مثال)”.</div>
+          </div>
+          <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="200">
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">هل تدعم قيود الحساسية؟</span>
+              <i data-lucide="chevron-down" class="w-5 h-5"></i>
+            </button>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، يمكن تحديدها ببساطة.</div>
+          </div>
+          <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="250">
+            <button class="faq-q w-full flex items-center justify-between text-right">
+              <span class="font-bold text-lg">كيف أتواصل للاشتراك؟</span>
+              <i data-lucide="chevron-down" class="w-5 h-5"></i>
+            </button>
+            <div class="faq-a hidden pt-3 text-[var(--muted)]">
+              عبر النافذة المنبثقة من زر “أنشئ حسابك الآن”.
+            </div>
+          </div>
+        </div>
+      </section>
+  </div>
+
+  <!-- SVG Wave Separator before Footer -->
+  <div class="wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 120" preserveAspectRatio="none">
+      <path d="M0,64 C240,120 480,0 720,32 C960,64 1200,128 1440,64 L1440,120 L0,120 Z"></path>
+    </svg>
+  </div>
 
   <!-- Footer -->
-  <footer class="mt-10 border-t border-slate-200 dark:border-slate-800">
-    <div class="max-w-6xl mx-auto px-4 py-6 text-sm flex items-center justify-between">
-      <p id="footerLine">للاشتراك أو التجديد: 00971502061209 — واتساب/اتصال</p>
-      <a id="footerWhatsapp" href="#" target="_blank" class="btn px-3 py-1.5 rounded-md bg-green-600 text-white">WhatsApp</a>
+  <footer id="contact" class="bg-white border-t border-[var(--line)]">
+    <div class="container mx-auto p-8 text-center">
+        <h3 class="text-3xl font-black mb-4">جاهز لتبدأ؟</h3>
+        <p class="max-w-xl mx-auto mb-8 text-[var(--muted)]">
+            انضم إلى مجتمعنا اليوم وابدأ رحلتك نحو حياة صحية مليئة بالطعم الرائع.
+        </p>
+        <button type="button" class="cta-button" id="ctaFooter">
+            <span>أنشئ حسابك الآن</span>
+        </button>
+      <div class="border-t border-[var(--line)] mt-12 pt-8">
+        <p class="text-sm text-gray-500">&copy; 2024 Wasfa. جميع الحقوق محفوظة.</p>
+      </div>
     </div>
   </footer>
 
+  <!-- WhatsApp FAB -->
+  <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="whatsapp-fab" aria-label="تواصل واتساب">
+    <i data-lucide="messages-square" class="w-6 h-6"></i>
+  </a>
+
+  <!-- Signup Modal -->
+  <div id="signupOverlay" class="modal-overlay">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="signupTitle">
+      <div class="modal-head">
+        <h3 id="signupTitle" class="text-xl font-black">إنشاء حساب — قنواتنا الرسمية</h3>
+        <button id="signupClose" class="p-2 rounded-lg hover:bg-gray-100" aria-label="إغلاق">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-[var(--muted)] mb-4">
+          لإنشاء حساب جديد برجاء التواصل عبر إحدى القنوات التالية:
+        </p>
+        <div class="modal-grid">
+          <div class="contact-card">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="icon-chip green"><i data-lucide="message-circle" class="w-5 h-5"></i></span>
+              <div class="font-bold">واتساب الرسمي</div>
+            </div>
+            <p class="text-sm text-[var(--muted)] mb-3">إرسال كلمة: <span class="font-bold text-[var(--ink)]">“اشتراك Wasfa”</span> مع الاسم.</p>
+            <a class="contact-btn btn-wa" href="https://wa.me/971502061209?text=%D8%A7%D8%B4%D8%AA%D8%B1%D8%A7%D9%83%20Wasfa%20-%20%D8%A7%D8%B3%D9%85%D9%8A%3A" target="_blank" rel="noopener">
+              <i data-lucide="send" class="w-5 h-5"></i><span>بدء محادثة واتساب</span>
+            </a>
+          </div>
+          <div class="contact-card">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="icon-chip"><i data-lucide="phone" class="w-5 h-5"></i></span>
+              <div class="font-bold">اتصال هاتفي</div>
+            </div>
+            <p class="text-sm text-[var(--muted)] mb-3">فريقنا متاح يوميًا 9 صباحًا — 9 مساءً.</p>
+            <a class="contact-btn btn-call" href="tel:00971502061209">
+              <i data-lucide="phone-call" class="w-5 h-5"></i><span>اتصل الآن: 00971502061209</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="mt-5 grid sm:grid-cols-3 gap-3">
+          <div class="p-3 rounded-xl border border-[var(--line)]">
+            <div class="text-sm font-bold mb-1">التحقق</div>
+            <div class="text-xs text-[var(--muted)]">بيانات أساسية لتفعيل الحساب.</div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--line)]">
+            <div class="text-sm font-bold mb-1">الدفع الآمن</div>
+            <div class="text-xs text-[var(--muted)]">خيارات مرنة وآمنة.</div>
+          </div>
+          <div class="p-3 rounded-xl border border-[var(--line)]">
+            <div class="text-sm font-bold mb-1">التفعيل السريع</div>
+            <div class="text-xs text-[var(--muted)]">يعمل حسابك فور الإتمام.</div>
+          </div>
+        </div>
+
+        <div class="mt-4 text-end">
+          <button id="signupClose2" class="px-4 py-2 rounded-lg border border-[var(--line)] hover:bg-gray-50 font-bold">إغلاق</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/app.js"></script>
   <script>
-    // تحميل الإعدادات للهوية وروابط واتساب
-    (async function init(){
-      try{
-        const r = await fetch("/data/settings.json?ts="+Date.now(), { cache:"no-store" });
-        if(!r.ok) return;
-        const s = await r.json();
+    // Init libraries
+    AOS.init({ duration: 800, once: true, offset: 100 });
+    lucide.createIcons();
 
-        // Header + Footer
-        document.getElementById("logoImg").src = s?.branding?.logo_url || "";
-        document.getElementById("logoImg").alt = s?.images_meta?.hero?.alt_ar || "شعار";
-        document.getElementById("siteTitle").textContent = s?.branding?.site_name_ar || "وصفة ون";
+    // Header scrolled state
+    const header = document.getElementById('siteHeader');
+    const onScrollHeader = () => header.classList.toggle('scrolled', window.scrollY > 10);
+    onScrollHeader(); window.addEventListener('scroll', onScrollHeader, { passive: true });
 
-        const wa = s?.contact?.whatsapp_link || "#";
-        document.getElementById("whatsappBtn").href = wa;
-        document.getElementById("footerWhatsapp").href = wa;
+    // Parallax hero
+    const heroBg = document.getElementById('heroBg');
+    const parallax = () => {
+      const y = window.scrollY;
+      const translate = Math.min(y * 0.25, 120);
+      heroBg.style.transform = `translate3d(0, ${translate}px, 0) scale(1.05)`;
+    };
+    window.addEventListener('scroll', parallax, { passive: true });
 
-        // أزرار الاشتراك المدفوع توجه لواتساب
-        document.getElementById("monthlyBtn").href = wa;
-        document.getElementById("yearlyBtn").href = wa;
-      }catch(e){ /* تجاهل */ }
+    // CTA hover/ripple
+    function attachCTAEffects(btn) {
+      if (!btn) return;
+      btn.addEventListener('mousemove', (e) => {
+        const rect = btn.getBoundingClientRect();
+        btn.style.setProperty('--mx', `${e.clientX - rect.left}px`);
+        btn.style.setProperty('--my', `${e.clientY - rect.top}px`);
+        btn.classList.add('is-hovering');
+      });
+      btn.addEventListener('mouseleave', () => btn.classList.remove('is-hovering'));
+      btn.addEventListener('click', (e) => {
+        const rect = btn.getBoundingClientRect();
+        const circle = document.createElement('span');
+        circle.className = 'ripple';
+        circle.style.left = (e.clientX - rect.left) + 'px';
+        circle.style.top = (e.clientY - rect.top) + 'px';
+        btn.appendChild(circle);
+        setTimeout(() => circle.remove(), 650);
+      });
+    }
+    attachCTAEffects(document.getElementById('ctaStart'));
+    attachCTAEffects(document.getElementById('ctaFooter'));
+
+    // Carousel (3 slides, 2 quotes each)
+    (function initCarousel(){
+      const track = document.getElementById('carouselTrack');
+      const dotsWrap = document.getElementById('carouselDots');
+      if (!track || !dotsWrap) return;
+
+      const slides = [...track.querySelectorAll('.slide')];
+      let index = 0;
+
+      slides.forEach((_, i) => {
+        const dot = document.createElement('button');
+        dot.className = 'dot';
+        dot.setAttribute('aria-label', `الشريحة ${i+1}`);
+        dot.addEventListener('click', () => goTo(i));
+        dotsWrap.appendChild(dot);
+      });
+      const dots = [...dotsWrap.children];
+
+      const goTo = (i) => {
+        index = (i + slides.length) % slides.length;
+        const slideWidth = slides[0].getBoundingClientRect().width + 32; // gap
+        const offset = index * slideWidth;
+        track.style.transform = `translateX(${-offset}px)`;
+        dots.forEach((d, di) => d.classList.toggle('active', di === index));
+      };
+
+      let timer = setInterval(() => goTo(index + 1), 4500);
+      const pause = () => clearInterval(timer);
+      const resume = () => timer = setInterval(() => goTo(index + 1), 4500);
+      track.addEventListener('mouseenter', pause);
+      track.addEventListener('mouseleave', resume);
+
+      goTo(0);
+      window.addEventListener('resize', () => goTo(index));
     })();
+
+    // FAQ accordion
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const q = item.querySelector('.faq-q');
+      const a = item.querySelector('.faq-a');
+      q.addEventListener('click', () => {
+        a.classList.toggle('hidden');
+        const icon = q.querySelector('[data-lucide]');
+        if (icon) icon.classList.toggle('rotate-180');
+      });
+    });
+
+    // Demo (non-AI) recipe example
+    const demoBtn = document.getElementById('demoGenerate');
+    const demoCard = document.getElementById('demoCard');
+    function demoGenerate() {
+      const goal = document.getElementById('demoGoal').value;
+      const chosen = [...document.querySelectorAll('#trial input[type="checkbox"]:checked')].map(c => c.value);
+      const titleMap = {
+        loss: 'سلطة بروكلي بالدجاج خفيفة',
+        gain: 'أومليت بروتين بالدجاج والشوفان',
+        balance: 'طبق متوازن من الدجاج والبروكلي'
+      };
+      const base = [
+        { id:'chicken', n:'صدر دجاج', q:'150 جم' },
+        { id:'oats', n:'شوفان', q:'40 جم' },
+        { id:'eggs', n:'بيض', q:'2 حبة' },
+        { id:'broccoli', n:'بروكلي', q:'1 كوب' },
+        { id:'avocado', n:'أفوكادو', q:'نصف' },
+        { id:'rice', n:'أرز', q:'80 جم' },
+      ];
+      const ings = base.filter(x=>chosen.includes(x.id)).map(x=>`• ${x.n} — ${x.q}`).join('<br>');
+      const macros = goal==='gain' ? {cal:520,p:45,c:48,f:18} :
+                     goal==='loss' ? {cal:330,p:32,c:22,f:12} :
+                                     {cal:420,p:38,c:35,f:14};
+      const html = `
+        <h3 class="text-xl font-bold mb-2">${titleMap[goal] || titleMap.balance}</h3>
+        <div class="text-sm text-[var(--muted)] mb-3">وقت التحضير: 20 دقيقة — الحصص: 1</div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <h4 class="font-bold mb-2">المكونات</h4>
+            <div class="text-sm leading-relaxed">${ings || '• اختر مكونات لعرضها'}</div>
+          </div>
+          <div>
+            <h4 class="font-bold mb-2">الماكروز</h4>
+            <ul class="text-sm leading-relaxed">
+              <li>السعرات: ${macros.cal}</li>
+              <li>البروتين: ${macros.p}g</li>
+              <li>الكربوهيدرات: ${macros.c}g</li>
+              <li>الدهون: ${macros.f}g</li>
+            </ul>
+          </div>
+        </div>
+        <div class="mt-4">
+          <h4 class="font-bold mb-2">التحضير</h4>
+          <ol class="text-sm leading-relaxed list-decimal pr-5">
+            <li>اسلق/اشوِ الدجاج ثم قطّعه مكعبات.</li>
+            <li>اسلق البروكلي 3–4 دقائق ثم صفِّه.</li>
+            <li>اخلط المكونات وقدّمها دافئة.</li>
+          </ol>
+        </div>`;
+      demoCard.innerHTML = html;
+    }
+    if (demoBtn && demoCard) demoBtn.addEventListener('click', demoGenerate);
+
+    // Varied Counters (each with its own animation style)
+    (function initCounters(){
+      const section = document.getElementById('stats');
+      const counters = section.querySelectorAll('.counter');
+      const progressBars = section.querySelectorAll('.progress > span');
+      if (!counters.length) return;
+
+      const easeOutCubic = t => 1 - Math.pow(1 - t, 3);
+      const easeOutBack  = t => { const c1 = 1.70158, c3 = c1 + 1; return 1 + c3*Math.pow(t-1,3) + c1*Math.pow(t-1,2); };
+
+      const animateCard = (card) => {
+        const type = card.getAttribute('data-anim');
+        if (type === 'bounce') {
+          card.animate([{transform:'translateY(12px)'},{transform:'translateY(0)'}], {duration:500, easing:'cubic-bezier(.34,1.56,.64,1)'});
+        } else if (type === 'slide') {
+          card.animate([{transform:'translateX(24px)', opacity:.2},{transform:'translateX(0)', opacity:1}], {duration:550, easing:'ease-out'});
+        } else if (type === 'zoom') {
+          card.animate([{transform:'scale(.96)', opacity:.5},{transform:'scale(1)', opacity:1}], {duration:450, easing:'ease-out'});
+        } else {
+          card.animate([{opacity:.2},{opacity:1}], {duration:400, easing:'ease-out'});
+        }
+      };
+
+      const animateNumbers = () => {
+        progressBars.forEach((bar,i)=> { setTimeout(()=> { bar.style.width = '100%'; }, 120*i); });
+
+        counters.forEach((el, idx)=> {
+          const target = +el.getAttribute('data-target');
+          const suffix = el.getAttribute('data-suffix') || '';
+          const start = performance.now();
+          const duration = 1400 + (idx*150);
+
+          const step = (t) => {
+            const pRaw = Math.min((t - start) / duration, 1);
+            const p = idx % 2 === 0 ? easeOutCubic(pRaw) : easeOutBack(pRaw);
+            const val = Math.floor(target * p);
+            el.textContent = val.toLocaleString('ar-EG') + suffix;
+            if (pRaw < 1) requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        });
+
+        section.querySelectorAll('[data-anim]').forEach((card,i)=> {
+          setTimeout(()=> animateCard(card), 120*i);
+        });
+      };
+
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) { animateNumbers(); io.disconnect(); }
+        });
+      }, { threshold: 0.35 });
+      io.observe(section);
+    })();
+
+    // Active section highlight
+    const sections = [...document.querySelectorAll('section[id]')];
+    const navLinks = [...document.querySelectorAll('.nav-link')];
+    const linkById = id => navLinks.find(a => a.getAttribute('href') === `#${id}`);
+    const ioActive = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        const id = entry.target.id;
+        const link = linkById(id);
+        if (!link) return;
+        if (entry.isIntersecting) link.classList.add('active');
+        else link.classList.remove('active');
+      });
+    }, { threshold: 0.4 });
+    sections.forEach(s => ioActive.observe(s));
+
+    // ===== Signup Modal =====
+    const overlay = document.getElementById('signupOverlay');
+    const openBtn = document.getElementById('ctaFooter');
+    const closeBtn = document.getElementById('signupClose');
+    const closeBtn2 = document.getElementById('signupClose2');
+
+    function openModal(){
+      overlay.style.display = 'flex';
+      requestAnimationFrame(()=> {
+        overlay.querySelector('.modal').classList.add('open');
+      });
+      document.body.style.overflow = 'hidden';
+    }
+    function closeModal(){
+      const modal = overlay.querySelector('.modal');
+      modal.classList.remove('open');
+      setTimeout(()=> { overlay.style.display = 'none'; }, 200);
+      document.body.style.overflow = '';
+    }
+    if(openBtn){ openBtn.addEventListener('click', openModal); }
+    if(closeBtn){ closeBtn.addEventListener('click', closeModal); }
+    if(closeBtn2){ closeBtn2.addEventListener('click', closeModal); }
+    overlay.addEventListener('click', (e)=> { if(e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', (e)=> { if(e.key === 'Escape' && overlay.style.display === 'flex') closeModal(); });
   </script>
 </body>
 </html>

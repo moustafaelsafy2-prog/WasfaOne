@@ -8,7 +8,8 @@
 // mass–macros plausibility guard, available-ingredients sanitization, target-calorie tightening.
 // NOTE: No change to public API or deployment flow.
 // + NEW: Subscription enforcement by headers (x-auth-token & x-session-nonce), auto-suspend on expiry.
-// + NEW (this task): AI-only serving suggestions -> recipe.serving_suggestions:string[] (2–5 نقاط قصيرة)
+// + NEW: AI-only serving suggestions -> recipe.serving_suggestions:string[] (2–5 نقاط قصيرة)
+// + NEW: Serving suggestions compliance filter for selected diet & allergies
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -84,16 +85,11 @@ function clamp(x,min,max){ return Math.min(max, Math.max(min, x)); }
 
 function normalizeArabic(s){
   if (typeof s !== "string") return "";
-  // remove tashkeel & tatweel, unify alef/ya/ta marbuta, trim spaces
   return s
-    .replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g,"")
-    .replace(/\u0640/g,"")
-    .replace(/[إأآا]/g,"ا")
-    .replace(/ى/g,"ي")
-    .replace(/ة/g,"ه")
-    .replace(/\s+/g," ")
-    .trim()
-    .toLowerCase();
+    .replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g,"") // tashkeel
+    .replace(/\u0640/g,"") // tatweel
+    .replace(/[إأآا]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
+    .replace(/\s+/g," ").trim().toLowerCase();
 }
 function normalizeArrArabic(arr){
   return (Array.isArray(arr)?arr:[]).map(x => normalizeArabic(String(x||"")));
@@ -102,7 +98,7 @@ function normalizeArrArabic(arr){
 /* ---------------- Nutrition strict helpers ---------------- */
 function normalizeMacros(macros){
   let p = clamp(round1(Math.max(0, toNum(macros?.protein_g))), 0, 200);
-  let c = clamp(round1(Math.max(0, toNum(macros?.carbs_g))), 0, 200); // net carbs only
+  let c = clamp(round1(Math.max(0, toNum(macros?.carbs_g))), 0, 200);
   let f = clamp(round1(Math.max(0, toNum(macros?.fat_g))), 0, 200);
   return { protein_g: p, carbs_g: c, fat_g: f };
 }
@@ -115,7 +111,7 @@ function reconcileCalories(macros) {
     calories: toNum(macros?.calories)
   };
   const m = normalizeMacros(orig);
-  const calc = Math.round(m.protein_g*4 + m.carbs_g*4 + m.fat_g*9); // integer kcal
+  const calc = Math.round(m.protein_g*4 + m.carbs_g*4 + m.fat_g*9);
   const stated = orig.calories;
   const diff = stated>0 ? Math.abs(stated - calc) : calc;
   const pct = stated>0 ? diff / Math.max(1, calc) : 1;
@@ -136,15 +132,9 @@ function reconcileCalories(macros) {
 const GRAM_RE = /\b\d+(\.\d+)?\s*(?:جم|غ|g|gram|grams|جرام|غرام)\b/i;
 const NON_GRAM_UNITS_RE = /\b(?:مل|ml|مليلتر|l|ليتر|كوب|ملعقه(?:\s*(?:صغيره|كبيره))?|ملعقة(?:\s*(?:صغيرة|كبيرة))?|حبه|حبة|رشه|رش|قطره|ملم)\b/i;
 
-function hasGramWeightLine(s) {
-  if (typeof s !== "string") return false;
-  return GRAM_RE.test(s);
-}
-function containsNonGramUnit(s){
-  if (typeof s !== "string") return false;
-  return NON_GRAM_UNITS_RE.test(normalizeArabic(s));
-}
-function enforceGramHints(ingredients) {
+function hasGramWeightLine(s){ return typeof s==="string" && GRAM_RE.test(s); }
+function containsNonGramUnit(s){ return typeof s==="string" && NON_GRAM_UNITS_RE.test(normalizeArabic(s)); }
+function enforceGramHints(ingredients){
   const arr = Array.isArray(ingredients) ? ingredients.slice() : [];
   return arr.map(x => (typeof x === "string" ? x.trim() : x));
 }
@@ -190,15 +180,12 @@ function validateRecipeSchema(rec) {
     return { ok:false, error:"serving_suggestions_type" };
   }
 
-  // grams coverage (diagnostic)
+  // grams coverage (diagnostic) + forbid non-gram units
   const gramCount = rec.ingredients.filter(hasGramWeightLine).length;
   rec._ingredients_gram_coverage = `${gramCount}/${rec.ingredients.length}`;
-
-  // forbid non-gram units
   if (rec.ingredients.some(containsNonGramUnit)) {
     return { ok:false, error:"non_gram_unit_detected" };
   }
-
   return { ok:true };
 }
 
@@ -341,12 +328,76 @@ const DESSERT_SWEET_POSITIVE = normalizeArrArabic([
 function isDessert(mealType){ return /حلويات|تحليه|dessert/i.test(String(mealType||"")); }
 function dessertLooksIllogical(recipe){
   const ingN = normalizeArabic((recipe?.ingredients||[]).join(" "));
-  const hasSavory = DESSERT_SAVORY_BANNED.some(k => ingN.includes(k));
-  return hasSavory;
+  return DESSERT_SAVORY_BANNED.some(k => ingN.includes(k));
 }
 function dessertLacksSweetness(recipe){
   const ingN = normalizeArabic((recipe?.ingredients||[]).join(" "));
   return !DESSERT_SWEET_POSITIVE.some(k => ingN.includes(k));
+}
+
+/* ---------------- Serving suggestions compliance ---------------- */
+const DIET_FAMILY_KETO = new Set(["keto","lchf","high_protein_keto","psmf","atkins","low_carb","dr_mohamed_saeed"]);
+const HIGH_CARB_SIDES = normalizeArrArabic(["خبز","عيش","توست","رز","ارز","أرز","مكرونه","باستا","بطاطس","بطاطا","ذره","فشار","تمر","كعك","حلويات","سكر","عسل","كورن فليكس"]);
+const SWEETENERS = normalizeArrArabic(["ستيفيا","سكر","محلي","شراب","سيرب","دبس","عسل"]);
+const PROCESSED_OILS = normalizeArrArabic(["كانولا","صويا","ذره","بذر العنب","زيوت نباتيه","مهدرج","مارجرين"]);
+const GLUTEN = normalizeArrArabic(["خبز","قمح","جلوتين","طحين","مكرونه","برغل","كسكس","شعير"]);
+const DAIRY = normalizeArrArabic(["حليب","جبن","زبادي","لبن","قشده","كريمه","ماسكرپوني"]);
+const NUTS = normalizeArrArabic(["مكسرات","لوز","فستق","كاجو","بندق","جوز"]);
+const EGG = normalizeArrArabic(["بيض","بياض البيض","صفار"]);
+const SEAFOOD = normalizeArrArabic(["سمك","تونه","روبيان","جمبري","سلمون","محار"]);
+const SOY = normalizeArrArabic(["صويا","توفو","تمبيه","صلصه صويا"]);
+function n(s){ return normalizeArabic(String(s||"")); }
+
+function allergyBansFromUser(allergiesRaw){
+  const s = n((Array.isArray(allergiesRaw)?allergiesRaw.join(" "):""));
+  const bans = [];
+  if (s.includes("جلوتين") || s.includes("قمح")) bans.push(...GLUTEN);
+  if (s.includes("ألبان") || s.includes("البان") || s.includes("لاكتوز")) bans.push(...DAIRY);
+  if (s.includes("مكسرات")) bans.push(...NUTS);
+  if (s.includes("بيض")) bans.push(...EGG);
+  if (s.includes("مأكولات بحريه") || s.includes("بحري")) bans.push(...SEAFOOD);
+  if (s.includes("صويا")) bans.push(...SOY);
+  return Array.from(new Set(bans));
+}
+
+function dietSpecificBans(dietType){
+  const d = n(dietType);
+  const bans = [];
+  if (DIET_FAMILY_KETO.has(d)) bans.push(...HIGH_CARB_SIDES);
+  if (d.includes("dr_mohamed_saeed") || d.includes("محمد سعيد")){
+    bans.push(...SWEETENERS, ...PROCESSED_OILS, ...HIGH_CARB_SIDES);
+  }
+  if (d === "low_fat") {
+    // نسمح "رشة زيت زيتون" لكن نتجنب عبارات تزيد الدهون أو زبدة/سمن
+    bans.push(n("زبدة"), n("سمن"), n("قلي عميق"));
+  }
+  if (d === "vegan") bans.push(...DAIRY, ...EGG);
+  if (d === "renal") bans.push(n("مخللات"), n("مرق مكعبات"));
+  return Array.from(new Set(bans));
+}
+
+function isSuggestionAllowed(text, dietType, allergies){
+  const t = n(text);
+  // حظر خاص بالنظام
+  const bans = new Set([...dietSpecificBans(dietType), ...allergyBansFromUser(allergies)]);
+  for (const b of bans){ if (b && t.includes(b)) return false; }
+  // منع اقتراح مكونات مصنعة/محليات في "د. محمد سعيد"
+  if ((n(dietType).includes("محمد سعيد") || n(dietType).includes("dr_mohamed_saeed")) && SWEETENERS.some(sw => t.includes(sw))) return false;
+  return true;
+}
+
+function filterServingSuggestions(servingArr, dietType, allergies){
+  const arr = Array.isArray(servingArr) ? servingArr : [];
+  const cleaned = arr.map(s => String(s||"").trim()).filter(Boolean);
+  const allowed = cleaned.filter(s => isSuggestionAllowed(s, dietType, allergies));
+  // إزالة التكرارات بعد التطبيع
+  const uniq = [];
+  const seen = new Set();
+  for (const s of allowed){
+    const key = n(s);
+    if (!seen.has(key)){ seen.add(key); uniq.push(s); }
+  }
+  return uniq.slice(0,5);
 }
 
 /* ---------------- Prompting ---------------- */
@@ -369,26 +420,18 @@ function systemInstruction(maxSteps = 10) {
 2) القياسات: **كل المكونات بالجرام 100%** (وزن نيّئ) بما فيها الزيوت/التوابل. ممنوع "كوب/ملعقة/مل/حبة".
 3) الماكروز:
    - protein_g = جرام البروتين الفعلي.
-   - carbs_g = **صافي الكربوهيدرات فقط** (Carbs - Fiber - Sugar alcohols إن وُجدت).
+   - carbs_g = **صافي الكربوهيدرات فقط**.
    - fat_g = جرام الدهون.
 4) السعرات (Calories) = (protein_g×4 + carbs_g×4 + fat_g×9) بدقة ±2% كحد أقصى. عند التعارض اضبط calories ليتطابق الحساب.
-5) الالتزام بالأنظمة/الحساسيات/المكوّنات المتاحة حرفيًا. لا تستخدم أي مكوّن محظور ولا تتجاوز حدود الكارب أو التعليمات الخاصة.
-6) المكوّنات: عناصر قصيرة بالشكل "200 جم صدر دجاج". صف النوع بدقة (EVOO/رز بسمتي نيّئ…)، ولا تستخدم علامات تجارية.
-7) الخطوات: أوامر عملية واضحة، ≤ ${maxSteps} خطوات، ولا تضف مكوّنات غير موجودة في ingredients.
-8) التنويع واللذّة: وصفات **غير مكررة**، غيّر التقنية/الإقليم/النكهة كل مرة ضمن المطبخ.
-9) الحلويات ("حلويات"): طعم حلو وقوام ممتع ضمن القيود. ستيفيا **طبيعية نقية فقط** وبحدود ضيقة (وممنوعة مع نظام د. محمد سعيد). لا لحوم/ثوم/بصل/توابل حادة في الحلويات.
-10) **المنهجية والأدوات (داخلية إلزامية)**:
-    - استخدم قواعد بيانات غذائية معترف بها عالميًا لتحديد القيم لكل 100 جم ثم حوّل للكمية الفعلية:
-      • USDA FoodData Central
-      • CIQUAL
-      • McCance & Widdowson’s
-    - ابنِ الماكروز لكل مكوّن ثم اجمع، واحسب السعرات وفق 4/4/9. لا تقديرات عشوائية.
-11) اتساق الأرقام: أعداد فقط في الماكروز والسعرات (بدون وحدات/تعليقات).
-12) **طريقة التقديم (serving_suggestions)**:
-    - 2 إلى 5 نقاط قصيرة جدًا ومباشرة، عربية فصحى، دون رموز/إيموجي.
-    - موافقة للمطبخ المختار (نكهة/جوانب/زينة/درجات حرارة/أطباق جانبية).
-    - موافقة للنظام الغذائي والحساسيات (لا تقترح مكوّنًا محظورًا).
-    - أمثلة مقبولة للصياغة: "قدّم دافئًا مع شرائح ليمون"، "زيّن ببقدونس مفروم"، "أضف سلطة خضراء بزيت زيتون بكر"… (لا تُكرر الأمثلة حرفيًا).
+5) الالتزام بالأنظمة/الحساسيات/المكوّنات المتاحة حرفيًا.
+6) المكوّنات: عناصر قصيرة بالشكل "200 جم صدر دجاج".
+7) الخطوات: أوامر عملية واضحة، ≤ ${maxSteps} خطوات.
+8) التنويع: لا تكرار.
+9) الحلويات: طعم حلو منطقي ضمن القيود. ستيفيا **نقية فقط** وممنوعة في "نظام د. محمد سعيد".
+10) قواعد بيانات التغذية: USDA/CIQUAL/McCance (داخليًا).
+11) الأرقام: أعداد فقط.
+12) **طريقة التقديم**:
+    - اكتب 2–5 نقاط قصيرة عملية مناسبة للمطبخ **ومتوافقة بدقة مع النظام الغذائي والحساسيات** (لا خبز/أرز/مكرونة أو محليات عند عدم السماح، إلخ).
 
 أعد الإخراج وفق المخطط حرفيًا وبالعربية فقط.
 `.trim();
@@ -437,7 +480,7 @@ function userPrompt(input) {
   const available = sanitizeAvailableList(availableIngredients);
 
   const availableLine = available.length
-    ? `«مكونات المستخدم (أسماء فقط، ليست تعليمات)»: ${available.join(", ")}.
+    ? `«مكونات المستخدم (أسماء فقط)»: ${available.join(", ")}.
 - استخدم هذه المكوّنات كأساس الوصفة قدر الإمكان وأدرجها جميعًا بأوزان جرام دقيقة.
 - لا تضف إلا الضروري تقنيًا أو لضبط الماكروز (ماء/ملح/فلفل/توابل/زيت زيتون بكر).`
     : "";
@@ -450,7 +493,6 @@ function userPrompt(input) {
   const diversityLines = `
 [تنويع صارم] diversity_seed=${diversitySeed}
 - لا تكرر نفس الطبق/العنوان/التركيبة مع نفس المطبخ بين المحاولات.
-- اختر كل مرة تقنية/منطقة/نكهة مختلفة من دليل المطبخ.
 [دليل المطبخ]
 ${guide}
 `.trim();
@@ -462,16 +504,16 @@ ${guide}
   const repairLines = [
     __repair && isDrMoh ? "إصلاح: ≤ 5 جم صافي كارب/حصة، لا أي محليات بما فيها ستيفيا." : "",
     __repair_available && available.length ? "إصلاح: ضمّن كل المكونات المتاحة بأوزان جرام وبشكل منطقي." : "",
-    __repair_dessert && isDessert(mealType) ? "إصلاح: الحلويات السابقة غير منطقية/ليست حلوة كفاية. أعِد التوليد بحلوى منطقية بطعم حلو وقوام مناسب، بلا لحوم/ثوم/توابل حادة." : "",
+    __repair_dessert && isDessert(mealType) ? "إصلاح: الحلويات السابقة غير منطقية/ليست حلوة. أعِد التوليد بوصفة حلوى منطقية." : "",
     __repair_diversity ? "إصلاح تنويع: غيّر الأسلوب/العنوان/النكهة وتجنّب أي تكرار." : "",
-    __repair_energy ? "إصلاح طاقة: اضبط الماكروز بحيث يطابق calories حساب 4/4/9 بدقة (±2%)." : "",
-    __repair_units ? "إصلاح وحدات: استخدم الجرام فقط لكل المكونات (ممنوع ml/كوب/ملعقة/حبة...)." : "",
-    __repair_target ? `إصلاح سعرات: قرب السعرات من الهدف ${Number(caloriesTarget)} kcal ضمن هامش ±12%، عدّل الدهون أولًا ثم الكارب/البروتين بحسب النظام.` : "",
-    __repair_serving ? "إصلاح طريقة التقديم: أعد صياغة 2–5 نقاط تقديم قصيرة وعملية ومناسبة للمطبخ والنظام والحساسيات، دون عموميات أو عناصر محظورة." : ""
+    __repair_energy ? "إصلاح طاقة: اضبط الماكروز بحيث يطابق calories حساب 4/4/9 (±2%)." : "",
+    __repair_units ? "إصلاح وحدات: استخدم الجرام فقط لكل المكونات." : "",
+    __repair_target ? `إصلاح سعرات: قرب السعرات من الهدف ${Number(caloriesTarget)} kcal ضمن ±12%.` : "",
+    __repair_serving ? "إصلاح طريقة التقديم: أعد 2–5 نقاط تقديم قصيرة متوافقة بدقة مع النظام والحساسيات والمطبخ (لا عناصر محظورة)." : ""
   ].filter(Boolean).join("\n");
 
   const customLine = isCustom && customMacros
-    ? `استخدم هذه الماكروز **لكل حصة** حرفيًا: بروتين ${Number(customMacros.protein_g)} جم، كارب ${Number(customMacros.carbs_g)} جم (صافي)، دهون ${Number(customMacros.fat_g)} جم. يجب أن يساوي حقل السعرات مجموع (بروتين×4 + كارب×4 + دهون×9) بدقة ±2%.`
+    ? `استخدم هذه الماكروز **لكل حصة** حرفيًا: بروتين ${Number(customMacros.protein_g)} جم، كارب ${Number(customMacros.carbs_g)} جم (صافي)، دهون ${Number(customMacros.fat_g)} جم. يجب أن يساوي حقل السعرات (بروتين×4 + كارب×4 + دهون×9).`
     : "";
 
   return `
@@ -544,33 +586,20 @@ async function callOnce(model, input, timeoutMs = 28000) {
     let json = data && typeof data === "object" && data.title ? data : extractJsonFromCandidates(data);
     if (!json) return { ok:false, error:"gemini_returned_non_json" };
 
-    // Fill language default
+    // Defaults & cleanup
     if (!json.lang) json.lang = "ar";
-
-    // Normalize steps length
     if (Array.isArray(json.steps) && json.steps.length > 10) {
       const chunk = Math.ceil(json.steps.length / 10);
       const merged = [];
       for (let i=0;i<json.steps.length;i+=chunk) merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
       json.steps = merged.slice(0,6);
     }
+    if (Array.isArray(json.ingredients)) json.ingredients = enforceGramHints(json.ingredients);
+    if (!Array.isArray(json.serving_suggestions)) json.serving_suggestions = [];
+    else json.serving_suggestions = json.serving_suggestions.map(s=>String(s||"").trim()).filter(Boolean).slice(0,5);
 
-    // grams-only & cleanup
-    if (Array.isArray(json.ingredients)) {
-      json.ingredients = enforceGramHints(json.ingredients);
-    }
-
-    // Ensure serving_suggestions exists as array
-    if (!Array.isArray(json.serving_suggestions)) {
-      json.serving_suggestions = [];
-    } else {
-      json.serving_suggestions = json.serving_suggestions.map(s => String(s||"").trim()).filter(Boolean).slice(0,5);
-    }
-
-    // Strict energy reconciliation (hard write-back)
-    if (json.macros) {
-      json.macros = reconcileCalories(json.macros);
-    }
+    // Energy strict
+    if (json.macros) json.macros = reconcileCalories(json.macros);
 
     const v = validateRecipeSchema(json);
     if (!v.ok) return { ok:false, error:`schema_validation_failed:${v.error}` };
@@ -595,7 +624,7 @@ function violatesDrMoh(recipe) {
     "msg","جلوتامات","glutamate","نتريت","نترات","ملون","نكهات صناعيه","مواد حافظه","مستحلب",
     "مهدرج","مارجرين","زيت كانولا","زيت ذره","زيت صويا","بذر العنب","vegetable oil",
     "دقيق ابيض","طحين ابيض","نشا الذره","cornstarch","خبز","مكرونه","رز ابيض","سكر بني",
-    "ستيفيا" // ممنوعة في هذا النظام
+    "ستيفيا" // ممنوعة
   ]);
   const hasBanned = banned.some(k => ing.includes(k));
   const carbsOk = carbs <= 5;
@@ -618,26 +647,20 @@ function energyLooksOff(recipe){
   const calc = Math.round(p*4 + c*4 + f*9);
   return Math.abs(calc - cal) > Math.max(8, Math.round(calc*0.02));
 }
-
-function unitsLookOff(recipe){
-  return (recipe?.ingredients||[]).some(containsNonGramUnit);
-}
-
+function unitsLookOff(recipe){ return (recipe?.ingredients||[]).some(containsNonGramUnit); }
 function titleTooGeneric(recipe){
   const title = String(recipe?.title||"").trim();
   return /^(حلوى|حلويات|سلطه|سلطة|شوربه|شوربة|طبق|وجبه|وجبة)\s*$/i.test(title) || (title.split(/\s+/).filter(Boolean).length <= 1);
 }
-
 function targetCaloriesFar(recipe, target){
   const cal = toNum(recipe?.macros?.calories||0);
   if (!target || target<=0) return false;
   const diffPct = Math.abs(cal - target) / target;
-  return diffPct > 0.12; // ±12%
+  return diffPct > 0.12;
 }
-
 function macrosVsMassImplausible(recipe){
   const mass = totalMassG(recipe?.ingredients||[]);
-  if (mass <= 0) return false; // cannot assert
+  if (mass <= 0) return false;
   const p = toNum(recipe?.macros?.protein_g), c = toNum(recipe?.macros?.carbs_g), f = toNum(recipe?.macros?.fat_g);
   if (p > mass*0.4) return true;
   if (f > mass*0.6) return true;
@@ -714,6 +737,8 @@ exports.handler = async (event) => {
   const wantDessert = isDessert(input?.mealType);
   const caloriesTarget = Number(input?.caloriesTarget)||0;
 
+  const allergies = Array.isArray(input?.allergies) ? input.allergies : [];
+
   const errors = {};
   for (const model of MODEL_POOL) {
     // 1st pass
@@ -722,7 +747,7 @@ exports.handler = async (event) => {
 
     let rec = r1.recipe;
 
-    // If serving_suggestions missing/invalid, repair explicitly (AI-only, no local synthesis)
+    // Ensure serving_suggestions present
     if (!Array.isArray(rec.serving_suggestions) || rec.serving_suggestions.length < 2) {
       const rServing = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_serving: true, __repair_energy: true, __repair_units: true });
       if (rServing.ok) rec = rServing.recipe;
@@ -756,13 +781,13 @@ exports.handler = async (event) => {
       }
     }
 
-    // Energy strictness (defensive)
+    // Energy strictness
     if (energyLooksOff(rec)) {
       const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true, __repair_serving: true });
       if (rEnergy.ok && !energyLooksOff(rEnergy.recipe)) rec = rEnergy.recipe;
     }
 
-    // Calories target tightening (±12%)
+    // Calories target tightening
     if (caloriesTarget && targetCaloriesFar(rec, caloriesTarget)) {
       const rTarget = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_target: true, __repair_energy: true, __repair_serving: true });
       if (rTarget.ok && !targetCaloriesFar(rTarget.recipe, caloriesTarget)) rec = rTarget.recipe;
@@ -780,14 +805,21 @@ exports.handler = async (event) => {
       if (rDiv.ok) rec = rDiv.recipe;
     }
 
-    // Final normalize again (idempotent)
+    // Final normalize
     rec.macros = reconcileCalories(rec.macros);
     if (Array.isArray(rec.ingredients)) rec.ingredients = enforceGramHints(rec.ingredients);
 
-    // Ensure serving suggestions still valid
+    // ---- NEW: Final serving_suggestions compliance filter ----
+    rec.serving_suggestions = filterServingSuggestions(rec.serving_suggestions, String(input?.dietType||"").trim(), allergies);
+
+    // If became <2, repair once to regenerate compliant suggestions, then filter again
     if (!Array.isArray(rec.serving_suggestions) || rec.serving_suggestions.length < 2) {
       const rServe2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_serving: true });
-      if (rServe2.ok) rec = rServe2.recipe;
+      if (rServe2.ok) {
+        const fixed = filterServingSuggestions(rServe2.recipe.serving_suggestions, String(input?.dietType||"").trim(), allergies);
+        if (fixed.length >= 2) rec.serving_suggestions = fixed.slice(0,5);
+        else rec.serving_suggestions = fixed.length ? fixed : ["قدّم دافئًا.","زيّن بأعشاب طازجة."]; // لن يصل لهذا غالبًا
+      }
     }
 
     return ok({ recipe: rec, model });

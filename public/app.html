@@ -325,6 +325,10 @@
   /* ===== إضافة واجهة توليد صورة الطبق عبر Gemini (خلفية مستقلة) ===== */
   const API_IMAGE_ENDPOINT = "/.netlify/functions/generateRecipeImage";
 
+  // روابط الترقية: خطط + واتساب من الإعدادات
+  const PLANS_URL = "/public/index.html#plans";
+  let WHATSAPP_LINK = "#";
+
   const $=id=>document.getElementById(id);
 
   // inputs
@@ -364,17 +368,30 @@
         statusMsg.classList.add('status-pop-in');
     }
   }
-  function setError(text=""){ errMsg.textContent=text; errMsg.classList.toggle('hidden', !text) }
-  function setBanner(text="", tone="amber"){
-    if(!text){ banner.classList.add('hidden'); banner.textContent=""; return; }
-    banner.textContent=text;
-    banner.classList.remove('hidden','amber', 'red');
-    if(tone==="red") banner.classList.add('red');
-    if(tone==="amber") banner.classList.add('amber');
+  function setError(text="", asHTML=false){
+    if(asHTML){ errMsg.innerHTML=text; } else { errMsg.textContent=text; }
+    errMsg.classList.toggle('hidden', !text)
+  }
+  function buildUpgradeCTA(msg){
+    return `
+      <div class="space-y-3">
+        <div>${msg}</div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <a href="${PLANS_URL}" class="inline-flex items-center px-3 py-1.5 rounded-md bg-emerald-600 text-white text-sm">الترقية الآن</a>
+          <a href="${WHATSAPP_LINK}" target="_blank" class="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white text-sm">تواصل عبر واتساب</a>
+        </div>
+      </div>`;
+  }
+  function setBanner(text="", tone="amber", asHTML=false){
+    if(!text){ banner.classList.add('hidden'); banner.textContent=""; banner.innerHTML=""; return; }
+    if(asHTML){ banner.innerHTML = text; } else { banner.textContent = text; }
+    banner.classList.remove('hidden','amber','red');
+    banner.classList.add(tone === "red" ? "red" : "amber");
   }
 
   function resetView(){
     setBanner("");
+    setError("");
     resultContainer.classList.add('hidden');
     contentArea.classList.add('hidden');
     // Remove animation classes for next run
@@ -412,6 +429,7 @@
   }
 
   async function callAPI(payload){
+    // قراءة الجلسة والرؤوس
     const sess = JSON.parse(localStorage.getItem("wasfa_session")||"null");
     if(!sess || !sess.auth_token || !sess.session_nonce){
       window.location.replace("login.html"); return { ok:false };
@@ -426,7 +444,37 @@
       body:JSON.stringify(payload)
     });
     const data=await r.json().catch(()=>({}));
-    if(!r.ok||!data.ok) throw new Error(data?.error||`تعذر الاتصال (${r.status})`);
+
+    // تعامل صريح مع بوابة الاشتراك
+    const err = String(data?.error || "");
+    if (!r.ok || data.ok === false) {
+      if (r.status === 401 || err === "unauthorized" || err === "bad_session") {
+        setError("يجب تسجيل الدخول مجددًا. سيتم نقلك لصفحة الدخول.");
+        setStatus("");
+        setTimeout(()=> window.location.replace("login.html"), 900);
+        throw new Error("يجب تسجيل الدخول.");
+      }
+      if (r.status === 403) {
+        if (err === "trial_expired") {
+          setBanner(buildUpgradeCTA("انتهت مدة التجربة المجانية الخاصة بك."), "amber", true);
+          throw new Error("انتهت التجربة المجانية.");
+        }
+        if (err === "trial_daily_limit_reached") {
+          setBanner(buildUpgradeCTA("لقد بلغت الحدّ اليومي للتجربة المجانية اليوم."), "amber", true);
+          throw new Error("بلوغ الحدّ اليومي للتجربة.");
+        }
+        if (err === "subscription_expired") {
+          setBanner(buildUpgradeCTA("انتهت صلاحية الاشتراك."), "amber", true);
+          throw new Error("انتهاء الاشتراك.");
+        }
+        if (err === "inactive_or_out_of_window") {
+          setBanner(buildUpgradeCTA("الحساب غير نشط أو خارج نافذة الاشتراك."), "amber", true);
+          throw new Error("الحساب غير نشط.");
+        }
+      }
+      throw new Error(data?.error || `تعذر الاتصال (${r.status})`);
+    }
+
     return data;
   }
 
@@ -449,10 +497,9 @@
       const data = await res.json().catch(()=> ({}));
 
       if(!res.ok || !data || data.ok===false || !data.image || !data.image.data_url){
-        // ===== التنبيه الجديد عند فشل الصورة =====
-        const err = (data && (data.error||data.note)) || `image_generation_failed (${res.status})`;
+        const e = (data && (data.error||data.note)) || `image_generation_failed (${res.status})`;
         setBanner("تعذّر توليد صورة الطبق تلقائيًا. تأكد من تفعيل مفتاح Gemini وصلاحيات نموذج الصور.", "amber");
-        pushToast(`فشل صورة الطبق: ${err}`,"error",6000);
+        pushToast(`فشل صورة الطبق: ${e}`,"error",6000);
         return;
       }
 
@@ -480,7 +527,6 @@
       recipeTitle.appendChild(img);
       recipeTitle.appendChild(titleSpan);
     }catch(e){
-      // ===== التنبيه عند الاستثناءات غير المتوقعة =====
       setBanner("حدث خطأ غير متوقع أثناء إنشاء صورة الطبق.", "amber");
       pushToast(`Image error: ${String(e && e.message || e)}`,"error",6000);
       console.error("image_generation_failed", e);
@@ -575,6 +621,9 @@
       if(!res.ok) throw new Error("settings_fetch_failed");
       const s = await res.json();
       const diets = Array.isArray(s?.diet_systems) ? s.diet_systems : [];
+
+      // روابط
+      WHATSAPP_LINK = s?.contact?.whatsapp_link || WHATSAPP_LINK;
 
       if (diets.length){
         dietType.innerHTML = diets.map(d=>`<option value="${d.id}">${d.name_ar}</option>`).join("");

@@ -1,52 +1,5 @@
-# =========================
-# Netlify configuration
-# =========================
-
 [build]
-  # ننشر كل الملفات الثابتة من داخل مجلد public
   publish = "public"
 
 [functions]
-  # مسار دوال Netlify Functions
   directory = "netlify/functions"
-  # استخدام esbuild كالمعتاد مع Node 18
-  node_bundler = "esbuild"
-
-# =========================
-# Security & Caching Headers
-# =========================
-
-# ترويسات عامة لكل الصفحات/الملفات
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy        = "strict-origin-when-cross-origin"
-    X-Frame-Options        = "SAMEORIGIN"
-    Permissions-Policy     = "geolocation=(), microphone=(), camera=()"
-    # ملاحظة: لم نضع CSP صارمة هنا لتجنّب كسر التحميل من CDN (Tailwind/Google Fonts).
-    # إن أردت CSP لاحقًا نضيفها بما يتوافق مع الموارد الخارجية المستخدمة.
-
-# منع التخزين المؤقّت لملف إعدادات الواجهة (تُحدَّث من لوحة الأدمن)
-[[headers]]
-  for = "/data/settings.json"
-  [headers.values]
-    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
-
-# خيار إضافي: منع كاش كل JSON داخل /data (إن رغبت)
-# [[headers]]
-#   for = "/data/*"
-#   [headers.values]
-#     Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
-
-# =========================
-# Redirects
-# =========================
-
-# تحويل SPA احتياطي:
-# أي مسار لا يطابق ملفًا فعليًا سيعود إلى index.html بحالة 200.
-# Netlify سيخدّم الملفات الموجودة (admin.html, app.html, login.html, …) أولًا تلقائيًا.
-[[redirects]]
-  from = "/*"
-  to   = "/index.html"
-  status = 200

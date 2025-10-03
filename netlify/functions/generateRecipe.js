@@ -8,7 +8,6 @@
 // mass–macros plausibility guard, available-ingredients sanitization, target-calorie tightening.
 // NOTE: No change to public API or deployment flow.
 // + NEW: Subscription enforcement by headers (x-auth-token & x-session-nonce), auto-suspend on expiry.
-// + NEW: 7-day trial enforcement with daily limit (reset by Asia/Dubai day), and increment after success.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -55,9 +54,9 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
-/* ---------------- Dates ---------------- */
 function todayDubai(){
-  return new Date().toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
+  const now = new Date();
+  return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
 }
 function withinWindow(start, end){
   const d = todayDubai();
@@ -338,6 +337,7 @@ function dessertLooksIllogical(recipe){
 }
 function dessertLacksSweetness(recipe){
   const ingN = normalizeArabic((recipe?.ingredients||[]).join(" "));
+  // require at least one positive cue when dessert (unless Dr. Moh which forbids stevia; fruit low sugar still ok)
   return !DESSERT_SWEET_POSITIVE.some(k => ingN.includes(k));
 }
 
@@ -584,6 +584,7 @@ function includesAllAvailable(recipe, availableRaw) {
   const ing = " " + normalizeArabic((recipe?.ingredients || []).join(" ")) + " ";
   return available.every(a => {
     const term = normalizeArabic(a);
+    // approximate word boundary by spaces (after normalization)
     return term && ing.includes(" " + term + " ");
   });
 }
@@ -637,8 +638,6 @@ async function ensureActiveSubscription(event) {
   if ((user.session_nonce||"") !== nonce) return { ok:false, code:401, msg:"bad_session" };
 
   const today = todayDubai();
-
-  // Auto-suspend if subscription window ended
   if (user.end_date && today > user.end_date) {
     user.status = "suspended";
     user.lock_reason = "expired";
@@ -647,36 +646,11 @@ async function ensureActiveSubscription(event) {
     return { ok:false, code:403, msg:"subscription_expired" };
   }
 
-  // Out of window or inactive
   if ((String(user.status||"").toLowerCase() !== "active") || !withinWindow(user.start_date, user.end_date)) {
     return { ok:false, code:403, msg:"inactive_or_out_of_window" };
   }
 
-  // Daily reset (Dubai)
-  if (user.last_reset !== today) {
-    user.used_today = 0;
-    user.last_reset = today;
-    users[idx] = user;
-    await ghPutJson(USERS_PATH, users, sha, `generate: daily reset for ${user.email}`);
-  }
-
-  // Trial enforcement
-  const plan = (user.plan || "trial").toLowerCase();
-  if (plan === "trial") {
-    const trialEnd = user.trial_expires_at || user.end_date || null;
-    if (trialEnd && today > trialEnd) {
-      return { ok:false, code:403, msg:"trial_expired" };
-    }
-    const dailyLimit = (user.daily_limit === null || typeof user.daily_limit === "undefined")
-      ? 2
-      : Number(user.daily_limit);
-    const used = Number(user.used_today || 0);
-    if (Number.isFinite(dailyLimit) && dailyLimit >= 0 && used >= dailyLimit) {
-      return { ok:false, code:403, msg:"trial_daily_limit_reached" };
-    }
-  }
-
-  return { ok:true, users, idx, sha, user };
+  return { ok:true };
 }
 
 /* ---------------- Handler ---------------- */
@@ -686,9 +660,8 @@ exports.handler = async (event) => {
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
 
   // NEW: enforce subscription before any generation
-  let gate;
   try {
-    gate = await ensureActiveSubscription(event);
+    const gate = await ensureActiveSubscription(event);
     if (!gate.ok) return bad(gate.code, gate.msg);
   } catch (e) {
     return bad(500, "subscription_gate_error");
@@ -781,20 +754,6 @@ exports.handler = async (event) => {
     // Final normalize again (idempotent)
     rec.macros = reconcileCalories(rec.macros);
     if (Array.isArray(rec.ingredients)) rec.ingredients = enforceGramHints(rec.ingredients);
-
-    // --- Trial usage accounting (increment after success) ---
-    try {
-      const { users, idx, sha, user } = gate || {};
-      if (user && users && typeof idx === "number") {
-        const plan = (user.plan || "trial").toLowerCase();
-        if (plan === "trial") {
-          user.used_today = Number(user.used_today || 0) + 1;
-          user.last_reset = todayDubai();
-          users[idx] = user;
-          await ghPutJson(USERS_PATH, users, sha, `generate: used_today++ (${user.used_today}) for ${user.email}`);
-        }
-      }
-    } catch (_) { /* لا تكسر الاستجابة لو فشل التتبع */ }
 
     return ok({ recipe: rec, model });
   }

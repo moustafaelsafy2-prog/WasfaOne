@@ -1,255 +1,226 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>تسجيل الدخول • Wasfa</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WasfaOne — تسجيل الدخول</title>
 
-  <!-- Tailwind -->
+  <!-- Fonts & Tailwind -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Google Fonts (نفس الصفحة الرئيسية) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+  <!-- Styles (هوية المشروع) -->
+  <link rel="stylesheet" href="/public/assets/styles.css" />
 
-  <!-- Lucide Icons -->
-  <script src="https://unpkg.com/lucide@latest"></script>
-
+  <meta name="color-scheme" content="light dark" />
   <style>
-    :root{
-      --brand:#ef4444;
-      --brand-dark:#dc2626;
-      --ink:#0f172a;
-      --muted:#475569;
-      --soft-bg:#f7f7f9;
-      --line:#e5e7eb;
+    :root { --primary:#ef4444; --acc1:#10b981; --acc2:#3b82f6; }
+    body { font-family:"Cairo", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Inter", sans-serif; }
+    .btn { transition:transform .15s ease, box-shadow .15s ease; }
+    .btn:hover { transform: scale(1.02); box-shadow: 0 10px 24px rgba(0,0,0,.08); }
+    .card { border:1px solid rgba(148,163,184,.3); border-radius:1rem; background:white; }
+    @media (prefers-color-scheme: dark){
+      .card{ background:#0f172a; border-color:#1f2a44; }
+      body{ color:#e2e8f0; background:#0b1220; }
     }
-    html{ scroll-behavior:smooth }
-    body{
-      font-family:'Cairo', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      color:var(--ink); background:var(--soft-bg);
+    .lbl{ display:block; font-size:.9rem; margin-bottom:.25rem; opacity:.9 }
+    .inp{ width:100%; border:1px solid rgba(148,163,184,.35); border-radius:.6rem; background:white; padding:.6rem .75rem; outline:none; }
+    @media (prefers-color-scheme: dark){
+      .inp{ background:#0b1220; border-color:#24324d; color:#e2e8f0; }
     }
-
-    /* خلفية مطابقة للصفحة الرئيسية */
-    .auth-hero{
-      position:relative; min-height:100vh; display:grid; place-items:center; overflow:hidden;
-    }
-    .auth-hero::before{
-      content:""; position:absolute; inset:0;
-      background-image:url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop');
-      background-size:cover; background-position:center;
-      transform:scale(1.05);
-      filter:saturate(1.05) contrast(1.05);
-    }
-    .auth-hero::after{
-      content:""; position:absolute; inset:0;
-      background:linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.55));
-      backdrop-filter: blur(2px);
-    }
-
-    /* نفس هوية العنوان */
-    .brand-title{
-      background:linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    }
-
-    /* بطاقة احترافية مطابقة */
-    .pro-card{
-      position:relative;
-      background:linear-gradient(180deg, #fff, #fafafa);
-      border:1px solid var(--line);
-      border-radius:28px;
-      box-shadow:0 25px 50px -12px rgba(0,0,0,.12);
-      transition:transform .25s, box-shadow .25s;
-    }
-    .pro-card:hover{ transform:translateY(-4px); box-shadow:0 30px 60px -20px rgba(0,0,0,.18) }
-
-    .auth-wrap{ width:100%; max-width:480px; padding:24px }
-    .auth-card{ padding:28px }
-
-    /* الحقول + الأيقونات */
-    .field{ position:relative }
-    .field input{
-      width:100%; min-height:52px; padding:0 48px 0 14px;
-      border:1px solid var(--line); border-radius:16px; background:#fcfdff;
-      transition:.2s;
-    }
-    .field input:focus{
-      outline:none; border-color:var(--brand);
-      box-shadow:0 0 0 3px rgba(239,68,68,.12);
-      background:#fff;
-    }
-    .field .icon{
-      position:absolute; inset-block:0; inset-inline-end:0;
-      width:44px; display:grid; place-items:center; color:#9aa4b2; pointer-events:none;
-    }
-    .field .action{
-      position:absolute; inset-block:0; inset-inline-start:0;
-      display:grid; place-items:center; width:44px; color:#6b7280;
-    }
-
-    /* زر مطابق لزر CTA العام مع تأثير الوميض/التموج */
-    .cta-button{
-      position:relative; overflow:hidden;
-      display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
-      width:100%; border-radius:14px; padding:14px 24px; font-weight:800;
-      color:#fff; background:var(--brand);
-      box-shadow:0 6px 18px rgba(239,68,68,.28);
-      transition:transform .2s, box-shadow .2s, background .2s;
-    }
-    .cta-button:hover{ background:var(--brand-dark); transform:translateY(-1px); box-shadow:0 10px 26px rgba(239,68,68,.34) }
-    .cta-button::after{
-      content:""; position:absolute; inset:-2px; border-radius:16px; opacity:0;
-      background:radial-gradient(120px 120px at var(--mx,50%) var(--my,50%), rgba(255,255,255,.2), transparent 60%);
-      transition:opacity .2s; pointer-events:none;
-    }
-    .cta-button.is-hovering::after{ opacity:1 }
-    .ripple{ position:absolute; border-radius:9999px; transform:translate(-50%,-50%); pointer-events:none; animation:ripple 600ms ease-out forwards; background:rgba(255,255,255,.35) }
-    @keyframes ripple{ from{ width:0; height:0; opacity:.6 } to{ width:340px; height:340px; opacity:0 } }
-
-    /* سبينر لو أردته في login.js */
-    .spinner{
-      border:2px solid #fff; border-top-color:transparent; border-radius:999px;
-      width:20px; height:20px; animation:spin 1s linear infinite;
-    }
-    @keyframes spin{ to{ transform:rotate(360deg) } }
-
-    /* تفاصيل صغيرة */
-    .mini-header{ display:flex; align-items:center; gap:.75rem; margin-bottom:10px }
-    .mini-badge{
-      display:inline-grid; place-items:center; width:42px; height:42px;
-      border-radius:12px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.25);
-      color:var(--brand);
-    }
-    .link{ color:var(--brand); font-weight:700 }
-    .link:hover{ color:var(--brand-dark); text-decoration:underline }
-    .auth-footer{ color:#e5e7eb; text-shadow:0 1px 2px rgba(0,0,0,.35) }
   </style>
 </head>
-<body>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
 
-  <section class="auth-hero">
-    <div class="relative z-10 auth-wrap">
-      <!-- بطاقة تسجيل الدخول -->
-      <div class="pro-card auth-card">
-        <!-- شعار وعنوان (Wasfa مثل الرئيسية) -->
-        <header class="text-center mb-6">
-          <div class="inline-flex items-center gap-3">
-            <img id="login-logo" class="h-14 w-14 rounded-2xl shadow-md ring-1 ring-white/40" alt="Logo" src="https://placehold.co/60x60/ef4444/ffffff?text=W" />
-            <h1 class="text-4xl md:text-5xl font-black brand-title leading-none">Wasfa</h1>
-          </div>
-          <p class="text-[var(--muted)] mt-2">مرحبًا بك — من فضلك سجّل دخولك للمتابعة</p>
-        </header>
+  <!-- Header -->
+  <header class="border-b border-slate-200/70 dark:border-slate-800/70 sticky top-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur z-10">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img id="logoImg" class="h-9 w-auto" alt="Logo" />
+        <h1 id="siteTitle" class="font-extrabold text-lg">WasfaOne</h1>
+      </div>
+      <nav class="hidden md:flex items-center gap-6">
+        <a href="/public/index.html#plans" class="text-sm hover:opacity-80">الخطط</a>
+        <a href="/public/privacy.html" class="text-sm hover:opacity-80">الخصوصية</a>
+      </nav>
+      <div class="flex items-center gap-3">
+        <a id="whatsappBtn" href="#" target="_blank" class="btn inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-green-600 text-white text-sm">
+          <span>WhatsApp</span>
+        </a>
+      </div>
+    </div>
+  </header>
 
-        <!-- شارة صغيرة -->
-        <div class="mini-header">
-          <span class="mini-badge"><i data-lucide="lock" class="w-5 h-5"></i></span>
+  <!-- Main -->
+  <main class="max-w-6xl mx-auto px-4 py-10">
+    <div class="grid md:grid-cols-2 gap-6 items-stretch">
+      <!-- Intro -->
+      <section class="card p-6">
+        <h2 class="text-2xl font-extrabold mb-2">مرحبًا بعودتك 👋</h2>
+        <p class="opacity-80 mb-4 text-sm">سجّل الدخول للوصول إلى توليد الوصفات الدقيقة بالعربية. الحساب مرتبط بجهاز واحد لضمان الحماية ومنع الإساءة.</p>
+        <ul class="space-y-2 text-sm">
+          <li>✅ التزام كامل بالجرام لكل المكوّنات</li>
+          <li>✅ حساب سعرات 4/4/9 بدقة</li>
+          <li>✅ أنظمة غذائية وحساسيات ومكوّناتك المتاحة</li>
+        </ul>
+        <a href="/public/index.html#plans" class="mt-4 inline-block text-sm underline underline-offset">عرض الخطط</a>
+      </section>
+
+      <!-- Login Form -->
+      <section class="card p-6">
+        <h2 class="text-xl font-bold mb-4">تسجيل الدخول</h2>
+
+        <div id="status" class="hidden text-sm mb-3 text-emerald-700 dark:text-emerald-200"></div>
+        <div id="error" class="hidden text-sm mb-3 text-red-600 dark:text-rose-300"></div>
+
+        <form id="loginForm" class="space-y-4">
           <div>
-            <div class="font-extrabold">تسجيل الدخول</div>
-            <div class="text-xs text-[var(--muted)]">الوصول إلى لوحة Wasfa محمي</div>
+            <label class="lbl" for="email">البريد الإلكتروني</label>
+            <input id="email" type="email" required class="inp" placeholder="you@example.com" />
           </div>
-        </div>
-
-        <!-- النموذج (نفس IDs تمامًا) -->
-        <form id="login-form" class="space-y-5 mt-3">
-          <!-- البريد -->
-          <div class="field">
-            <span class="icon"><i data-lucide="mail" class="w-5 h-5"></i></span>
-            <input id="email" class="text-[15px]" placeholder="البريد الإلكتروني" type="email" required />
+          <div>
+            <label class="lbl" for="password">كلمة المرور</label>
+            <input id="password" type="password" required class="inp" placeholder="••••••••" minlength="6" />
           </div>
 
-          <!-- كلمة المرور -->
-          <div class="field">
-            <span class="icon"><i data-lucide="lock-keyhole" class="w-5 h-5"></i></span>
-            <input id="password" class="text-[15px]" placeholder="كلمة المرور" type="password" required />
-            <button type="button" id="toggle-password" class="action" aria-label="إظهار/إخفاء كلمة المرور">
-              <i id="eye-icon" data-lucide="eye" class="w-5 h-5"></i>
-              <i id="eye-slash-icon" data-lucide="eye-off" class="w-5 h-5 hidden"></i>
-            </button>
-          </div>
-
-          <!-- روابط مساعدة -->
-          <div class="flex items-center justify-between text-sm">
-            <div class="flex items-center gap-2 text-[var(--muted)]">
-              <i data-lucide="shield-check" class="w-4 h-4"></i>
-              <span>جلسة آمنة</span>
-            </div>
-            <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="link">نسيت كلمة المرور؟</a>
-          </div>
-
-          <!-- زر الدخول (نفس IDs) -->
-          <button id="login-button" class="cta-button" type="submit">
-            <span id="button-text">دخول</span>
-            <div id="button-spinner" class="spinner hidden"></div>
+          <button id="submitBtn" type="submit" class="btn w-full px-4 py-2 rounded-md bg-[color:var(--primary)] text-white font-bold">
+            دخول
           </button>
 
-          <!-- رسالة خطأ (لا تتغيّر) -->
-          <div id="login-error" class="text-red-600 text-sm hidden pt-1 text-center"></div>
+          <p class="text-sm opacity-80 mt-2">
+            جديد هنا؟
+            <a href="/public/signup.html" class="underline underline-offset">إنشاء حساب جديد (تجربة 7 أيام)</a>
+          </p>
         </form>
-
-        <!-- روابط سفلى صغيرة -->
-        <div class="mt-6 text-center text-sm">
-          <a href="privacy.html" class="text-[var(--muted)] hover:text-[var(--ink)] underline decoration-dotted">سياسة الخصوصية</a>
-        </div>
-      </div>
-
-      <!-- فوتر شفاف أعلى الخلفية -->
-      <footer class="mt-6 text-center auth-footer text-sm">
-        <span>&copy; 2024 Wasfa. جميع الحقوق محفوظة.</span>
-      </footer>
+      </section>
     </div>
-  </section>
+  </main>
 
-  <!-- منطق الصفحة يبقى كما هو -->
-  <script src="login.js"></script>
+  <!-- Footer -->
+  <footer class="mt-10 border-t border-slate-200 dark:border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 py-6 text-sm flex items-center justify-between">
+      <p id="footerLine">للاشتراك أو التجديد: 00971502061209 — واتساب/اتصال</p>
+      <a id="footerWhatsapp" href="#" target="_blank" class="btn px-3 py-1.5 rounded-md bg-green-600 text-white">WhatsApp</a>
+    </div>
+  </footer>
 
-  <!-- تحسينات تفاعلية بالواجهة فقط (لا تغيّر طريقة العمل) -->
   <script>
-    // تهيئة الأيقونات
-    lucide.createIcons();
+    // ===== تحميل الإعدادات (شعار/اسم/واتساب) =====
+    (async function loadSettings(){
+      try{
+        const r = await fetch("/data/settings.json?ts="+Date.now(), { cache:"no-store" });
+        if(!r.ok) return;
+        const s = await r.json();
+        const wa = s?.contact?.whatsapp_link || "#";
+        document.getElementById("logoImg").src = s?.branding?.logo_url || "";
+        document.getElementById("logoImg").alt = s?.images_meta?.hero?.alt_ar || "شعار";
+        document.getElementById("siteTitle").textContent = s?.branding?.site_name_ar || "وصفة ون";
+        document.getElementById("whatsappBtn").href = wa;
+        document.getElementById("footerWhatsapp").href = wa;
+      }catch(e){ /* تجاهل */ }
+    })();
 
-    // تأثير ضوء + Ripple على زر الدخول (مطابق لهوية الموقع)
-    const btn = document.getElementById('login-button');
-    if (btn){
-      btn.addEventListener('mousemove', (e)=>{
-        const r = btn.getBoundingClientRect();
-        btn.style.setProperty('--mx', `${e.clientX - r.left}px`);
-        btn.style.setProperty('--my', `${e.clientY - r.top}px`);
-        btn.classList.add('is-hovering');
-      });
-      btn.addEventListener('mouseleave', ()=> btn.classList.remove('is-hovering'));
-      btn.addEventListener('click', (e)=>{
-        const r = btn.getBoundingClientRect();
-        const circle = document.createElement('span');
-        circle.className = 'ripple';
-        circle.style.left = (e.clientX - r.left) + 'px';
-        circle.style.top  = (e.clientY - r.top) + 'px';
-        btn.appendChild(circle);
-        setTimeout(()=> circle.remove(), 650);
-      });
+    // ===== أدوات مساعدة (Fingerprint + Hash) =====
+    async function sha256(text){
+      const enc = new TextEncoder().encode(text);
+      const buf = await crypto.subtle.digest("SHA-256", enc);
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
+    }
+    async function getDeviceFingerprint(){
+      const nav = window.navigator || {};
+      const scr = window.screen || {};
+      const tz  = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      const raw = [
+        nav.userAgent, nav.language, nav.platform,
+        scr.width, scr.height, scr.colorDepth, tz,
+        "fp:v1"
+      ].join("|");
+      return await sha256(raw);
     }
 
-    // شعار احتياطي
-    const logo = document.getElementById('login-logo');
-    if (logo && !logo.src) {
-      logo.src = 'https://placehold.co/60x60/ef4444/ffffff?text=W';
+    // ===== واجهة المستخدم: رسائل =====
+    function show(id, msg){
+      const el = document.getElementById(id);
+      if(!el) return;
+      el.textContent = msg || "";
+      el.classList.toggle("hidden", !msg);
     }
 
-    // تبديل إظهار كلمة المرور (لا يمس إرسال النموذج)
-    const togglePassword = document.getElementById('toggle-password');
-    const passwordInput  = document.getElementById('password');
-    const eyeIcon        = document.getElementById('eye-icon');
-    const eyeSlashIcon   = document.getElementById('eye-slash-icon');
-
-    if (togglePassword){
-      togglePassword.addEventListener('click', function(){
-        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-        passwordInput.setAttribute('type', type);
-        eyeIcon.classList.toggle('hidden');
-        eyeSlashIcon.classList.toggle('hidden');
-      });
+    // ===== حفظ حالة الجلسة محليًا =====
+    function saveSession(data){
+      try{
+        localStorage.setItem("auth_token", data.token || "");
+        localStorage.setItem("session_nonce", data.session_nonce || "");
+        localStorage.setItem("user_name", data.name || "");
+        localStorage.setItem("user_email", data.email || "");
+        // حقول الخطة (قد تكون null)
+        if(typeof data.plan !== "undefined" && data.plan !== null) localStorage.setItem("plan", data.plan);
+        if(typeof data.trial_expires_at !== "undefined" && data.trial_expires_at !== null) localStorage.setItem("trial_expires_at", data.trial_expires_at);
+        if(typeof data.daily_limit !== "undefined" && data.daily_limit !== null) localStorage.setItem("daily_limit", String(data.daily_limit));
+        if(typeof data.used_today !== "undefined" && data.used_today !== null) localStorage.setItem("used_today", String(data.used_today));
+        if(typeof data.last_reset !== "undefined" && data.last_reset !== null) localStorage.setItem("last_reset", data.last_reset);
+      }catch(e){ /* تجاهل */ }
     }
+
+    // ===== التقاط باراميترات نجاح التسجيل (اختياري) =====
+    (function greetIfCreated(){
+      const qs = new URLSearchParams(location.search);
+      if(qs.get("created")==="1"){
+        const em = qs.get("email") || "";
+        show("status", `تم إنشاء الحساب بنجاح. استخدم بريدك لتسجيل الدخول: ${em}`);
+        history.replaceState({}, "", location.pathname);
+      }
+    })();
+
+    // ===== إرسال نموذج الدخول =====
+    const form = document.getElementById("loginForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      show("status", "جاري التحقق من البيانات ...");
+      show("error", "");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "جاري المعالجة ...";
+
+      try{
+        const email = document.getElementById("email").value.trim().toLowerCase();
+        const password = document.getElementById("password").value;
+        if(!email || !password){ throw new Error("الرجاء إدخال البريد وكلمة المرور"); }
+
+        const device_fingerprint_hash = await getDeviceFingerprint();
+
+        const res = await fetch("/.netlify/functions/login", {
+          method: "POST",
+          headers: { "Content-Type":"application/json" },
+          body: JSON.stringify({ email, password, device_fingerprint_hash })
+        });
+
+        const data = await res.json().catch(()=>({ ok:false, reason:"bad_json" }));
+
+        if(!data.ok){
+          // جميع الأخطاء تعود 200 + ok:false — نعرض الرسالة العربية
+          show("status", "");
+          const msg = data.message || "تعذر تسجيل الدخول. الرجاء المحاولة لاحقًا.";
+          show("error", msg);
+          return;
+        }
+
+        // نجاح — حفظ الجلسة والحقول الجديدة ثم التوجيه للتطبيق
+        saveSession(data);
+        show("status", "تم تسجيل الدخول بنجاح ✅");
+        setTimeout(()=>{ window.location.href = "/public/app.html"; }, 300);
+
+      } catch(err){
+        show("status", "");
+        show("error", err.message || "حدث خطأ غير متوقع");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "دخول";
+      }
+    });
   </script>
 </body>
 </html>

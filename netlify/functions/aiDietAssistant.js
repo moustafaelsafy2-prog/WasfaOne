@@ -2,8 +2,20 @@
 // Deterministic Arabic diet assistant — robust greeting & scope detection (handles timestamps/extra lines).
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
-// استخدام نموذج واحد أكثر استقرارًا لضمان الاتساق
-const MODEL_POOL = ["gemini-2.5-flash-preview-05-20"]; 
+const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+// تم تحديث قائمة النماذج بناءً على طلب المستخدم لضمان أقصى تغطية
+const MODEL_POOL = [
+  "gemini-1.5-pro-latest",
+  "gemini-1.5-pro",
+  "gemini-1.5-pro-001",
+  "gemini-pro",
+  "gemini-1.0-pro",
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-exp",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-001",
+  "gemini-1.5-flash-latest"
+]; 
 
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;

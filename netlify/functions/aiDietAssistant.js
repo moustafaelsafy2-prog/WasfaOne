@@ -8,7 +8,8 @@
 // ✅ يحسم التعارض: الأحدث ينسخ الأقدم
 // ✅ حارس نطاق تغذية فقط + تحويل لرد اعتذاري لطيف عند الخروج
 // ✅ يحسب BMR/TDEE على الخادم عند توافر المعطيات ويزوّد النموذج بها
-// ✅ يستخدم assistant_pack.json (مِلف معرفة مُصغّر) لتوحيد الأسلوب والقواعد
+// ✅ يمنع اقتباس/إعادة لصق كلام المستخدم أو بياناته داخل الرد
+// ✅ يضبط المخاطبة مذكّر/مؤنّث عند الإمكان
 
 /* ===== بيئة Gemini ===== */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
@@ -35,8 +36,9 @@ const REF   = process.env.GITHUB_REF || "main";
 const GH_TOKEN = process.env.GITHUB_TOKEN;
 const GH_API = "https://api.github.com";
 const USERS_PATH = "data/users.json";
-const PACK_PATH  = "data/assistant_pack.json"; // الحزمة المصغّرة التي وضعناها
+const PACK_PATH  = "data/assistant_pack.json"; // الحزمة المصغّرة (تعليمات+معرفة)
 
+/* ===== GitHub helpers ===== */
 async function ghGetJson(path){
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
     headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
@@ -115,9 +117,49 @@ async function loadPack(force=false){
   const maxAgeMs = 5*60*1000; // 5 دقائق
   const now = Date.now();
   if(!force && PACK_CACHE.data && (now - PACK_CACHE.ts) < maxAgeMs) return PACK_CACHE.data;
-  const { json } = await ghGetJson(PACK_PATH);
-  PACK_CACHE = { data: json || {}, ts: now };
-  return PACK_CACHE.data || {};
+  try{
+    const { json } = await ghGetJson(PACK_PATH);
+    PACK_CACHE = { data: json || {}, ts: now };
+    return PACK_CACHE.data || {};
+  }catch{
+    // fallback بسيط إن لم تتوفر الحزمة
+    const fallback = {
+      system: "أنت مساعد تغذية عربي عملي ودقيق. رحّب وردّ السلام، واكتب ردودًا موجزة (3–8 أسطر) دون زخارف. التزم بالنطاق الغذائي فقط. لا تعِد نسخ نص المستخدم أو بياناته حرفيًا. إذا احتجت تأكيدًا فاجعله بجملة موجزة. اسأل نقصًا واحدًا أو اثنين بحد أقصى. عند عدم الإجابة: كرّر نفس السؤال بلطف بنفس الصياغة أو صياغة أقصر. اذكر الحسابات بإيجاز عند الحاجة. لا تبدأ بأسطر فارغة.",
+      prompts:{
+        greeting: "وعليكم السلام ورحمة الله، أنا مساعدك التغذوي. ما هدفك الحالي؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.",
+        off_scope: "أعتذر بلطف، اختصاصي تغذية فقط. أعد صياغة سؤالك ضمن التغذية (أنظمة، سعرات/ماكروز، وجبات، بدائل، حساسيات…). ما هدفك الغذائي الآن؟",
+        repeat_unanswered: "يبدو أنّ سؤالي السابق لم يُجب بعد. للمتابعة بدقّة: {{question}}"
+      },
+      intents:{
+        off_scope:["\\b(سعر|ذهب|سياسة|برمجة|تداول|استثمار|دين)\\b"],
+        calc_calories:["سعرات","السعرات","حساب\\s*سعرات","TDEE","BMR"],
+        calc_macros:["ماكرو","ماكروز","macros","macro"],
+        diet_pick:["كيتو","متوسطي","داش","لو\\s*كارب","نباتي","vegan","keto","med"]
+      },
+      extract_regex:{
+        weight_any:"(?:وزني|وزن|kg|كيلو|كجم|كغ)\\s*[:=]?(\\d+(?:[\\.,]\\d+)?)",
+        height_any:"(?:طولي|طول|سم|cm|m)\\s*[:=]?(\\d+(?:[\\.,]\\d+)?)(?:\\s*(?:سم|cm|m))?",
+        height_ft_in:"(\\d+)\\s*(?:ft|قدم)\\s*(\\d+)\\s*(?:in|بوصة|انش)",
+        age_years:"(?:عمري|عمر|سني|سن|\\bage\\b)\\s*[:=]?(\\d{1,3})",
+        sex:"\\b(ذكر|أنثى|انثى|male|female)\\b",
+        activity:"\\b(خامل|قليل\\s*الحركة|متوسط|عال|رياضي|sedentary|light|moderate|active|athlete|very\\s*active)\\b",
+        goal:"(خسارة|تنزيل|انقاص|زيادة|حفاظ|تثبيت|بناء\\s*عضل)",
+        diet:"(كيتو|keto|لوكارب|lchf|متوسطي|med|dash|داش|نباتي|vegan|balanced|متوازن)"
+      },
+      knowledge:{
+        activity_aliases:{
+          "خامل":"sedentary","قليل الحركة":"light","خفيف الحركة":"light","متوسط":"moderate","عال":"active","رياضي":"athlete",
+          "sedentary":"sedentary","light":"light","moderate":"moderate","active":"active","athlete":"athlete","very active":"athlete"
+        },
+        sex_aliases:{ "ذكر":"male","Male":"male","male":"male","أنثى":"female","انثى":"female","Female":"female","female":"female" },
+        activity_factors:{ sedentary:1.2, light:1.375, moderate:1.55, active:1.725, athlete:1.9 },
+        formulas:{ targets:{}, mifflin:{} }
+      },
+      conversions:{ lb_to_kg:0.45359237, inch_to_cm:2.54, ft_to_cm:30.48, m_to_cm:100 }
+    };
+    PACK_CACHE = { data:fallback, ts: now };
+    return fallback;
+  }
 }
 
 /* ===== حارس النطاق ===== */
@@ -128,9 +170,17 @@ const GREET_RE = /^(?:\s*(?:السلام\s*عليكم|وعليكم\s*السلا�
 
 /* ===== أدوات مساعدة ===== */
 function sanitizeReply(t=""){
-  let s = String(t||"").replace(/```[\s\S]*?```/g,"").trim();
-  s = s.replace(/[\u{1F300}-\u{1FAFF}]/gu,""); // إزالة الإيموجي
-  s = s.replace(/\n{3,}/g,"\n\n").trim();
+  // إزالة كتل كود والإيموجي
+  let s = String(t||"").replace(/```[\s\S]*?```/g,"");
+  s = s.replace(/[\u{1F300}-\u{1FAFF}]/gu,"");
+
+  // منع اقتباس نص المستخدم إن وُجد على شكل > أو """: احذف أي سطر يبدأ بـ ">" أو يحتوي """user"""
+  s = s.split("\n").filter(line => !/^\s*>/.test(line)).join("\n");
+
+  // تقليل الفراغات: لا أسطر فارغة في البداية، ولا أسطر متتالية كثيرة
+  s = s.trim().replace(/\n{3,}/g,"\n\n");
+
+  // سطر افتتاحي زائد مثل "أهلاً وسهلاً بك!" فقط دون محتوى؟ اتركه ثم أكمل؛ لا حاجة لتعديل إضافي هنا
   return s;
 }
 function toGeminiContents(messages){
@@ -159,7 +209,7 @@ function normalizeDigits(s=""){
   return String(s||"").replace(/[\u0660-\u0669]/g, d => map[d] ?? d);
 }
 
-/* ===== استخراج المعطيات من كامل المحادثة (الأحدث ينسخ الأقدم) ===== */
+/* ===== استخراج المعطيات من كامل المحادثة ===== */
 function buildState(messages, pack){
   const rx = pack?.extract_regex || {};
   const re = (p)=> p ? new RegExp(p,'i') : null;
@@ -177,7 +227,7 @@ function buildState(messages, pack){
   const sexAliases      = pack?.knowledge?.sex_aliases || {};
   const conv = pack?.conversions || { lb_to_kg:0.45359237, inch_to_cm:2.54, ft_to_cm:30.48, m_to_cm:100 };
 
-  const state = { // تُحدّث من الأقدم إلى الأحدث (الأحدث يسود)
+  const state = {
     weight_kg:null,
     height_cm:null,
     age_years:null,
@@ -192,7 +242,6 @@ function buildState(messages, pack){
     const t = (txt||"").trim();
     const key = activityAliases[t] || null;
     if(key) return key;
-    // كلمات إنجليزية محتملة
     if(/sedentary/i.test(t)) return "sedentary";
     if(/light/i.test(t))     return "light";
     if(/moderate/i.test(t))  return "moderate";
@@ -208,14 +257,12 @@ function buildState(messages, pack){
     if(/female/i.test(t)) return "female";
     return null;
   }
-  // تحويل وحدات
   function normalizeHeight(num, unitText){
     let v = +num;
     if(!Number.isFinite(v)) return null;
     const u = (unitText||"").toLowerCase();
     if(/m\b/.test(u)) return Math.round(v * (conv.m_to_cm || 100));
-    // افتراضي سم
-    return Math.round(v);
+    return Math.round(v); // افتراضي سم
   }
   function parseNumeric(x){ const v = parseFloat(String(x).replace(",", ".")); return Number.isFinite(v) ? v : null; }
 
@@ -223,19 +270,16 @@ function buildState(messages, pack){
     if(!text0) return;
     const text = normalizeDigits(text0);
 
-    // وزن (قد يكون kg أو lb)
     const wMatch = RE_WEIGHT ? text.match(RE_WEIGHT) : null;
     if(wMatch){
-      let w = parseNumeric(wMatch[1]); // الرقم
+      let w = parseNumeric(wMatch[1]);
       if(w!=null){
         const unit = text.slice(wMatch.index || 0).slice(String(wMatch[0]||"").indexOf(wMatch[1])+String(wMatch[1]).length).slice(0,8);
         if(/lb|lbs|باوند|رطل/i.test(unit)) w = w * (conv.lb_to_kg || 0.45359237);
-        // لو لم يذكر وحدة، نفترض كجم
         state.weight_kg = Math.round(w * 10) / 10;
       }
     }
 
-    // طول: إما بالصيغة المباشرة، أو قدم-بوصة
     const fti = RE_FT_IN ? text.match(RE_FT_IN) : null;
     if(fti){
       const ft = parseNumeric(fti[1]);
@@ -255,26 +299,22 @@ function buildState(messages, pack){
       }
     }
 
-    // العمر
     const aMatch = RE_AGE ? text.match(RE_AGE) : null;
     if(aMatch){
       const a = parseNumeric(aMatch[1]);
       if(a!=null) state.age_years = Math.round(a);
     }
 
-    // الجنس
     const sMatch = RE_SEX ? text.match(RE_SEX) : null;
     if(sMatch){
       state.sex = mapSex(sMatch[1]) || state.sex;
     }
 
-    // النشاط
     const actMatch = RE_ACT ? text.match(RE_ACT) : null;
     if(actMatch){
       state.activity_key = mapActivity(actMatch[1]) || state.activity_key;
     }
 
-    // الهدف
     const gMatch = RE_GOAL ? text.match(RE_GOAL) : null;
     if(gMatch){
       const gRaw = gMatch[1];
@@ -284,7 +324,6 @@ function buildState(messages, pack){
       else if(/بناء\s*عضل/i.test(gRaw)) state.goal = "build";
     }
 
-    // النظام
     const dMatch = RE_DIET ? text.match(RE_DIET) : null;
     if(dMatch){
       const d = dMatch[1].toLowerCase().replace(/\s+/g,'');
@@ -301,7 +340,7 @@ function buildState(messages, pack){
   return state;
 }
 
-/* ===== نوايا أساسية من آخر رسالة مستخدم ===== */
+/* ===== نوايا ===== */
 function detectIntent(lastUser, pack){
   const intents = pack?.intents || {};
   const t = normalizeDigits(lastUser||"");
@@ -314,46 +353,39 @@ function detectIntent(lastUser, pack){
   return "chat";
 }
 
-/* ===== حسابات BMR/TDEE على الخادم ===== */
+/* ===== حسابات BMR/TDEE ===== */
 function computeEnergy(state, pack){
   const W = +state.weight_kg, H = +state.height_cm, A = +state.age_years;
   if(!W || !H || !A || !state.sex || !state.activity_key) return null;
 
-  const mif = pack?.knowledge?.formulas?.mifflin || {};
   const act = pack?.knowledge?.activity_factors || {};
   const factor = act[state.activity_key] || 1.2;
 
   let BMR = 0;
   if(state.sex==="male"){
-    // BMR = 10*W + 6.25*H - 5*A + 5
     BMR = 10*W + 6.25*H - 5*A + 5;
   }else{
-    // female
     BMR = 10*W + 6.25*H - 5*A - 161;
   }
   const TDEE = BMR * factor;
 
-  // هدف سعرات مبدئي (loss/gain/maintain)
-  const targets = pack?.knowledge?.formulas?.targets || {};
   let kcal = TDEE;
-  if(state.goal==="loss") kcal = TDEE * 0.8;        //-20% افتراضي
-  else if(state.goal==="gain") kcal = TDEE * 1.1;   //+10%
+  if(state.goal==="loss") kcal = TDEE * 0.8;
+  else if(state.goal==="gain") kcal = TDEE * 1.1;
   else if(state.goal==="maintain") kcal = TDEE;
 
   return {
     BMR: Math.round(BMR),
     TDEE: Math.round(TDEE),
-    kcal_target: Math.round(kcal/10)*10, // تقريب لأقرب 10
+    kcal_target: Math.round(kcal/10)*10,
     activity_factor: factor
   };
 }
 
-/* ===== جمع نواقص مطلوبة وفق النية ===== */
+/* ===== النواقص ===== */
 function requiredFieldsByIntent(intent){
-  // لحساب السعرات/الماكروز — نحتاج المجموعة الكاملة
   const full = ["weight_kg","height_cm","age_years","sex","activity_key"];
   if(intent==="calc_calories" || intent==="calc_macros") return full;
-  // عامة
   return [];
 }
 function computeMissing(state, intent){
@@ -372,17 +404,22 @@ function arabicLabel(field){
   })[field] || field;
 }
 
-/* ===== كشف إجابة مبهمة (نعم/تمام/طيب...) ===== */
+/* ===== إجابة مبهمة ===== */
 function isAmbiguousAffirmation(s){
-  return /\b(نعم|اي|أجل|تمام|طيب|اوكي|موافق|تمامًا|اكيد|Yes|Yeah|Ok|Okay)\b/i.test(String(s||""));
+  return /\b(نعم|اي|أجل|تمام|طيب|اوكي|موافق|اكيد|Yes|Yeah|Ok|Okay)\b/i.test(String(s||""));
 }
 
-/* ===== تجهيز مطالبة النظام ===== */
+/* ===== تعليمات النظام (تمنع اقتباس المستخدم) ===== */
 function systemPromptFromPack(pack){
   const base = String(pack?.system || "").trim();
-  return base || `
-أنت مساعد تغذية عربي عملي ودقيق. رحّب وردّ السلام، واكتب ردودًا موجزة (3–8 أسطر) بعربية فصحى دون زخارف. التزم بالنطاق الغذائي فقط. اسأل نقصًا واحدًا أو اثنين بحد أقصى. عند عدم الإجابة: كرّر نفس السؤال بلطف. اذكر الحسابات بإيجاز عند الحاجة.
+  const extra = `
+[قيود أسلوبية حاسمة]
+- لا تعِدْ نسخ نصّ المستخدم أو بياناته حرفيًا داخل الرد. لا تقتبس كلامه ولا تسرده سطرًا بسطر.
+- إن احتجت تأكيدًا فاجعله في جملة موجزة مثل: "للتأكيد: هدفك خسارة الوزن؟"
+- لا تبدأ بأسطر فارغة. اجعل الافتتاح سطرًا واحدًا واضحًا ثم صلب الرد.
+- استخدم مخاطبة مناسبة (مذكر/مؤنث) إن أمكن، دون مبالغة.
 `.trim();
+  return base ? (base + "\n" + extra) : extra;
 }
 
 /* ===== استدعاء النموذج ===== */
@@ -418,20 +455,30 @@ async function callModel(model, body){
   }
 }
 
-/* ===== بناء محتوى الطلب للنموذج مع حقن سياق محسوب ===== */
+/* ===== بناء محتوى الطلب للنموذج ===== */
+function genderHint(sex){
+  if(sex==="female") return "المخاطبة: مؤنث (إن لزم).";
+  if(sex==="male")   return "المخاطبة: مذكّر (إن لزم).";
+  return "المخاطبة: حيادية إن لم تُعرف.";
+}
 function buildModelBody(pack, messages, state, intent, energy, extraUserDirective){
   const systemText = systemPromptFromPack(pack);
 
-  // ملخّص الحالة (يُقدّم للنموذج ليساعد على الدقة وعدم إعادة الأسئلة)
   const summary = [
-    "سياق ملخّص (للاستخدام الداخلي):",
+    "سياق داخلي مختصر (لا تُظهره للمستخدم):",
     `- وزن: ${state.weight_kg ?? "?"} كجم`,
     `- طول: ${state.height_cm ?? "?"} سم`,
     `- عمر: ${state.age_years ?? "?"} سنة`,
     `- جنس: ${state.sex ?? "?"}`,
     `- نشاط: ${state.activity_key ?? "?"}`,
     `- هدف: ${state.goal ?? "?"}`,
-    `- نظام: ${state.diet ?? "?"}`
+    `- نظام: ${state.diet ?? "?"}`,
+    genderHint(state.sex),
+    "- لا تعِد كتابة نص المستخدم أو بياناته داخل الرد. اكتفِ بتأكيد موجز عند الحاجة.",
+    "- الرد 3–8 أسطر، عربية فصحى بسيطة، بلا زخارف/إيموجي.",
+    "- اسأل سؤالًا واحدًا موجّهًا (أو سؤالين بحد أقصى).",
+    "- إن خرج السؤال عن التغذية: اعتذر بلطف وأعِد التوجيه.",
+    "- إن تجاهل المستخدم السؤال السابق: كرّر نفس السؤال بلطف بنفس المعنى."
   ];
   if(energy){
     summary.push(
@@ -440,12 +487,6 @@ function buildModelBody(pack, messages, state, intent, energy, extraUserDirectiv
       `- هدف سعرات مبدئي≈ ${energy.kcal_target} kcal`
     );
   }
-  summary.push(
-    "- التزم العربية الفصحى البسيطة، 3–8 أسطر، بدون وجوه تعبيرية.",
-    "- اختتم بسؤال واحد موجّه فقط.",
-    "- إذا كان السؤال خارج التغذية: اعتذر بلطف وأعد التوجيه.",
-    "- عند عدم إجابة المستخدم على السؤال السابق: كرّر نفس السؤال بصياغة ألطف."
-  );
   if(extraUserDirective) summary.push(`- ملاحظة: ${extraUserDirective}`);
 
   const contents = toGeminiContents(messages);
@@ -454,7 +495,7 @@ function buildModelBody(pack, messages, state, intent, energy, extraUserDirectiv
   return {
     systemInstruction: { role:"system", parts:[{ text: systemText }] },
     contents,
-    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 900 },
+    generationConfig: { temperature: 0.18, topP: 0.9, maxOutputTokens: 900 },
     safetySettings: []
   };
 }
@@ -500,30 +541,28 @@ exports.handler = async (event) => {
   // حسابات BMR/TDEE إن أمكن
   const energy = computeEnergy(state, pack);
 
-  // كشف سؤال سابق غير مُجاب (نكرّر نفس السؤال)
+  // كشف سؤال سابق غير مُجاب
   let repeatPreviousQuestion = false;
   let previousQuestionText = null;
   if(lastAssistant){
     const hadQuestion = /[؟?]/.test(lastAssistant);
     if(hadQuestion){
-      // إذا لم تتغيّر الحالة بعد رد المستخدم (أي لا جديد)، و/أو رد بـ نعم/تمام
       const ambiguous = isAmbiguousAffirmation(lastUser);
       const missNow = computeMissing(state, intent);
       if(ambiguous || missNow.length>0){
         repeatPreviousQuestion = true;
-        previousQuestionText = lastAssistant.split(/\n/).find(l=>/[؟?]/.test(l)) || lastAssistant; // أول سطر فيه سؤال
+        previousQuestionText = lastAssistant.split(/\n/).find(l=>/[؟?]/.test(l)) || lastAssistant;
       }
     }
   }
 
   // تحية فقط
   if(isGreetingOnly){
-    const greeting = String(pack?.prompts?.greeting || "وعليكم السلام، أنا مساعدك التغذوي. ما هدفك الآن؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.");
-    // نستخدم النموذج لتوليد صياغة بشرية، مع حقن prompt ثابت
+    const greeting = String(pack?.prompts?.greeting || "وعليكم السلام ورحمة الله، أنا مساعدك التغذوي. ما هدفك الحالي؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.");
     const bodyModel = {
       systemInstruction: { role:"system", parts:[{ text: systemPromptFromPack(pack) }] },
       contents: [{ role:"user", parts:[{ text: greeting }] }],
-      generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 400 },
+      generationConfig: { temperature: 0.18, topP: 0.9, maxOutputTokens: 380 },
       safetySettings: []
     };
     for(const model of MODEL_POOL){
@@ -539,7 +578,7 @@ exports.handler = async (event) => {
     const bodyModel = {
       systemInstruction: { role:"system", parts:[{ text: systemPromptFromPack(pack) }] },
       contents: [{ role:"user", parts:[{ text: offScopeDirective }] }],
-      generationConfig: { temperature: 0.1, topP: 0.9, maxOutputTokens: 260 },
+      generationConfig: { temperature: 0.12, topP: 0.9, maxOutputTokens: 240 },
       safetySettings: []
     };
     for(const model of MODEL_POOL){
@@ -551,12 +590,12 @@ exports.handler = async (event) => {
 
   // لو السؤال السابق لم يُجب — كرّر نفس السؤال بلطف
   if(repeatPreviousQuestion && previousQuestionText){
-    const text = (pack?.prompts?.repeat_unanswered || "يبدو أن سؤالي السابق لم يُجب بعد، ولأكمل بدقّة أحتاج نفس المعلومة: {{question}}")
+    const text = (pack?.prompts?.repeat_unanswered || "يبدو أن سؤالي السابق لم يُجب بعد. للمتابعة بدقّة: {{question}}")
       .replace("{{question}}", previousQuestionText.trim());
     return ok({ reply: text, model: "server-guard" });
   }
 
-  // نواقص مطلوبة للحساب (اسأل فقط النواقص)
+  // نواقص مطلوبة للحساب
   const missing = computeMissing(state, intent);
   if(missing.length>0){
     if(missing.length <= 2){
@@ -569,7 +608,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // إن كانت آخر إجابة "نعم" على سؤال ثنائي (مثل: الكيتو أم المتوسطي؟)
+  // “نعم” مبهمة بعد سؤال تفضيل
   if(isAmbiguousAffirmation(lastUser) && /(?:أم|or|\bvs\b)/i.test(lastAssistant||"")){
     const text = String(pack?.prompts?.clarify_ambiguous_yes || "للتأكيد: هل تقصد {{option_a}} أم {{option_b}}؟")
       .replace("{{option_a}}","الخيار الأول")
@@ -577,8 +616,8 @@ exports.handler = async (event) => {
     return ok({ reply: text, model:"server-guard" });
   }
 
-  // بناء جسم الطلب للموديل مع حقن سياق مُهيكل وحسابات الطاقة (إن وُجدت)
-  const userDirective = null; // يمكن تمرير ملاحظة إضافية عند الحاجة
+  // بناء الطلب للنموذج مع ملخص داخلي “لا تُظهره”
+  const userDirective = null;
   const bodyModel = buildModelBody(pack, messages, state, intent, energy, userDirective);
 
   // استدعاء النموذج عبر الحوض
@@ -591,7 +630,7 @@ exports.handler = async (event) => {
     errors[model] = r.error;
   }
 
-  // في حال فشل جميع النماذج
-  const safeFallback = "حدث تعذّر مؤقّت في توليد الرد. يمكنك إعادة المحاولة، أو إرسال: وزنك/طولك/عمرك/جنسك/نشاطك وهدفك الغذائي وسأحسبها لك فورًا.";
+  // فشل كل النماذج
+  const safeFallback = "حدث تعذّر مؤقّت في توليد الرد. أعد المحاولة أو أرسل: وزنك/طولك/عمرك/جنسك/نشاطك وهدفك وسأحسبها لك فورًا.";
   return bad(502, "All models failed", { errors, tried: MODEL_POOL, reply: safeFallback });
 };

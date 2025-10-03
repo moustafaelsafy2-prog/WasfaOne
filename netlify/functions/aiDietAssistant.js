@@ -1,17 +1,18 @@
 // /netlify/functions/aiDietAssistant.js
 // Arabic Diet Assistant — Human-like, flexible, memory-aware
-// • v1beta generateContent (systemInstruction + contents + tools + generationConfig)
-// • Sequential fallback across MODEL_POOL + timeouts + robust error surfacing
-// • Local tools via function-calling loop (calculateCalories / parseFoods / correctText)
-// • Lightweight conversational memory returned to the client to send back next turn
-// • Nutrition-only guard + graceful greeting on first empty call
-// • Flexible input extraction: messages[] | message | text | prompt | q
+// • نفس أسلوب استدعاء Gemini العامل لديك (v1beta generateContent):
+//   systemInstruction + contents + tools(functionDeclarations) + generationConfig + safetySettings[]
+// • تسلسل عبر MODEL_POOL + مهلة/إلغاء + تتبّع أخطاء واضح
+// • أدوات محلية (calculateCalories/parseFoods/correctText) مع تنفيذ محلّي عبر function calling loop
+// • ذاكرة خفيفة قابلة للإرجاع للعميل لتُرسل في الطلب التالي
+// • حارس نطاق (تغذية فقط) + تحية افتراضية عند أول نداء بدون رسالة
+// • استخراج مرن لرسالة المستخدم: messages[] | message | text | prompt | q
 
 /* ───────────────────────── إعدادات عامة ───────────────────────── */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// تماثل generateRecipe لضمان أعلى توافر/سرعة
+// تماثل تجميعة generateRecipe لضمان أعلى توافر/سرعة
 const MODEL_POOL = [
   "gemini-1.5-pro-latest",
   "gemini-1.5-pro",
@@ -229,20 +230,6 @@ function isOutOfDomain(text){
   ].some(k=>t.includes(k));
 }
 
-// يظهر التنبيه مرة واحدة فقط عند الردود "الغذائية بالأرقام"
-function shouldShowMedicalNotice(userMsg = "", replyText = "", memoryBlob = "") {
-  const alreadyShown = /#notice:medical_shown\b/.test(String(memoryBlob || ""));
-  if (alreadyShown) return false;
-
-  const t = (String(userMsg) + " " + String(replyText)).toLowerCase();
-  const hasNutritionNumbers =
-    /\b(\d{2,4})\s*(k?cal|سعرات|كيلو?كال|kcal)\b/i.test(t) ||
-    /\b(\d{1,3})\s*(g|جم|جرام)\b/i.test(t) ||
-    /(ماكروز|macros|سعرات|tdee|bmr|خطة|برنامج|حساب|macro)/i.test(t);
-
-  return !!hasNutritionNumbers;
-}
-
 /* ───────────────────────── شخصية المساعد (System) ───────────────────────── */
 function SYSTEM_PROMPT(){
   return `
@@ -255,6 +242,7 @@ function SYSTEM_PROMPT(){
 3) خطة/خيارات تنفيذية (3–5 نقاط)
 4) بدائل ونصائح سريعة
 5) سؤال توضيحي واحد فقط إذا لزم
+6) تنبيه أن الإرشادات ليست بديلًا طبيًا.
 لا تكرر سؤالًا سُئل سابقًا داخل نفس المحادثة. لا تنساق للحشو. صحّح الكلمات الشائعة ثم تابع الإجابة.
 `.trim();
 }
@@ -470,19 +458,14 @@ exports.handler = async (event) => {
     return ok({ reply, memory: mem, meta:{ model:"server-fallback", diagnostics: attempt.errors, tried: attempt.tried } });
   }
 
-  // --- ما بعد المعالجة الخفيفة ---
-  let text = String(attempt.text || "").replace(/\n{3,}/g, "\n\n").trim();
-
-  // أضف التنبيه الطبي مرة واحدة فقط عند اللزوم
-  const addNotice = shouldShowMedicalNotice(lastUserMsg, text, memory);
-  if (addNotice) {
+  // ما بعد المعالجة الخفيفة + تنبيه طبي
+  let text = String(attempt.text||"").replace(/\n{3,}/g,"\n\n").trim();
+  if (!/ليست بديل/i.test(text)) {
     text += "\n\n**تنبيه:** الإرشادات ليست بديلاً عن الاستشارة الطبية.";
   }
 
-  // حدّث الذاكرة + علِّم أن التنبيه عُرض
-  let newMemory = `${trimMemory(memory)}\nuser:${lastUserMsg}\nassistant:${text}`;
-  if (addNotice) newMemory += "\n#notice:medical_shown";
-  newMemory = newMemory.slice(-MAX_MEMORY_CHARS);
+  // تحديث الذاكرة
+  const newMemory = `${trimMemory(memory)}\nuser:${lastUserMsg}\nassistant:${text}`.slice(-MAX_MEMORY_CHARS);
 
   return ok({
     reply: text,
@@ -490,7 +473,7 @@ exports.handler = async (event) => {
     meta: {
       model: attempt.model,
       tools: attempt.toolInvocations || [],
-      tokens_hint: approxTokens((event.body || "").length + text.length)
+      tokens_hint: approxTokens((event.body||"").length + text.length)
     }
   });
 };

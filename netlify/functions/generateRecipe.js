@@ -8,6 +8,7 @@
 // mass–macros plausibility guard, available-ingredients sanitization, target-calorie tightening.
 // NOTE: No change to public API or deployment flow.
 // + NEW: Subscription enforcement by headers (x-auth-token & x-session-nonce), auto-suspend on expiry.
+// + NEW (this task): AI-only serving suggestions -> recipe.serving_suggestions:string[] (2–5 نقاط قصيرة)
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
@@ -160,7 +161,7 @@ function totalMassG(ingredients){
 
 /* ---------------- Schema ---------------- */
 function validateRecipeSchema(rec) {
-  const must = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
+  const must = ["title","servings","total_time_min","macros","ingredients","steps","lang","serving_suggestions"];
   if (!rec || typeof rec !== "object") return { ok:false, error:"recipe_not_object" };
   for (const k of must) if (!(k in rec)) return { ok:false, error:`missing_${k}` };
 
@@ -181,11 +182,19 @@ function validateRecipeSchema(rec) {
   }
   if (rec.lang !== "ar") return { ok:false, error:"lang_must_be_ar" };
 
-  // grams coverage
+  // serving suggestions: 2–5 concise bullet points
+  if (!Array.isArray(rec.serving_suggestions) || rec.serving_suggestions.length < 2 || rec.serving_suggestions.length > 5) {
+    return { ok:false, error:"serving_suggestions_count_invalid" };
+  }
+  if (rec.serving_suggestions.some(x => typeof x !== "string" || !x.trim())) {
+    return { ok:false, error:"serving_suggestions_type" };
+  }
+
+  // grams coverage (diagnostic)
   const gramCount = rec.ingredients.filter(hasGramWeightLine).length;
   rec._ingredients_gram_coverage = `${gramCount}/${rec.ingredients.length}`;
 
-  // forbid non-gram units (model sometimes emits ml/cup)
+  // forbid non-gram units
   if (rec.ingredients.some(containsNonGramUnit)) {
     return { ok:false, error:"non_gram_unit_detected" };
   }
@@ -337,7 +346,6 @@ function dessertLooksIllogical(recipe){
 }
 function dessertLacksSweetness(recipe){
   const ingN = normalizeArabic((recipe?.ingredients||[]).join(" "));
-  // require at least one positive cue when dessert (unless Dr. Moh which forbids stevia; fruit low sugar still ok)
   return !DESSERT_SWEET_POSITIVE.some(k => ingN.includes(k));
 }
 
@@ -352,6 +360,7 @@ function systemInstruction(maxSteps = 10) {
   "macros": { "protein_g": number, "carbs_g": number, "fat_g": number, "calories": number },
   "ingredients": string[],
   "steps": string[],  // الحد الأقصى ${maxSteps} خطوات قصيرة وواضحة
+  "serving_suggestions": string[], // 2–5 نقاط تقديم قصيرة، عملية، مناسبة للمطبخ والنظام الغذائي
   "lang": "ar"
 }
 
@@ -366,16 +375,20 @@ function systemInstruction(maxSteps = 10) {
 5) الالتزام بالأنظمة/الحساسيات/المكوّنات المتاحة حرفيًا. لا تستخدم أي مكوّن محظور ولا تتجاوز حدود الكارب أو التعليمات الخاصة.
 6) المكوّنات: عناصر قصيرة بالشكل "200 جم صدر دجاج". صف النوع بدقة (EVOO/رز بسمتي نيّئ…)، ولا تستخدم علامات تجارية.
 7) الخطوات: أوامر عملية واضحة، ≤ ${maxSteps} خطوات، ولا تضف مكوّنات غير موجودة في ingredients.
-8) التنويع واللذّة: وصفات **غير مكررة**، غيّر التقنية/الإقليم/النكهة كل مرة ضمن المطبخ. استخدم تقنيات تزيد العمق (تحمير/تحميص/حمضيات/أعشاب) دون كسر القيود.
-9) الحلويات ("حلويات"): طعم حلو وقوام ممتع. يُسمح بستيفيا **طبيعية نقية فقط** وبحدود ضيقة وخالية من أي إضافات صناعية، وممنوعة في نظام د. محمد سعيد. لا لحوم/ثوم/بصل/توابل حادة في الحلويات.
+8) التنويع واللذّة: وصفات **غير مكررة**، غيّر التقنية/الإقليم/النكهة كل مرة ضمن المطبخ.
+9) الحلويات ("حلويات"): طعم حلو وقوام ممتع ضمن القيود. ستيفيا **طبيعية نقية فقط** وبحدود ضيقة (وممنوعة مع نظام د. محمد سعيد). لا لحوم/ثوم/بصل/توابل حادة في الحلويات.
 10) **المنهجية والأدوات (داخلية إلزامية)**:
     - استخدم قواعد بيانات غذائية معترف بها عالميًا لتحديد القيم لكل 100 جم ثم حوّل للكمية الفعلية:
-      • USDA FoodData Central (وزارة الزراعة الأمريكية)
-      • CIQUAL (قاعدة بيانات ANSES الفرنسية)
-      • McCance & Widdowson’s Composition of Foods (المملكة المتحدة)
-    - عند غياب تطابق مباشر، اختر أقرب مكوّن مطابق في نفس الفئة وذات المعالجة.
+      • USDA FoodData Central
+      • CIQUAL
+      • McCance & Widdowson’s
     - ابنِ الماكروز لكل مكوّن ثم اجمع، واحسب السعرات وفق 4/4/9. لا تقديرات عشوائية.
-11) الاتساق: أرقام الماكروز أعداد فقط، لا وحدات ولا تعليقات.
+11) اتساق الأرقام: أعداد فقط في الماكروز والسعرات (بدون وحدات/تعليقات).
+12) **طريقة التقديم (serving_suggestions)**:
+    - 2 إلى 5 نقاط قصيرة جدًا ومباشرة، عربية فصحى، دون رموز/إيموجي.
+    - موافقة للمطبخ المختار (نكهة/جوانب/زينة/درجات حرارة/أطباق جانبية).
+    - موافقة للنظام الغذائي والحساسيات (لا تقترح مكوّنًا محظورًا).
+    - أمثلة مقبولة للصياغة: "قدّم دافئًا مع شرائح ليمون"، "زيّن ببقدونس مفروم"، "أضف سلطة خضراء بزيت زيتون بكر"… (لا تُكرر الأمثلة حرفيًا).
 
 أعد الإخراج وفق المخطط حرفيًا وبالعربية فقط.
 `.trim();
@@ -408,7 +421,8 @@ function userPrompt(input) {
     __repair_diversity = false,
     __repair_energy = false,
     __repair_units = false,
-    __repair_target = false
+    __repair_target = false,
+    __repair_serving = false
   } = input || {};
 
   const avoid = (Array.isArray(allergies) && allergies.length) ? allergies.join(", ") : "لا شيء";
@@ -442,7 +456,7 @@ ${guide}
 `.trim();
 
   const dessertLine = isDessert(mealType)
-    ? `تعليمات الحلويات: اجعل الوصفة بطعم حلو وقوام ممتع ضمن السعرات والقيود. ستيفيا **طبيعية نقية فقط وبحدود ضيقة** (وممنوعة مع "نظام د. محمد سعيد").`
+    ? `تعليمات الحلويات: اجعل الوصفة بطعم حلو وقوام ممتع ضمن السعرات والقيود. ستيفيا **طبيعية نقية فقط** وبحدود ضيقة وخالية من أي إضافات صناعية، وممنوعة مع "نظام د. محمد سعيد".`
     : "";
 
   const repairLines = [
@@ -452,7 +466,8 @@ ${guide}
     __repair_diversity ? "إصلاح تنويع: غيّر الأسلوب/العنوان/النكهة وتجنّب أي تكرار." : "",
     __repair_energy ? "إصلاح طاقة: اضبط الماكروز بحيث يطابق calories حساب 4/4/9 بدقة (±2%)." : "",
     __repair_units ? "إصلاح وحدات: استخدم الجرام فقط لكل المكونات (ممنوع ml/كوب/ملعقة/حبة...)." : "",
-    __repair_target ? `إصلاح سعرات: قرب السعرات من الهدف ${Number(caloriesTarget)} kcal ضمن هامش ±12%، عدّل الدهون أولًا ثم الكارب/البروتين بحسب النظام.` : ""
+    __repair_target ? `إصلاح سعرات: قرب السعرات من الهدف ${Number(caloriesTarget)} kcal ضمن هامش ±12%، عدّل الدهون أولًا ثم الكارب/البروتين بحسب النظام.` : "",
+    __repair_serving ? "إصلاح طريقة التقديم: أعد صياغة 2–5 نقاط تقديم قصيرة وعملية ومناسبة للمطبخ والنظام والحساسيات، دون عموميات أو عناصر محظورة." : ""
   ].filter(Boolean).join("\n");
 
   const customLine = isCustom && customMacros
@@ -503,7 +518,7 @@ async function callOnce(model, input, timeoutMs = 28000) {
   const body = {
     systemInstruction: { role: "system", parts: [{ text: systemInstruction(8) }] },
     contents: [{ role: "user", parts: [{ text: userPrompt(input) }] }],
-    generationConfig: { temperature: 0.6, topP: 0.9, maxOutputTokens: 1000 },
+    generationConfig: { temperature: 0.4, topP: 0.9, maxOutputTokens: 1200 },
     safetySettings: []
   };
 
@@ -529,8 +544,10 @@ async function callOnce(model, input, timeoutMs = 28000) {
     let json = data && typeof data === "object" && data.title ? data : extractJsonFromCandidates(data);
     if (!json) return { ok:false, error:"gemini_returned_non_json" };
 
-    // Normalize steps length
+    // Fill language default
     if (!json.lang) json.lang = "ar";
+
+    // Normalize steps length
     if (Array.isArray(json.steps) && json.steps.length > 10) {
       const chunk = Math.ceil(json.steps.length / 10);
       const merged = [];
@@ -541,6 +558,13 @@ async function callOnce(model, input, timeoutMs = 28000) {
     // grams-only & cleanup
     if (Array.isArray(json.ingredients)) {
       json.ingredients = enforceGramHints(json.ingredients);
+    }
+
+    // Ensure serving_suggestions exists as array
+    if (!Array.isArray(json.serving_suggestions)) {
+      json.serving_suggestions = [];
+    } else {
+      json.serving_suggestions = json.serving_suggestions.map(s => String(s||"").trim()).filter(Boolean).slice(0,5);
     }
 
     // Strict energy reconciliation (hard write-back)
@@ -584,7 +608,6 @@ function includesAllAvailable(recipe, availableRaw) {
   const ing = " " + normalizeArabic((recipe?.ingredients || []).join(" ")) + " ";
   return available.every(a => {
     const term = normalizeArabic(a);
-    // approximate word boundary by spaces (after normalization)
     return term && ing.includes(" " + term + " ");
   });
 }
@@ -624,7 +647,7 @@ function macrosVsMassImplausible(recipe){
   return false;
 }
 
-/* ---------------- Subscription gate (NEW) ---------------- */
+/* ---------------- Subscription gate (unchanged) ---------------- */
 async function ensureActiveSubscription(event) {
   const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
   const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
@@ -659,7 +682,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
 
-  // NEW: enforce subscription before any generation
+  // Subscription enforcement
   try {
     const gate = await ensureActiveSubscription(event);
     if (!gate.ok) return bad(gate.code, gate.msg);
@@ -699,6 +722,12 @@ exports.handler = async (event) => {
 
     let rec = r1.recipe;
 
+    // If serving_suggestions missing/invalid, repair explicitly (AI-only, no local synthesis)
+    if (!Array.isArray(rec.serving_suggestions) || rec.serving_suggestions.length < 2) {
+      const rServing = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_serving: true, __repair_energy: true, __repair_units: true });
+      if (rServing.ok) rec = rServing.recipe;
+    }
+
     // grams-only enforcement
     if (unitsLookOff(rec)) {
       const rUnits = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_units: true });
@@ -707,21 +736,21 @@ exports.handler = async (event) => {
 
     // Dr. Mohamed enforcement
     if (wantDrMoh && violatesDrMoh(rec)) {
-      const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true, __repair_energy: true, __repair_units: true });
+      const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true, __repair_energy: true, __repair_units: true, __repair_serving: true });
       if (r2.ok && !violatesDrMoh(r2.recipe)) rec = r2.recipe;
       else return ok({ recipe: r2.ok ? r2.recipe : rec, model, warning: "dr_moh_rules_not_strictly_met" });
     }
 
     // Available-ingredients enforcement
     if (availableIngredients.length && !includesAllAvailable(rec, availableIngredients)) {
-      const rAvail = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true, __repair_energy: true, __repair_units: true });
+      const rAvail = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true, __repair_energy: true, __repair_units: true, __repair_serving: true });
       if (rAvail.ok && includesAllAvailable(rAvail.recipe, availableIngredients)) rec = rAvail.recipe;
       else return ok({ recipe: rAvail.ok ? rAvail.recipe : rec, model, warning: "available_ingredients_not_fully_used" });
     }
 
-    // Dessert sanity (no savory + has sweetness cue if allowed)
+    // Dessert sanity
     if (wantDessert && (dessertLooksIllogical(rec) || (!wantDrMoh && dessertLacksSweetness(rec)))) {
-      const rDess = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_dessert: true, __repair_energy: true, __repair_units: true });
+      const rDess = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_dessert: true, __repair_energy: true, __repair_units: true, __repair_serving: true });
       if (rDess.ok && !dessertLooksIllogical(rDess.recipe) && (!wantDrMoh ? !dessertLacksSweetness(rDess.recipe) : true)) {
         rec = rDess.recipe;
       }
@@ -729,31 +758,37 @@ exports.handler = async (event) => {
 
     // Energy strictness (defensive)
     if (energyLooksOff(rec)) {
-      const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true });
+      const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true, __repair_serving: true });
       if (rEnergy.ok && !energyLooksOff(rEnergy.recipe)) rec = rEnergy.recipe;
     }
 
     // Calories target tightening (±12%)
     if (caloriesTarget && targetCaloriesFar(rec, caloriesTarget)) {
-      const rTarget = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_target: true, __repair_energy: true });
+      const rTarget = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_target: true, __repair_energy: true, __repair_serving: true });
       if (rTarget.ok && !targetCaloriesFar(rTarget.recipe, caloriesTarget)) rec = rTarget.recipe;
     }
 
     // Mass–macros plausibility
     if (macrosVsMassImplausible(rec)) {
-      const rMass = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true, __repair_units: true });
+      const rMass = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true, __repair_units: true, __repair_serving: true });
       if (rMass.ok && !macrosVsMassImplausible(rMass.recipe)) rec = rMass.recipe;
     }
 
     // Diversify generic titles
     if (titleTooGeneric(rec)) {
-      const rDiv = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_diversity: true, __repair_energy: true });
+      const rDiv = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_diversity: true, __repair_energy: true, __repair_serving: true });
       if (rDiv.ok) rec = rDiv.recipe;
     }
 
     // Final normalize again (idempotent)
     rec.macros = reconcileCalories(rec.macros);
     if (Array.isArray(rec.ingredients)) rec.ingredients = enforceGramHints(rec.ingredients);
+
+    // Ensure serving suggestions still valid
+    if (!Array.isArray(rec.serving_suggestions) || rec.serving_suggestions.length < 2) {
+      const rServe2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_serving: true });
+      if (rServe2.ok) rec = rServe2.recipe;
+    }
 
     return ok({ recipe: rec, model });
   }

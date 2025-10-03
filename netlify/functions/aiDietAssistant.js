@@ -1,8 +1,8 @@
 // netlify/functions/aiDietAssistant.js
 // Fully-AI WhatsApp-like diet assistant (Arabic), strict diet-only scope.
-// - No canned replies: every turn is model-generated (we only add guardrails).
-// - Same subscription gate as generateRecipe (x-auth-token, x-session-nonce).
-// - Same model pool as generateRecipe (Gemini family).
+// - كل الردود تُولّد من النموذج (لا قوالب ثابتة سوى الحواجز).
+// - نفس بوابة الاشتراك مثل generateRecipe (x-auth-token, x-session-nonce).
+// - نفس حوض النماذج (Gemini family).
 // - POST { messages:[{role,content}], lang?: "ar", scope?: "diet_only" } -> { ok, reply, model }.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
@@ -104,22 +104,32 @@ async function ensureActiveSubscription(event) {
 /* ===== Diet-only scope guard (server-side) ===== */
 const SCOPE_ALLOW_RE = /(?:سعرات|كالور|ماكروز|بروتين|دهون|كار|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|غذائ|صيام|كيتو|لو كارب|متوسطي|داش|نباتي|نباتيه|سعر حراري|مؤشر جلايسيمي|حساسي|تحسس|سكري|ضغط|كلى|كبد|كوليسترول|وجبات|تقسيم السعرات|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf)/i;
 
-/* ===== System prompt (strict, concise, Arabic, 2 Qs max per turn) ===== */
+/* ===== Greetings & off-scope detection ===== */
+const GREET_RE = /^(?:\s*(?:السلام\s*عليكم|وعليكم\s*السلام|مرحبا|مرحباً|أهلًا|اهلاً|هلا|مساء الخير|صباح الخير)\b|^\s*السلام\s*$)/i;
+
+/* ===== System prompt (قوي، شخصي، عربي، مرن، 2 أسئلة كحد أقصى) =====
+   مُحسّن ليفهم سياق المستخدم، يخصص الرد، يرحّب، ويعيد التوجيه عند الخروج عن النطاق.
+*/
 function systemPrompt(){
   return `
-أنت مساعد تغذية عربي يعمل بأسلوب دردشة واتساب. محادثتك قصيرة ومركّزة.
+أنت مساعد تغذية عربي يعمل بأسلوب دردشة واتساب، ودود وعملي ودقيق. هدفك تقديم إرشاد غذائي عملي ومخصص.
 [النطاق المسموح]
-- كل ما يتعلق بالتغذية السريرية الخفيفة والعادات الغذائية، الأنظمة (كيتو/متوسطي/داش/نباتي/لو-كارب/صيام متقطع…)، تقسيم السعرات والماكروز 4/4/9، بدائل المكونات، تقييم جودة الوجبات، الحساسيات، إدارة الوزن، ترطيب، توقيت الوجبات، الإعداد المسبق.
+- كل ما يتعلق بالتغذية والعادات الغذائية وأنظمة الحِمية (كيتو/متوسطي/داش/نباتي/لو-كارب/صيام متقطع…)، تقسيم السعرات والماكروز (4/4/9)، بدائل المكونات، تقييم الوجبات، الحساسيات، إدارة الوزن، الترطيب، توقيت الوجبات، تجهيز الوجبات مسبقًا، تكييف الوصفات مع ظروف بسيطة شائعة.
 [المحظور]
-- أي مواضيع لا تخص التغذية (برمجة، سياسة، دين، استثمارات…)، أو طب عالي الخطورة/تشخيص/جرعات أدوية.
-[أسلوب الرد]
-- العربية الفصحى المبسطة، بلا وجوه تعبيرية ولا زخارف.
-- رسالة موجزة للغاية (3–8 أسطر). عند الحاجة استخدم نقاط موجزة.
-- في كل رسالة اسأل **سؤالًا واحدًا أو سؤالين بحد أقصى** لاستكمال البيانات.
-- إن كان السؤال خارج النطاق: اعتذر باختصار واطلب صياغته بما يخص التغذية فقط.
-[حسابات]
-- ذكّر عند المناسب أن السعرات = (4×البروتين + 4×الكربوهيدرات + 9×الدهون).
-- لا تقدّم أرقامًا دقيقة طبية لحالات خاصة دون تنبيه بمراجعة مختص.
+- أي موضوع خارج التغذية (برمجة، سياسة، دين، أسواق، علاقات، إلخ)، أو طب عالي الخطورة/تشخيص/جرعات أدوية.
+[الأسلوب]
+- رحّب وردّ السلام إن وُجد، ثم قدّم ردًا موجزًا للغاية (3–8 أسطر) واضحًا وشخصيًا مبنيًا على رسالة المستخدم.
+- لا تستخدم الوجوه التعبيرية أو الزخارف.
+- استخدم نقاط موجزة عند الحاجة.
+- اطرح **سؤالًا واحدًا أو سؤالين بحد أقصى** لاستكمال البيانات أو التأكد من الهدف.
+- عند الخروج عن النطاق: اعتذر بلطف، ووضّح أنك متخصص بالتغذية فقط، ثم اقترح إعادة صياغة السؤال ضمن التغذية مع **سؤال واحد موجّه** للعودة للنطاق.
+[حسابات وتذكيرات]
+- ذكّر عند الحاجة أن السعرات = (4×البروتين + 4×الكربوهيدرات + 9×الدهون).
+- لا تعطِ أرقامًا طبية دقيقة لحالات خاصة؛ انصح بمراجعة مختص عند الضرورة.
+[التخصيص الذكي]
+- استخلص الهدف (إنقاص/زيادة وزن، ضبط سكر، أداء رياضي…) من كلام المستخدم.
+- التقط إشارات الحساسية أو التفضيلات (نباتي، لا ألبان…).
+- عند السلام أو التحية فقط، قدّم تعريفًا قصيرًا بنفسك واسأل عن الهدف والبيانات الأساسية (وزن/طول/عمر/نشاط) في سؤال واحد أو اثنين.
 `.trim();
 }
 
@@ -135,7 +145,7 @@ function sanitizeReply(t=""){
 }
 
 function toGeminiContents(messages){
-  // حافظ على آخر 16 تبادلًا كحد أقصى لمنع الإطالة
+  // آخر 16 تبادلًا كحد أقصى
   const hist = (Array.isArray(messages)? messages : []).slice(-16);
   return hist.map(m => ({
     role: m.role === "assistant" ? "model" : "user",
@@ -150,13 +160,52 @@ function lastUserMessage(messages){
   return "";
 }
 
+/* ===== Content shapers ===== */
+function buildGreetingPrompt(){
+  return {
+    role:"user",
+    parts:[{ text:
+`وُجدت تحية/سلام من المستخدم. اكتب ردًا موجزًا عربيًا:
+- ابدأ بالسلام المناسب والتحية الودية.
+- عرّف نفسك كمساعد تغذية يقدّم إرشادًا غذائيًا عمليًا ومخصصًا.
+- اطلب الهدف الحالي للمستخدم (مثال: نزول وزن، بناء عضل، ضبط سكر…).
+- اطلب في سؤال واحد أو سؤالين فقط: الوزن، الطول، العمر، ومستوى النشاط (خام).
+- بدون وجوه تعبيرية أو زخارف، وبنبرة عملية مشجعة.` }] }
+}
+
+function buildOffScopePrompt(){
+  return {
+    role:"user",
+    parts:[{ text:
+`السؤال خارج نطاق التغذية. اكتب ردًا عربيًا موجزًا جدًا يوضح:
+- اعتذار لطيف وأنك مساعد تغذية فقط.
+- اطلب إعادة الصياغة ضمن التغذية (أنظمة/سعرات/ماكروز/وجبات/بدائل/حساسيات…).
+- اختم بسؤال واحد فقط لإرجاع النقاش للنطاق (مثال: ما هدفك الغذائي الآن؟).` }] }
+}
+
+function buildPersonalizerHint(lastMsg){
+  // تلميحات إضافية للنموذج لاستخراج سياق أعمق بدون زيادة الإطالة
+  const hints = [
+    "حلّل الرسالة لاستخراج الهدف الغذائي والتفضيلات والحساسيات والقيود.",
+    "اختصر الرد لثلاثة إلى ثمانية أسطر مع نقاط موجزة إن لزم.",
+    "اقترح بدائل عملية وبسيطة من نفس المطبخ إن ذكر المستخدم أطعمة محددة.",
+    "استخدم سؤالًا واحدًا أو سؤالين فقط لاستكمال البيانات."
+  ].join("\n- ");
+  return {
+    role:"user",
+    parts:[{ text:
+`هذه رسالة المستخدم للتحليل الشخصي:\n"""${lastMsg}"""\n\n- ${hints}` }]
+  };
+}
+
 /* ===== Model call with pool & timeouts ===== */
 async function callModel(model, contents, timeoutMs = 24000){
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   const body = {
     systemInstruction: { role:"system", parts:[{ text: systemPrompt() }] },
     contents,
-    generationConfig: { temperature: 0.4, topP: 0.9, maxOutputTokens: 900 },
+    // ميل أقل للعشوائية مع بقاء السلاسة
+    generationConfig: { temperature: 0.2, topP: 0.9, maxOutputTokens: 900 },
     safetySettings: []
   };
 
@@ -210,28 +259,35 @@ exports.handler = async (event) => {
   const messages = Array.isArray(body.messages) ? body.messages : [];
   const scope = String(body.scope||"diet_only").toLowerCase();
 
-  // If no history, we let the model greet & ask first core questions (AI-only).
-  let contents = toGeminiContents(messages.length ? messages : [
-    { role:"user", content:"ابدأ التحية والتعريف كمساعد تغذية. اسألني عن هدفي الحالي، ثم وزن/طول/عمر ونشاطي في سؤال واحد أو سؤالين بحد أقصى." }
-  ]);
-
-  // Server-side diet-only guard (fast prefilter on latest user msg)
+  // تجهيز المحادثة للموديل
   const lastUser = lastUserMessage(messages);
-  const offscope = (scope === "diet_only") && lastUser && !SCOPE_ALLOW_RE.test(lastUser);
 
-  // If off-scope: override conversation with a polite, AI-generated refusal prompt
-  if (offscope){
+  let contents;
+  if (!messages.length) {
+    // لا تاريخ: تحية وتعريف مختصر + جمع بيانات أساسية
     contents = [
-      { role:"user", parts:[{ text:
-`السؤال الذي استلمته خارج نطاق التغذية. اكتب ردًا عربيًا موجزًا جدًا يوضح:
-- أنك مساعد تغذية فقط ولا تجيب خارج التغذية.
-- اطلب منّي إعادة الصياغة بشكل يخص الأنظمة الغذائية أو السعرات/الماكروز أو الوجبات.
-- لا تستخدم وجوه تعبيرية ولا زخارف.
-- اختم بسؤال واحد فقط يعيد توجيه النقاش داخل التغذية.` }] }
+      buildGreetingPrompt()
     ];
+  } else if (GREET_RE.test(lastUser || "")) {
+    // تحية/سلام فقط
+    contents = [
+      buildGreetingPrompt()
+    ];
+  } else {
+    // حارس النطاق (تحقق سريع)
+    const offscope = (scope === "diet_only") && lastUser && !SCOPE_ALLOW_RE.test(lastUser);
+    if (offscope){
+      contents = [ buildOffScopePrompt() ];
+    } else {
+      // حوار طبيعي مع تلميحات تخصيص ذكية
+      contents = [
+        ...toGeminiContents(messages),
+        buildPersonalizerHint(lastUser||"")
+      ];
+    }
   }
 
-  // Call model over pool
+  // استدعاء النموذج من الحوض
   const errors = {};
   for (const model of MODEL_POOL){
     const r = await callModel(model, contents);

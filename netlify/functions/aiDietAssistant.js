@@ -1,18 +1,11 @@
 // /netlify/functions/aiDietAssistant.js
-// Diet-only Arabic assistant — deterministic, resilient greeting fallback.
-// Fixes: model_failed_greeting → returns safe greeting fallback instead of 502.
+// Deterministic Arabic diet assistant — NO auto-greeting without user input.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-/* ===== Stable model pool (prefer generally available IDs) ===== */
-const MODEL_POOL = [
-  "gemini-1.5-pro",
-  "gemini-1.5-flash",
-  "gemini-pro" // legacy fallback
-];
+const MODEL_POOL = ["gemini-1.5-pro","gemini-1.5-flash","gemini-pro"];
 
-/* ===== GitHub (subscription) ===== */
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
@@ -21,7 +14,6 @@ const GH_API = "https://api.github.com";
 const USERS_PATH = "data/users.json";
 const PACK_PATH  = "data/assistant_pack.json";
 
-/* ===== GitHub helpers ===== */
 async function ghGetJson(path){
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
     headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
@@ -32,7 +24,6 @@ async function ghGetJson(path){
   return { json: JSON.parse(content), sha: data.sha };
 }
 
-/* ===== Dubai date & subscription window ===== */
 function todayDubai(){
   const now = new Date();
   return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
@@ -44,7 +35,6 @@ function withinWindow(start, end){
   return true;
 }
 
-/* ===== HTTP helpers ===== */
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
@@ -55,30 +45,22 @@ const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringif
 const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
 const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
 
-/* ===== subscription gate ===== */
 async function ensureActiveSubscription(event) {
   const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
   const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
   if (!token || !nonce) return { ok:false, code:401, msg:"unauthorized" };
-
   const { json: users } = await ghGetJson(USERS_PATH);
   const idx = (users||[]).findIndex(u => (u.token||u.auth_token||"") === token);
   if (idx === -1) return { ok:false, code:401, msg:"unauthorized" };
-
   const user = users[idx];
   if ((user.session_nonce||"") !== nonce) return { ok:false, code:401, msg:"bad_session" };
-
   const today = todayDubai();
-  if (user.end_date && today > user.end_date) {
-    return { ok:false, code:403, msg:"subscription_expired" };
-  }
-  if ((String(user.status||"").toLowerCase() !== "active") || !withinWindow(user.start_date, user.end_date)) {
+  if (user.end_date && today > user.end_date) return { ok:false, code:403, msg:"subscription_expired" };
+  if ((String(user.status||"").toLowerCase() !== "active") || !withinWindow(user.start_date, user.end_date))
     return { ok:false, code:403, msg:"inactive_or_out_of_window" };
-  }
   return { ok:true, user };
 }
 
-/* ===== load pack (cached) ===== */
 let PACK_CACHE = { data:null, ts:0 };
 async function loadPack(force=false){
   const maxAgeMs = 5*60*1000;
@@ -90,7 +72,7 @@ async function loadPack(force=false){
     return PACK_CACHE.data || {};
   }catch{
     return {
-      system: "أنت مساعد تغذية عربي عملي ودقيق. رحّب وردّ السلام…",
+      system: "أنت مساعد تغذية عربي عملي ودقيق…",
       prompts:{
         greeting: "وعليكم السلام ورحمة الله، أهلًا بك! ما هدفك الآن؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.",
         off_scope: "أعتذر بلطف، اختصاصي تغذية فقط. ما هدفك الغذائي الآن؟",
@@ -103,11 +85,9 @@ async function loadPack(force=false){
   }
 }
 
-/* ===== scope & greeting detection ===== */
 const SCOPE_ALLOW_RE = /(?:سعرات|كالور|ماكروز|بروتين|دهون|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|صيام|كيتو|لو كارب|متوسطي|داش|نباتي|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf)/i;
 const GREET_RE = /^(?:\s*(?:السلام\s*عليكم|وعليكم\s*السلام|مرحبا|مرحباً|أهلًا|اهلاً|هلا|مساء الخير|صباح الخير)\b|^\s*السلام\s*$)/i;
 
-/* ===== helpers ===== */
 function sanitizeReply(t=""){
   let s = String(t||"").replace(/```[\s\S]*?```/g,"");
   s = s.replace(/[\u{1F300}-\u{1FAFF}]/gu,"");
@@ -139,7 +119,6 @@ function normalizeDigits(s=""){
   return String(s||"").replace(/[\u0660-\u0669]/g, d => map[d] ?? d);
 }
 
-/* ===== state extraction ===== */
 function buildState(messages, pack){
   const rx = pack?.extract_regex || {};
   const re = (p)=> p ? new RegExp(p,'i') : null;
@@ -157,15 +136,7 @@ function buildState(messages, pack){
   const sexAliases      = pack?.knowledge?.sex_aliases || {};
   const conv = pack?.conversions || { lb_to_kg:0.45359237, inch_to_cm:2.54, ft_to_cm:30.48, m_to_cm:100 };
 
-  const state = {
-    weight_kg:null,
-    height_cm:null,
-    age_years:null,
-    sex:null,
-    activity_key:null,
-    goal:null,
-    diet:null
-  };
+  const state = { weight_kg:null, height_cm:null, age_years:null, sex:null, activity_key:null, goal:null, diet:null };
 
   function mapActivity(txt){
     const t = (txt||"").trim();
@@ -265,7 +236,6 @@ function buildState(messages, pack){
   return state;
 }
 
-/* ===== intents ===== */
 function detectIntent(lastUser, pack){
   const intents = pack?.intents || {};
   const t = normalizeDigits(lastUser||"");
@@ -278,36 +248,22 @@ function detectIntent(lastUser, pack){
   return "chat";
 }
 
-/* ===== energy calc ===== */
 function computeEnergy(state, pack){
   const W = +state.weight_kg, H = +state.height_cm, A = +state.age_years;
   if(!W || !H || !A || !state.sex || !state.activity_key) return null;
-
   const act = pack?.knowledge?.activity_factors || {};
   const factor = act[state.activity_key] || 1.2;
-
   let BMR = 0;
-  if(state.sex==="male"){
-    BMR = 10*W + 6.25*H - 5*A + 5;
-  }else{
-    BMR = 10*W + 6.25*H - 5*A - 161;
-  }
+  if(state.sex==="male"){ BMR = 10*W + 6.25*H - 5*A + 5; }
+  else { BMR = 10*W + 6.25*H - 5*A - 161; }
   const TDEE = BMR * factor;
-
   let kcal = TDEE;
   if(state.goal==="loss") kcal = TDEE * 0.8;
   else if(state.goal==="gain") kcal = TDEE * 1.1;
   else if(state.goal==="maintain") kcal = TDEE;
-
-  return {
-    BMR: Math.round(BMR),
-    TDEE: Math.round(TDEE),
-    kcal_target: Math.round(kcal/10)*10,
-    activity_factor: factor
-  };
+  return { BMR: Math.round(BMR), TDEE: Math.round(TDEE), kcal_target: Math.round(kcal/10)*10, activity_factor: factor };
 }
 
-/* ===== missing fields ===== */
 function requiredFieldsByIntent(intent){
   const full = ["weight_kg","height_cm","age_years","sex","activity_key"];
   if(intent==="calc_calories" || intent==="calc_macros") return full;
@@ -332,33 +288,27 @@ function isAmbiguousAffirmation(s){
   return /\b(نعم|اي|أجل|تمام|طيب|اوكي|موافق|اكيد|Yes|Yeah|Ok|Okay)\b/i.test(String(s||""));
 }
 
-/* ===== system prompt ===== */
 function systemPromptFromPack(pack){
   const base = String(pack?.system || "").trim();
   const extra = `
 [قيود أسلوبية]
 - لا تعِدْ نسخ نصّ المستخدم أو بياناته حرفيًا داخل الرد.
 - إن احتجت تأكيدًا فاجعله في جملة موجزة.
-- لا تبدأ بأسطر فارغة. الرد 3–8 أسطر، عربية فصحى بسيطة.
+- لا تبدأ بأسطر فارغة. الرد 3–8 أسطر بالعربية الفصحى.
 `.trim();
   return base ? (base + "\n" + extra) : extra;
 }
 
-/* ===== model call (deterministic, retries, diagnostics) ===== */
 async function callModel(model, body){
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   body.generationConfig = { temperature: 0, topP: 1, topK: 1, maxOutputTokens: 1024 };
-
   const abort = new AbortController();
   const timeoutMs = 25000;
   const t = setTimeout(()=>abort.abort(), timeoutMs);
-
   try{
     const resp = await fetch(url, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(body),
-      signal: abort.signal
+      method:"POST", headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify(body), signal: abort.signal
     });
     const txt = await resp.text();
     let data = null; try{ data = JSON.parse(txt); }catch(_){}
@@ -374,19 +324,16 @@ async function callModel(model, body){
     return { ok:true, reply: sanitizeReply(reply) };
   }catch(e){
     return { ok:false, error: String(e && e.message || e), code: "network_or_timeout" };
-  }finally{
-    clearTimeout(t);
-  }
+  }finally{ clearTimeout(t); }
 }
 async function tryModelsSequential(body){
   const errors = {};
   for (const model of MODEL_POOL){
-    // retry once if 429/500-range
     const r1 = await callModel(model, body);
     if (r1.ok) return { ok:true, model, reply: r1.reply };
     errors[model] = r1.error;
     if (String(r1.code).startsWith("5") || String(r1.code) === "429"){
-      await new Promise(res=>setTimeout(res, 600)); // brief backoff
+      await new Promise(res=>setTimeout(res, 600));
       const r2 = await callModel(model, body);
       if (r2.ok) return { ok:true, model, reply: r2.reply };
       errors[model] += ` | retry:${r2.error}`;
@@ -395,7 +342,6 @@ async function tryModelsSequential(body){
   return { ok:false, errors };
 }
 
-/* ===== gender note ===== */
 function genderHint(sex){
   if(sex==="female") return "المخاطبة: مؤنث (إن لزم).";
   if(sex==="male")   return "المخاطبة: مذكّر (إن لزم).";
@@ -431,58 +377,51 @@ function buildModelBody(pack, messages, state, intent, energy, extraUserDirectiv
   const contents = toGeminiContents(messages);
   contents.push({ role:"user", parts:[{ text: summary.join("\n") }] });
 
-  return {
-    systemInstruction: { role:"system", parts:[{ text: systemText }] },
-    contents,
-    safetySettings: []
-  };
+  return { systemInstruction: { role:"system", parts:[{ text: systemText }] }, contents, safetySettings: [] };
 }
 
-/* ===== Handler ===== */
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return jsonRes(204, {});
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
 
-  // subscription
   try{
     const gate = await ensureActiveSubscription(event);
     if(!gate.ok) return bad(gate.code, gate.msg);
-  }catch(_){
-    return bad(500, "subscription_gate_error");
-  }
+  }catch(_){ return bad(500, "subscription_gate_error"); }
 
-  // parse
   let body = {};
   try{ body = JSON.parse(event.body || "{}"); }
   catch{ return bad(400, "invalid_json_body"); }
 
   const messages = Array.isArray(body.messages) ? body.messages.map(m=>({ role:String(m.role||"").toLowerCase(), content:String(m.content||"") })) : [];
-  const scope = String(body.scope||"diet_only").toLowerCase();
+
+  // 🔒 التغيير الحاسم: لا ردّ إطلاقًا إن لم يصل نص من المستخدم
+  if (!messages.length) return ok({ reply: "", model: "no-op", diagnostics:{ reason:"no_messages_provided" } });
+
   const lastUser = lastUserMessage(messages);
   const lastAssistant = lastOfRole(messages, "assistant");
-  const isGreetingOnly = (!messages.length) || GREET_RE.test(String(lastUser||"").trim());
+  const hasUserUtterance = typeof lastUser === "string" && lastUser.trim().length > 0;
 
-  // load pack
+  // تحية فقط الآن تُفعّل فقط إن وُجدت رسالة مستخدم وتطابق التحية
+  const isGreetingOnly = hasUserUtterance && GREET_RE.test(String(lastUser||"").trim());
+
   let pack;
   try{ pack = await loadPack(false); }
   catch(e){ pack = {}; }
 
-  // scope guard
-  const offscopeQuick = (scope === "diet_only") && lastUser && !GREET_RE.test(lastUser) && !SCOPE_ALLOW_RE.test(lastUser);
-  const intent = isGreetingOnly ? "greet" : detectIntent(lastUser, pack);
+  const offscopeQuick = hasUserUtterance && !GREET_RE.test(lastUser) && !SCOPE_ALLOW_RE.test(lastUser);
+  const intent = isGreetingOnly ? "greet" : (hasUserUtterance ? detectIntent(lastUser, pack) : "chat");
 
-  // state + energy
   const state = buildState(messages, pack);
   const energy = computeEnergy(state, pack);
 
-  // repeat previous unanswered
   let repeatPreviousQuestion = false;
   let previousQuestionText = null;
   if(lastAssistant){
     const hadQuestion = /[؟?]/.test(lastAssistant);
     if(hadQuestion){
-      const ambiguous = /\b(نعم|اي|أجل|تمام|طيب|اوكي|موافق|اكيد|Yes|Yeah|Ok|Okay)\b/i.test(String(lastUser||""));
+      const ambiguous = isAmbiguousAffirmation(lastUser);
       const missNow = computeMissing(state, intent);
       if(ambiguous || missNow.length>0){
         repeatPreviousQuestion = true;
@@ -491,7 +430,6 @@ exports.handler = async (event) => {
     }
   }
 
-  // greeting only → try models, else safe fallback (no more model_failed_greeting)
   if(isGreetingOnly){
     const greetingText = String(pack?.prompts?.greeting || "وعليكم السلام ورحمة الله، أهلًا بك! ما هدفك الآن؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.");
     const bodyModel = {
@@ -501,16 +439,10 @@ exports.handler = async (event) => {
     };
     const attempt = await tryModelsSequential(bodyModel);
     if(attempt.ok) return ok({ reply: attempt.reply, model: attempt.model });
-    // fallback greeting (prevents model_failed_greeting)
-    return ok({
-      reply: greetingText,
-      model: "server-fallback",
-      diagnostics: { reason: "all_models_failed_on_greeting", errors: attempt.errors }
-    });
+    return ok({ reply: greetingText, model: "server-fallback", diagnostics:{ reason:"all_models_failed_on_greeting" } });
   }
 
-  // off-scope
-  if(offscopeQuick || intent === "off_scope"){
+  if(offscopeQuick){
     const offScopeDirective = String(pack?.prompts?.off_scope || "أعتذر بلطف، اختصاصي تغذية فقط. أعد صياغة سؤالك ضمن التغذية (أنظمة، سعرات/ماكروز، وجبات، بدائل، حساسيات…). ما هدفك الغذائي الآن؟");
     const bodyModel = {
       systemInstruction: { role:"system", parts:[{ text: systemPromptFromPack(pack) }] },
@@ -519,17 +451,15 @@ exports.handler = async (event) => {
     };
     const attempt = await tryModelsSequential(bodyModel);
     if(attempt.ok) return ok({ reply: attempt.reply, model: attempt.model });
-    return ok({ reply: offScopeDirective, model: "server-fallback", diagnostics:{ reason:"all_models_failed_offscope", errors: attempt.errors } });
+    return ok({ reply: offScopeDirective, model: "server-fallback", diagnostics:{ reason:"all_models_failed_offscope" } });
   }
 
-  // repeat previous question
   if(repeatPreviousQuestion && previousQuestionText){
     const text = (pack?.prompts?.repeat_unanswered || "يبدو أن سؤالي السابق لم يُجب بعد. للمتابعة بدقة: {{question}}")
       .replace("{{question}}", previousQuestionText.trim());
     return ok({ reply: text, model: "server-guard" });
   }
 
-  // missing fields
   const missing = computeMissing(state, intent);
   if(missing.length>0){
     if(missing.length <= 2){
@@ -542,18 +472,10 @@ exports.handler = async (event) => {
     }
   }
 
-  // build model body & call
   const bodyModel = buildModelBody(pack, messages, state, intent, energy, null);
   const attempt = await tryModelsSequential(bodyModel);
-  if (attempt.ok){
-    return ok({ reply: attempt.reply, model: attempt.model });
-  }
+  if (attempt.ok) return ok({ reply: attempt.reply, model: attempt.model });
 
-  // ultimate fallback (non-greeting path)
   const safeFallback = "حدث تعذّر مؤقّت في توليد الرد. أعد المحاولة لاحقًا أو أرسل: وزنك/طولك/عمرك/جنسك/نشاطك وهدفك وسأحسبها لك فورًا.";
-  return ok({
-    reply: safeFallback,
-    model: "server-fallback",
-    diagnostics: { reason:"all_models_failed_main", errors: attempt.errors }
-  });
+  return ok({ reply: safeFallback, model: "server-fallback", diagnostics:{ reason:"all_models_failed_main" } });
 };

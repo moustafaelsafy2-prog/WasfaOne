@@ -130,10 +130,10 @@
     .tl-pill .grams{ display:block; font-weight:900; font-size:18px; margin-top:4px }
     
     /* Standard Macro Colors */
-    .tl-energy { background: #fef2f2; border-color: #f87171; color: #b91c1c; } /* Red for Energy/Calories */
-    .tl-protein { background: #eff6ff; border-color: #60a5fa; color: #1e40af; } /* Blue for Protein */
-    .tl-carbs { background: #f0fdf4; border-color: #4ade80; color: #15803d; } /* Green for Carbs */
-    .tl-fat { background: #fffbeb; border-color: #facc15; color: #a16207; } /* Yellow for Fat */
+    .tl-energy { background: #fef2f2; border-color: #f87171; color: #b91c1c; } 
+    .tl-protein { background: #eff6ff; border-color: #60a5fa; color: #1e40af; } 
+    .tl-carbs { background: #f0fdf4; border-color: #4ade80; color: #15803d; } 
+    .tl-fat { background: #fffbeb; border-color: #facc15; color: #a16207; } 
     
     /* Ingredients & Steps */
     .panel{ position:sticky; top:24px; background:#fff; border:1px solid var(--line); border-radius:22px; padding:22px; box-shadow:0 12px 30px rgba(0,0,0,.04) }
@@ -211,6 +211,11 @@
     .chat-input button{
       border-radius:12px; padding:10px 14px; background:#25D366; color:#fff; font-weight:800;
     }
+
+    /* تنسيقات مساعدة لوضع المخصص */
+    .locked { opacity: .7; pointer-events: none; }
+    .hint { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+    .hint strong { color: var(--ink); }
   </style>
 </head>
 <body class="p-4 md:p-8">
@@ -252,7 +257,8 @@
         </div>
         <div class="form-group">
           <label for="calorieTarget" class="form-label">سعرات الحصة</label>
-          <input id="calorieTarget" type="number" min="100" max="2000" step="50" value="550" class="form-field" placeholder="مثال: 500">
+          <input id="calorieTarget" type="number" min="100" max="2000" step="1" value="550" class="form-field" placeholder="مثال: 500">
+          <p id="calorieHint" class="hint"></p>
         </div>
       </div>
 
@@ -268,6 +274,12 @@
         <div class="form-group">
           <label for="customFat" class="form-label">دهون (جم/حصة)</label>
           <input id="customFat" type="number" min="0" step="1" value="20" class="form-field" placeholder="مثال: 20">
+        </div>
+        <div class="sm:col-span-3">
+          <p class="hint">
+            في <strong>النظام المخصّص</strong> يتم حساب السعرات تلقائيًا من الماكروز: 
+            4×بروتين + 4×كربوهيدرات + 9×دهون. لا حاجة لتعديل حقل السعرات يدويًا.
+          </p>
         </div>
       </div>
 
@@ -343,7 +355,7 @@
         </h3>
         <div id="preparationSteps" class="steps-list"></div>
 
-        <!-- قسم طريقة التقديم (جديد) -->
+        <!-- قسم طريقة التقديم -->
         <div class="mt-8">
           <h3 class="section-title">
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16"/><path d="M10 2v2"/><path d="M14 2v2"/><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 10h8"/><path d="M8 14h6"/></svg>
@@ -355,7 +367,7 @@
     </section>
   </div>
 
-  <!-- زر ونافذة محادثة واتساب (جديد) -->
+  <!-- زر ونافذة محادثة واتساب -->
   <button id="chatFab" class="chat-fab">
     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 12.1a9.5 9.5 0 1 1-17.1 5.9L3 22l4.2-1.2a9.5 9.5 0 1 1 14.3-8.7z"/><path d="M8 12a4 4 0 0 0 4 4"/><path d="M9 10h.01"/><path d="M15 10h.01"/></svg>
     <span>محادثة</span>
@@ -392,7 +404,8 @@
         statusMsg=$('statusMsg'), errMsg=$('errorMsg'),
         banner=$('banner'), toast=$('toast'), dietHelp=$('dietHelp'),
         customBox=$('customMacrosBox'), customProtein=$('customProtein'),
-        customCarbs=$('customCarbs'), customFat=$('customFat');
+        customCarbs=$('customCarbs'), customFat=$('customFat'),
+        calorieHint=$('calorieHint');
 
   // outputs
   const resultContainer = $('resultContainer'), contentArea = $('contentArea'),
@@ -562,8 +575,6 @@
     const names = (view.ingredients||[]).map(i=>String(i.name||"").toLowerCase());
     const has = (k)=> names.some(n=> n.includes(k));
     const out = [];
-
-    // قواعد حتمية وبسيطة — نفس المدخلات → نفس المخرجات
     if (c.includes("متوسطي") || c.includes("شرق") || c.includes("شامي") || c.includes("مصري")){
       out.push("قدّم الطبق مع سلطة خضراء طازجة ورشة زيت زيتون بكر ممتاز.");
       out.push("أضف رشة سماق/زعتر أو ليمون للتعزيز.");
@@ -584,6 +595,35 @@
       out.push("قدّم الطبق دافئًا مع طبق جانبي خفيف يتماشى مع النظام الغذائي المحدد.");
     }
     return Array.from(new Set(out)).slice(0,5);
+  }
+
+  /* ======= حساب السعرات من الماكروز (وضع المخصص) ======= */
+  function calcCaloriesFromMacros(p,c,f){
+    const P = Number(p)||0, C = Number(c)||0, F = Number(f)||0;
+    const kcal = (4*P) + (4*C) + (9*F);
+    return Math.max(0, Math.round(kcal)); // قَطع للأقرب
+  }
+  function isCustomDiet(){ return String(dietType.value) === 'custom'; }
+
+  function syncCaloriesLockUI(){
+    const custom = isCustomDiet();
+    calorieTarget.readOnly = custom;
+    calorieTarget.classList.toggle('locked', custom);
+    if (custom){
+      const v = calcCaloriesFromMacros(customProtein.value, customCarbs.value, customFat.value);
+      calorieTarget.value = v;
+      calorieHint.innerHTML = `السعرات محسوبة من الماكروز: <strong>${v} kcal</strong> (4×بروتين + 4×كربوهيدرات + 9×دهون).`;
+    }else{
+      calorieHint.textContent = "";
+    }
+  }
+
+  function bindCustomMacrosSync(){
+    ["input","change"].forEach(evt=>{
+      customProtein.addEventListener(evt, ()=>{ if(isCustomDiet()){ calorieTarget.value = calcCaloriesFromMacros(customProtein.value, customCarbs.value, customFat.value); syncCaloriesLockUI(); }});
+      customCarbs.addEventListener(evt,   ()=>{ if(isCustomDiet()){ calorieTarget.value = calcCaloriesFromMacros(customProtein.value, customCarbs.value, customFat.value); syncCaloriesLockUI(); }});
+      customFat.addEventListener(evt,     ()=>{ if(isCustomDiet()){ calorieTarget.value = calcCaloriesFromMacros(customProtein.value, customCarbs.value, customFat.value); syncCaloriesLockUI(); }});
+    });
   }
 
   function render(view, note, warning){
@@ -636,19 +676,25 @@
     try{
       const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
       if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
-      const isCustom = (dietType.value === 'custom');
-      const customMacros = isCustom ? {
-        protein_g: Number(customProtein.value)||0,
-        carbs_g: Number(customCarbs.value)||0,
-        fat_g: Number(customFat.value)||0
-      } : null;
-
+      const custom = isCustomDiet();
+      // التحقق من الماكروز عند المخصص
+      if(custom){
+        const p=+customProtein.value||0, c=+customCarbs.value||0, f=+customFat.value||0;
+        if(p<=0 && c<=0 && f<=0){ setError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); btn.disabled=false; spin.classList.add('hidden'); return; }
+        const kcal = calcCaloriesFromMacros(p,c,f);
+        calorieTarget.value = kcal; // تأكيد التطابق قبل الإرسال
+      }
+      // إعداد الحِمل
       const payload={
         mealType:mealType.value,
         cuisine:cuisine.value,
         dietType:dietType.value,
-        caloriesTarget:Number(calorieTarget.value)||500,
-        customMacros,
+        caloriesTarget: custom ? Number(calorieTarget.value)||0 : (Number(calorieTarget.value)||500),
+        customMacros: custom ? {
+          protein_g: Number(customProtein.value)||0,
+          carbs_g: Number(customCarbs.value)||0,
+          fat_g: Number(customFat.value)||0
+        } : null,
         allergies,
         availableIngredients: parseAvailableList(availableIngredients.value),
         lang:"ar"
@@ -682,9 +728,11 @@
 
       function handleDietChange(){
         const dId = dietType.value;
+        const custom = (dId==='custom');
         const current = diets.find(d=>String(d.id)===String(dId));
         dietHelp.textContent = current?.description_ar || "";
-        customBox.classList.toggle('hidden', dId!=='custom');
+        customBox.classList.toggle('hidden', !custom);
+        syncCaloriesLockUI();
       }
       dietType.addEventListener('change', handleDietChange);
       handleDietChange();
@@ -713,20 +761,18 @@
   function pushMsg(role, text){
     const div = document.createElement('div');
     div.className = `msg ${role==="user"?"me":"bot"}`;
-    div.innerHTML = `${text.replace(/\n/g,'<br>')}<span class="time">${nowTime()}</span>`;
+    div.innerHTML = `${String(text||"").replace(/\n/g,'<br>')}<span class="time">${nowTime()}</span>`;
     chatBody.appendChild(div);
     chatBody.scrollTop = chatBody.scrollHeight;
   }
   async function sendChat(){
     const t = (chatInput.value||"").trim();
     if(!t) return;
-    // add user message
     chatState.messages.push({ role:"user", content:t });
     pushMsg("user", t);
     chatInput.value="";
     try{
       const { reply } = await callAssistantAPI(chatState.messages);
-      // add assistant message
       chatState.messages.push({ role:"assistant", content: reply });
       pushMsg("assistant", reply);
     }catch(e){
@@ -738,13 +784,18 @@
     ensureSessionOrRedirect();
     loadPublicSettingsAndBind();
     resetView();
+    bindCustomMacrosSync();
+    syncCaloriesLockUI();
     
     btn.addEventListener('click', ()=>{
       const v=+calorieTarget.value||0;
-      if(v<100||v>2000){ setError("أدخل سعرات بين 100 و 2000"); return; }
-      if(dietType.value==='custom'){
+      if(!isCustomDiet()){
+        if(v<100||v>2000){ setError("أدخل سعرات بين 100 و 2000"); return; }
+      }else{
+        // في المخصص نتحقق منطقيًا فقط (الكالوري من الماكروز قد تتجاوز 2000 حسب إدخال المستخدم)
         const p=+customProtein.value||0, c=+customCarbs.value||0, f=+customFat.value||0;
         if(p<=0 && c<=0 && f<=0){ setError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); return; }
+        calorieTarget.value = calcCaloriesFromMacros(p,c,f);
       }
       resetView(); generate();
     });

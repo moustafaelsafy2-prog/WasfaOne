@@ -169,7 +169,6 @@
     @keyframes ripple { from { width: 0; height: 0; opacity: 0.6; } to { width: 340px; height: 340px; opacity: 0; } }
 
     .faq-item { border: 1px solid var(--line); border-radius: 16px; background: #fff; }
-    .faq-q { cursor: pointer; }
 
     /* Wave separator */
     .wave { display: block; width: 100%; line-height: 0; }
@@ -231,10 +230,17 @@
         <a href="#stats" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأرقام</a>
         <a href="#testimonials" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">آراء المستخدمين</a>
         <a href="#faq" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأسئلة</a>
+        <a href="#" id="navSignup" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition">إنشاء حساب</a>
       </nav>
-      <a href="login.html" class="hidden md:inline-block px-6 py-2 rounded-lg font-bold bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] transition">
-        الدخول للأداة
-      </a>
+      <div class="flex items-center gap-3">
+        <button type="button" id="ctaHeaderSignup"
+          class="hidden md:inline-block px-6 py-2 rounded-lg font-bold border border-[var(--line)] bg-white hover:bg-gray-50">
+          إنشاء حساب
+        </button>
+        <a href="login.html" class="hidden md:inline-block px-6 py-2 rounded-lg font-bold bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] transition">
+          الدخول للأداة
+        </a>
+      </div>
     </div>
   </header>
 
@@ -248,10 +254,10 @@
       <p class="text-lg md:text-xl max-w-3xl mb-8 text-gray-200" data-aos="fade-up" data-aos-delay="200">
         اكتشف مئات الوصفات الصحية والشهية التي تناسب أهدافك. الطبخ الصحي أصبح أسهل وأكثر متعة من أي وقت مضى.
       </p>
-      <a href="login.html" class="cta-button" data-aos="fade-up" data-aos-delay="400" id="ctaStart">
+      <button type="button" class="cta-button" data-aos="fade-up" data-aos-delay="400" id="ctaStart">
         <span>ابدأ رحلتك الصحية الآن</span>
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-      </a>
+      </button>
     </div>
   </section>
 
@@ -353,7 +359,7 @@
                 <li>جميع الأنظمة الغذائية</li>
                 <li>دعم أساسي</li>
               </ul>
-              <a href="login.html" class="mt-auto cta-button justify-center">ابدأ التجربة الآن</a>
+              <button type="button" class="mt-auto cta-button justify-center" id="ctaTrial">ابدأ التجربة الآن</button>
             </div>
 
             <!-- Monthly -->
@@ -370,7 +376,7 @@
                 <li>تخصيص حساسية ومكوّنات</li>
                 <li>تحديثات مستمرة</li>
               </ul>
-              <a href="login.html" class="mt-auto cta-button justify-center">اشترك شهريًا</a>
+              <button type="button" class="mt-auto cta-button justify-center plan-cta" data-plan="monthly">اشترك شهريًا</button>
               <div class="mt-3 text-xs text-[var(--muted)] text-center">يمكنك الترقية/التخفيض أو الإلغاء بأي وقت.</div>
             </div>
 
@@ -391,7 +397,7 @@
                 <li>أفضل سعر</li>
                 <li>أولوية دعم</li>
               </ul>
-              <a href="login.html" class="mt-auto cta-button justify-center">اشترك سنويًا</a>
+              <button type="button" class="mt-auto cta-button justify-center plan-cta" data-plan="yearly">اشترك سنويًا</button>
               <div class="mt-3 text-xs text-[var(--muted)] text-center">عدّل خطتك أو رقِّها خلال السنة.</div>
             </div>
           </div>
@@ -546,7 +552,7 @@
 
       <!-- FAQ (concise) -->
       <section id="faq" class="py-16">
-        <h2 class="text-3ص md:text-4xl font-black text-center mb-10" data-aos="fade-up">الأسئلة الشائعة</h2>
+        <h2 class="text-3xl md:text-4xl font-black text-center mb-10" data-aos="fade-up">الأسئلة الشائعة</h2>
         <div class="grid md:grid-cols-2 gap-5">
           <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="100">
             <button class="faq-q w-full flex items-center justify-between text-right">
@@ -624,7 +630,7 @@
         <div class="modal-grid">
           <div class="contact-card">
             <div class="flex items-center gap-2 mb-2">
-              <span class="icon-chip green"><i data-lucide="message-circle" class="w-5 ه-5"></i></span>
+              <span class="icon-chip green"><i data-lucide="message-circle" class="w-5 h-5"></i></span>
               <div class="font-bold">واتساب الرسمي</div>
             </div>
             <p class="text-sm text-[var(--muted)] mb-3">إرسال كلمة: <span class="font-bold text-[var(--ink)]">“اشتراك Wasfa”</span> مع الاسم.</p>
@@ -666,9 +672,7 @@
     </div>
   </div>
 
-  <!-- (اختياري) سكربت خارجي — احفظه إن كان لديك -->
   <!-- <script src="assets/app.js"></script> -->
-
   <script>
     // Init libraries
     AOS.init({ duration: 800, once: true, offset: 100 });
@@ -710,6 +714,7 @@
     }
     attachCTAEffects(document.getElementById('ctaStart'));
     attachCTAEffects(document.getElementById('ctaFooter'));
+    attachCTAEffects(document.getElementById('ctaHeaderSignup'));
 
     // Carousel (3 slides, 2 quotes each)
     (function initCarousel(){
@@ -777,21 +782,17 @@
         const res = await fetch('/data/settings.json?ts=' + Date.now(), { cache: 'no-store' });
         if (!res.ok) return;
         const s = await res.json();
-        // توقع وجود s.pricing (إن وُضع من لوحة الأدمن)
         if (s && s.pricing) {
           pricing.monthly_aed = Number(s.pricing.monthly_aed ?? pricing.monthly_aed);
           pricing.yearly_per_month_aed = Number(s.pricing.yearly_per_month_aed ?? pricing.yearly_per_month_aed);
           pricing.yearly_total_aed = Number(s.pricing.yearly_total_aed ?? pricing.yearly_total_aed);
           pricing.trial_days = Number(s.pricing.trial_days ?? pricing.trial_days);
         }
-      } catch { /* تجاهل */ }
+      } catch {}
       finally {
-        // حدث العرض
         priceMonthlyEl.textContent = pricing.monthly_aed;
         priceYearlyPerMonthEl.textContent = pricing.yearly_per_month_aed;
         priceYearlyTotalEl.textContent = pricing.yearly_total_aed;
-        // أيضاً حدث نص التجربة إن رغبت
-        document.querySelector('#pricing .rounded-2xl .text-4xl span').textContent = 0; // مجانًا للتجربة
       }
     }
     loadPublicSettings();
@@ -799,20 +800,23 @@
     function activateMonthly(){
       btnMonthly.classList.add('bg-[var(--brand)]','text-white');
       btnYearly.classList.remove('bg-[var(--brand)]','text-white');
-      document.getElementById('priceMonthly').closest('.rounded-2xl').scrollIntoView({ behavior: 'smooth', block:'center' });
     }
     function activateYearly(){
       btnYearly.classList.add('bg-[var(--brand)]','text-white');
       btnMonthly.classList.remove('bg-[var(--brand)]','text-white');
-      document.getElementById('priceYearlyPerMonth').closest('.rounded-2xl').scrollIntoView({ behavior: 'smooth', block:'center' });
     }
     btnMonthly?.addEventListener('click', activateMonthly);
     btnYearly?.addEventListener('click', activateYearly);
 
     // ===== Signup Modal =====
-    const overlay = document.getElementById('signupOverlay');
-    const openBtn = document.getElementById('ctaFooter');
-    const closeBtn = document.getElementById('signupClose');
+    const overlay   = document.getElementById('signupOverlay');
+    const openBtnF  = document.getElementById('ctaFooter');
+    const openBtnH  = document.getElementById('ctaHeaderSignup');
+    const openBtnHi = document.getElementById('ctaStart');
+    const openTrial = document.getElementById('ctaTrial');
+    const navSignup = document.getElementById('navSignup');
+    const planCtas  = document.querySelectorAll('.plan-cta');
+    const closeBtn  = document.getElementById('signupClose');
     const closeBtn2 = document.getElementById('signupClose2');
 
     function openModal(){
@@ -828,14 +832,14 @@
       setTimeout(()=> { overlay.style.display = 'none'; }, 200);
       document.body.style.overflow = '';
     }
-    if(openBtn){ openBtn.addEventListener('click', openModal); }
-    if(closeBtn){ closeBtn.addEventListener('click', closeModal); }
-    if(closeBtn2){ closeBtn2.addEventListener('click', closeModal); }
+
+    [openBtnF, openBtnH, openBtnHi, openTrial, navSignup].forEach(btn => {
+      if (btn) btn.addEventListener('click', (e)=> { e.preventDefault?.(); openModal(); });
+    });
+    planCtas.forEach(b => b.addEventListener('click', openModal));
+    [closeBtn, closeBtn2].forEach(btn => btn?.addEventListener('click', closeModal));
     overlay.addEventListener('click', (e)=> { if(e.target === overlay) closeModal(); });
     document.addEventListener('keydown', (e)=> { if(e.key === 'Escape' && overlay.style.display === 'flex') closeModal(); });
-
-    // ===== Demo (non-AI) quick example (optional) =====
-    // (محذوف هنا لعدم الحاجة — الصفحة تسوّيقية + تسعير)
   </script>
 </body>
 </html>

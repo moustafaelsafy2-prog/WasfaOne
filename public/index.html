@@ -192,28 +192,6 @@
       background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.25);
       margin-bottom: .5rem;
     }
-
-    /* Modal */
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(15,23,42,.55);
-      display: none; align-items: center; justify-content: center; z-index: 70;
-      padding: 16px;
-    }
-    .modal {
-      width: 100%; max-width: 720px; border-radius: 24px; background: #fff; border: 1px solid var(--line);
-      box-shadow: 0 30px 60px -20px rgba(0,0,0,.25);
-      overflow: hidden; transform: translateY(12px) scale(.98); opacity: 0; transition: .25s ease;
-    }
-    .modal.open { transform: translateY(0) scale(1); opacity: 1; }
-    .modal-head { display:flex; align-items:center; justify-content:space-between; padding: 18px 22px; border-bottom:1px solid var(--line); }
-    .modal-body { padding: 18px 22px 22px; }
-    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    @media (max-width:768px){ .modal-grid{grid-template-columns:1fr} }
-    .contact-card { border:1px solid var(--line); border-radius:18px; padding:14px; background:#fff; }
-    .contact-card:hover { box-shadow: 0 12px 30px rgba(0,0,0,.06); transform: translateY(-2px); transition: .2s ease; }
-    .contact-btn { display:flex; align-items:center; justify-content:center; gap:.5rem; border-radius:12px; padding:12px; font-weight:800; color:#fff }
-    .btn-wa { background:#10b981; }
-    .btn-call { background:#ef4444; }
   </style>
 </head>
 <body class="antialiased">
@@ -230,13 +208,14 @@
         <a href="#stats" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأرقام</a>
         <a href="#testimonials" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">آراء المستخدمين</a>
         <a href="#faq" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأسئلة</a>
-        <a href="#" id="navSignup" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition">إنشاء حساب</a>
+        <!-- فتح صفحة التسجيل -->
+        <a href="signup.html" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition">إنشاء حساب</a>
       </nav>
       <div class="flex items-center gap-3">
-        <button type="button" id="ctaHeaderSignup"
-          class="hidden md:inline-block px-6 py-2 rounded-lg font-bold border border-[var(--line)] bg-white hover:bg-gray-50">
+        <a href="signup.html"
+           class="hidden md:inline-block px-6 py-2 rounded-lg font-bold border border-[var(--line)] bg-white hover:bg-gray-50">
           إنشاء حساب
-        </button>
+        </a>
         <a href="login.html" class="hidden md:inline-block px-6 py-2 rounded-lg font-bold bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] transition">
           الدخول للأداة
         </a>
@@ -254,10 +233,11 @@
       <p class="text-lg md:text-xl max-w-3xl mb-8 text-gray-200" data-aos="fade-up" data-aos-delay="200">
         اكتشف مئات الوصفات الصحية والشهية التي تناسب أهدافك. الطبخ الصحي أصبح أسهل وأكثر متعة من أي وقت مضى.
       </p>
-      <button type="button" class="cta-button" data-aos="fade-up" data-aos-delay="400" id="ctaStart">
+      <!-- زر يفتح signup.html -->
+      <a href="signup.html" class="cta-button" data-aos="fade-up" data-aos-delay="400" id="ctaStart">
         <span>ابدأ رحلتك الصحية الآن</span>
         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
-      </button>
+      </a>
     </div>
   </section>
 
@@ -359,7 +339,7 @@
                 <li>جميع الأنظمة الغذائية</li>
                 <li>دعم أساسي</li>
               </ul>
-              <button type="button" class="mt-auto cta-button justify-center" id="ctaTrial">ابدأ التجربة الآن</button>
+              <a href="signup.html" class="mt-auto cta-button justify-center">ابدأ التجربة الآن</a>
             </div>
 
             <!-- Monthly -->
@@ -376,7 +356,7 @@
                 <li>تخصيص حساسية ومكوّنات</li>
                 <li>تحديثات مستمرة</li>
               </ul>
-              <button type="button" class="mt-auto cta-button justify-center plan-cta" data-plan="monthly">اشترك شهريًا</button>
+              <a href="signup.html" class="mt-auto cta-button justify-center">اشترك شهريًا</a>
               <div class="mt-3 text-xs text-[var(--muted)] text-center">يمكنك الترقية/التخفيض أو الإلغاء بأي وقت.</div>
             </div>
 
@@ -397,7 +377,7 @@
                 <li>أفضل سعر</li>
                 <li>أولوية دعم</li>
               </ul>
-              <button type="button" class="mt-auto cta-button justify-center plan-cta" data-plan="yearly">اشترك سنويًا</button>
+              <a href="signup.html" class="mt-auto cta-button justify-center">اشترك سنويًا</a>
               <div class="mt-3 text-xs text-[var(--muted)] text-center">عدّل خطتك أو رقِّها خلال السنة.</div>
             </div>
           </div>
@@ -576,7 +556,7 @@
             <div class="faq-a hidden pt-3 text-[var(--muted)]">نعم، يمكن تحديدها ببساطة داخل الأداة.</div>
           </div>
           <div class="faq-item p-5" data-aos="fade-up" data-aos-delay="250">
-            <button class="faq-q w-full flex items-center justify-between text-right">
+            <button class="faq-q و-full flex items-center justify-between text-right">
               <span class="font-bold text-lg">هل أستطيع تعديل خطتي لاحقًا؟</span>
               <i data-lucide="chevron-down" class="w-5 h-5"></i>
             </button>
@@ -600,9 +580,10 @@
         <p class="max-w-xl mx-auto mb-8 text-[var(--muted)]">
             انضم إلى مجتمعنا اليوم وابدأ رحلتك نحو حياة صحية مليئة بالطعم الرائع.
         </p>
-        <button type="button" class="cta-button" id="ctaFooter">
+        <!-- زر التسجيل يفتح صفحة التسجيل -->
+        <a href="signup.html" class="cta-button" id="ctaFooter">
             <span>أنشئ حسابك الآن</span>
-        </button>
+        </a>
       <div class="border-t border-[var(--line)] mt-12 pt-8">
         <p class="text-sm text-gray-500">&copy; 2024 Wasfa. جميع الحقوق محفوظة.</p>
       </div>
@@ -614,63 +595,7 @@
     <i data-lucide="messages-square" class="w-6 h-6"></i>
   </a>
 
-  <!-- Signup Modal -->
-  <div id="signupOverlay" class="modal-overlay">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="signupTitle">
-      <div class="modal-head">
-        <h3 id="signupTitle" class="text-xl font-black">إنشاء حساب — قنواتنا الرسمية</h3>
-        <button id="signupClose" class="p-2 rounded-lg hover:bg-gray-100" aria-label="إغلاق">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <p class="text-[var(--muted)] mb-4">
-          لإنشاء حساب جديد برجاء التواصل عبر إحدى القنوات التالية:
-        </p>
-        <div class="modal-grid">
-          <div class="contact-card">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="icon-chip green"><i data-lucide="message-circle" class="w-5 h-5"></i></span>
-              <div class="font-bold">واتساب الرسمي</div>
-            </div>
-            <p class="text-sm text-[var(--muted)] mb-3">إرسال كلمة: <span class="font-bold text-[var(--ink)]">“اشتراك Wasfa”</span> مع الاسم.</p>
-            <a class="contact-btn btn-wa" href="https://wa.me/971502061209?text=%D8%A7%D8%B4%D8%AA%D8%B1%D8%A7%D9%83%20Wasfa%20-%20%D8%A7%D8%B3%D9%85%D9%8A%3A" target="_blank" rel="noopener">
-              <i data-lucide="send" class="w-5 h-5"></i><span>بدء محادثة واتساب</span>
-            </a>
-          </div>
-          <div class="contact-card">
-            <div class="flex items-center gap-2 mb-2">
-              <span class="icon-chip"><i data-lucide="phone" class="w-5 h-5"></i></span>
-              <div class="font-bold">اتصال هاتفي</div>
-            </div>
-            <p class="text-sm text-[var(--muted)] mb-3">فريقنا متاح يوميًا 9 صباحًا — 9 مساءً.</p>
-            <a class="contact-btn btn-call" href="tel:00971502061209">
-              <i data-lucide="phone-call" class="w-5 h-5"></i><span>اتصل الآن: 00971502061209</span>
-            </a>
-          </div>
-        </div>
-
-        <div class="mt-5 grid sm:grid-cols-3 gap-3">
-          <div class="p-3 rounded-xl border border-[var(--line)]">
-            <div class="text-sm font-bold mb-1">التحقق</div>
-            <div class="text-xs text-[var(--muted)]">بيانات أساسية لتفعيل الحساب.</div>
-          </div>
-          <div class="p-3 rounded-xl border border-[var(--line)]">
-            <div class="text-sm font-bold mb-1">الدفع الآمن</div>
-            <div class="text-xs text-[var(--muted)]">خيارات مرنة وآمنة.</div>
-          </div>
-          <div class="p-3 rounded-xl border border-[var(--line)]">
-            <div class="text-sm font-bold mb-1">التفعيل السريع</div>
-            <div class="text-xs text-[var(--muted)]">يعمل حسابك فور الإتمام.</div>
-          </div>
-        </div>
-
-        <div class="mt-4 text-end">
-          <button id="signupClose2" class="px-4 py-2 rounded-lg border border-[var(--line)] hover:bg-gray-50 font-bold">إغلاق</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- (تمت إزالة نافذة التسجيل المنبثقة وكل ما يتعلق بها) -->
 
   <!-- <script src="assets/app.js"></script> -->
   <script>
@@ -692,7 +617,7 @@
     };
     window.addEventListener('scroll', parallax, { passive: true });
 
-    // CTA hover/ripple
+    // CTA hover/ripple (تعمل مع <a> أيضًا)
     function attachCTAEffects(btn) {
       if (!btn) return;
       btn.addEventListener('mousemove', (e) => {
@@ -714,7 +639,6 @@
     }
     attachCTAEffects(document.getElementById('ctaStart'));
     attachCTAEffects(document.getElementById('ctaFooter'));
-    attachCTAEffects(document.getElementById('ctaHeaderSignup'));
 
     // Carousel (3 slides, 2 quotes each)
     (function initCarousel(){
@@ -807,39 +731,6 @@
     }
     btnMonthly?.addEventListener('click', activateMonthly);
     btnYearly?.addEventListener('click', activateYearly);
-
-    // ===== Signup Modal =====
-    const overlay   = document.getElementById('signupOverlay');
-    const openBtnF  = document.getElementById('ctaFooter');
-    const openBtnH  = document.getElementById('ctaHeaderSignup');
-    const openBtnHi = document.getElementById('ctaStart');
-    const openTrial = document.getElementById('ctaTrial');
-    const navSignup = document.getElementById('navSignup');
-    const planCtas  = document.querySelectorAll('.plan-cta');
-    const closeBtn  = document.getElementById('signupClose');
-    const closeBtn2 = document.getElementById('signupClose2');
-
-    function openModal(){
-      overlay.style.display = 'flex';
-      requestAnimationFrame(()=> {
-        overlay.querySelector('.modal').classList.add('open');
-      });
-      document.body.style.overflow = 'hidden';
-    }
-    function closeModal(){
-      const modal = overlay.querySelector('.modal');
-      modal.classList.remove('open');
-      setTimeout(()=> { overlay.style.display = 'none'; }, 200);
-      document.body.style.overflow = '';
-    }
-
-    [openBtnF, openBtnH, openBtnHi, openTrial, navSignup].forEach(btn => {
-      if (btn) btn.addEventListener('click', (e)=> { e.preventDefault?.(); openModal(); });
-    });
-    planCtas.forEach(b => b.addEventListener('click', openModal));
-    [closeBtn, closeBtn2].forEach(btn => btn?.addEventListener('click', closeModal));
-    overlay.addEventListener('click', (e)=> { if(e.target === overlay) closeModal(); });
-    document.addEventListener('keydown', (e)=> { if(e.key === 'Escape' && overlay.style.display === 'flex') closeModal(); });
   </script>
 </body>
 </html>

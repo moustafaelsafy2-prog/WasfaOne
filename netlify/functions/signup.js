@@ -1,18 +1,16 @@
 // /netlify/functions/signup.js
 // Self-signup with single-device policy + 7-day Trial window
-// - Stores users in GitHub (data/users.json) just like existing functions
-// - Returns HTTP 200 for both success and friendly errors (consistent UX)
-// - Timezone: Asia/Dubai for all date decisions (trial/window)
+// Stores users in GitHub (data/users.json). All responses HTTP 200 + ok:true/false.
 
-const OWNER = process.env.GITHUB_REPO_OWNER;
-const REPO  = process.env.GITHUB_REPO_NAME;
-const REF   = process.env.GITHUB_REF || "main";
-const GH_TOKEN = process.env.GITHUB_TOKEN;
+const OWNER   = process.env.GITHUB_REPO_OWNER;
+const REPO    = process.env.GITHUB_REPO_NAME;
+const REF     = process.env.GITHUB_REF || "main";
+const GH_TOKEN= process.env.GITHUB_TOKEN;
 
 const GH_API = "https://api.github.com";
 const USERS_PATH = "data/users.json";
 
-/* ------------- HTTP helpers (always 200 to keep FE simple) ------------- */
+/* ---------- HTTP helpers (always 200) ---------- */
 function resOk(payload){
   return {
     statusCode: 200,
@@ -43,15 +41,12 @@ function resErr(reason, ar, en, extra = {}){
   };
 }
 
-/* ------------- GitHub helpers ------------- */
+/* ---------- GitHub helpers ---------- */
 async function ghGetJson(path){
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
     headers: { Authorization: `token ${GH_TOKEN}`, "User-Agent":"WasfaOne" }
   });
-  if (r.status === 404) {
-    // create-on-first-write semantics
-    return { json: [], sha: null };
-  }
+  if (r.status === 404) return { json: [], sha: null };
   if(!r.ok) throw new Error(`GitHub GET ${path} ${r.status}`);
   const data = await r.json();
   const content = Buffer.from(data.content || "", "base64").toString("utf-8");
@@ -76,14 +71,13 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
-/* ------------- Date helpers (Asia/Dubai) ------------- */
+/* ---------- Dates (Asia/Dubai) ---------- */
 function todayDubai(){
   return new Date().toLocaleDateString("en-CA", {
     timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit"
   });
 }
 function addDaysDubai(days){
-  // add days based on UTC then format in Dubai calendar day
   const now = new Date();
   const plus = new Date(now.getTime() + days*24*60*60*1000);
   return plus.toLocaleDateString("en-CA", {
@@ -92,9 +86,11 @@ function addDaysDubai(days){
 }
 function normEmail(x){ return String(x||"").trim().toLowerCase(); }
 
-/* ------------- Handler ------------- */
+/* ---------- Handler ---------- */
 exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"Content-Type", "Access-Control-Allow-Methods":"POST, OPTIONS" } };
+  if (event.httpMethod === "OPTIONS") {
+    return { statusCode: 204, headers: { "Access-Control-Allow-Origin":"*", "Access-Control-Allow-Headers":"Content-Type", "Access-Control-Allow-Methods":"POST, OPTIONS" } };
+  }
   if (event.httpMethod !== "POST"){
     return resErr("method_not_allowed", "الطريقة غير مسموحة", "Method Not Allowed");
   }
@@ -118,22 +114,18 @@ exports.handler = async (event) => {
     const { json: users, sha } = await ghGetJson(USERS_PATH);
     const list = Array.isArray(users) ? users : [];
 
-    // 1) prevent duplicate email
+    // prevent duplicate email
     if (list.some(u => normEmail(u.email) === email)) {
       return resErr("email_exists", "البريد مسجّل مسبقًا", "Email already exists");
     }
-    // 2) prevent multiple accounts on the same device
+    // prevent multiple accounts on the same device
     if (list.some(u => String(u.device_fingerprint||"").trim() === device)) {
       return resErr("device_already_registered", "هذا الجهاز مسجّل مسبقًا بحساب آخر", "This device is already registered with another account");
     }
 
-    // Prepare 7-day trial window (aligned with login/generation window checks)
+    // Prepare 7-day trial window
     const start = todayDubai();
     const end   = addDaysDubai(7);
-
-    // NEW trial fields (for future daily limit logic)
-    const trialExpires = end; // same day as end_date for alignment
-    const dailyLimit   = 2;   // suggested daily cap during trial
 
     const nu = {
       email,
@@ -147,10 +139,10 @@ exports.handler = async (event) => {
       lock_reason: null,
       auth_token: null,
 
-      // Trial model (will be leveraged by future steps in generateRecipe.js)
+      // trial fields
       plan: "trial",
-      trial_expires_at: trialExpires,
-      daily_limit: dailyLimit,
+      trial_expires_at: end,
+      daily_limit: 2,
       used_today: 0,
       last_reset: start
     };
@@ -158,7 +150,6 @@ exports.handler = async (event) => {
     const next = list.concat([nu]);
     await ghPutJson(USERS_PATH, next, sha, `signup: create ${email}`);
 
-    // success
     return resOk({
       user: { email: nu.email, name: nu.name, plan: nu.plan, trial_expires_at: nu.trial_expires_at }
     });

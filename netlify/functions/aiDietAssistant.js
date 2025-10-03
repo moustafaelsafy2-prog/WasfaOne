@@ -1,36 +1,25 @@
 // /netlify/functions/aiDietAssistant.js
-// Diet-only Arabic WhatsApp-like assistant — ultra-precise, context-aware, and resilient.
-// ✅ يتذكّر المحادثة (آخر 16 تبادلاً)
-// ✅ يردّ السلام، ويعيد السؤال نفسه إن لم يُجَب
-// ✅ يلتقط الوزن/الطول/العمر/الجنس/النشاط من أي رسالة سابقة ويُوحّد الوحدات
-// ✅ يتعامل مع الأرقام العربية ٠١٢٣٤٥٦٧٨٩ والقدم/البوصة/الباوند
-// ✅ يكشف النواقص ويسأل فقط ما ينقص (سؤال واحد أو اثنان)
-// ✅ يحسم التعارض (الأحدث ينسخ الأقدم)
-// ✅ حارس نطاق تغذية فقط + تحويل لرد اعتذاري لطيف عند الخروج
-// ✅ يحسب BMR/TDEE على الخادم عند توافر المعطيات ويزوّد النموذج بها
-// ✅ يمنع اقتباس/إعادة لصق كلام المستخدم داخل الرد
-// ✅ ضبط حتمي للنموذج (لا نتائج عشوائية)
+// Diet-only Arabic assistant — deterministic, resilient greeting fallback.
+// Fixes: model_failed_greeting → returns safe greeting fallback instead of 502.
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-/* ===== حوض النماذج (بترتيب المحاولة) ===== */
+/* ===== Stable model pool (prefer generally available IDs) ===== */
 const MODEL_POOL = [
-  "gemini-1.5-pro-latest",
   "gemini-1.5-pro",
-  "gemini-1.5-pro-001",
-  "gemini-1.5-flash-latest",
-  "gemini-1.5-flash"
+  "gemini-1.5-flash",
+  "gemini-pro" // legacy fallback
 ];
 
-/* ===== GitHub (اشتراك + حزمة المعرفة) ===== */
+/* ===== GitHub (subscription) ===== */
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
 const GH_TOKEN = process.env.GITHUB_TOKEN;
 const GH_API = "https://api.github.com";
 const USERS_PATH = "data/users.json";
-const PACK_PATH  = "data/assistant_pack.json"; // هذا الملف أدناه
+const PACK_PATH  = "data/assistant_pack.json";
 
 /* ===== GitHub helpers ===== */
 async function ghGetJson(path){
@@ -43,7 +32,7 @@ async function ghGetJson(path){
   return { json: JSON.parse(content), sha: data.sha };
 }
 
-/* ===== وقت دبي + نافذة الاشتراك ===== */
+/* ===== Dubai date & subscription window ===== */
 function todayDubai(){
   const now = new Date();
   return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
@@ -55,7 +44,7 @@ function withinWindow(start, end){
   return true;
 }
 
-/* ===== HTTP ===== */
+/* ===== HTTP helpers ===== */
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
@@ -66,7 +55,7 @@ const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringif
 const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
 const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
 
-/* ===== اشتراك (يدعم token أو auth_token لتوافق المشاريع) ===== */
+/* ===== subscription gate ===== */
 async function ensureActiveSubscription(event) {
   const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
   const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
@@ -89,7 +78,7 @@ async function ensureActiveSubscription(event) {
   return { ok:true, user };
 }
 
-/* ===== تحميل حزمة المعرفة مع كاش داخلي ===== */
+/* ===== load pack (cached) ===== */
 let PACK_CACHE = { data:null, ts:0 };
 async function loadPack(force=false){
   const maxAgeMs = 5*60*1000;
@@ -100,13 +89,12 @@ async function loadPack(force=false){
     PACK_CACHE = { data: json || {}, ts: now };
     return PACK_CACHE.data || {};
   }catch{
-    // fallback مبسّط (لن يُستخدم غالبًا إذا الملف موجود)
     return {
-      system: "أنت مساعد تغذية عربي عملي ودقيق...",
+      system: "أنت مساعد تغذية عربي عملي ودقيق. رحّب وردّ السلام…",
       prompts:{
-        greeting: "وعليكم السلام ورحمة الله... ما هدفك الحالي؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.",
+        greeting: "وعليكم السلام ورحمة الله، أهلًا بك! ما هدفك الآن؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.",
         off_scope: "أعتذر بلطف، اختصاصي تغذية فقط. ما هدفك الغذائي الآن؟",
-        repeat_unanswered: "يبدو أن سؤالي السابق لم يُجب بعد. للمتابعة بدقة: {{question}}"
+        repeat_unanswered: "يبدو أنّ سؤالي السابق لم يُجب بعد. للمتابعة بدقّة: {{question}}"
       },
       extract_regex:{},
       knowledge:{ activity_factors:{ sedentary:1.2, light:1.375, moderate:1.55, active:1.725, athlete:1.9 } },
@@ -115,11 +103,11 @@ async function loadPack(force=false){
   }
 }
 
-/* ===== نطاق التغذية ===== */
-const SCOPE_ALLOW_RE = /(?:سعرات|كالور|ماكروز|بروتين|دهون|كار|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|صيام|كيتو|لو كارب|متوسطي|داش|نباتي|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf)/i;
+/* ===== scope & greeting detection ===== */
+const SCOPE_ALLOW_RE = /(?:سعرات|كالور|ماكروز|بروتين|دهون|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|صيام|كيتو|لو كارب|متوسطي|داش|نباتي|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf)/i;
 const GREET_RE = /^(?:\s*(?:السلام\s*عليكم|وعليكم\s*السلام|مرحبا|مرحباً|أهلًا|اهلاً|هلا|مساء الخير|صباح الخير)\b|^\s*السلام\s*$)/i;
 
-/* ===== أدوات مساعدة ===== */
+/* ===== helpers ===== */
 function sanitizeReply(t=""){
   let s = String(t||"").replace(/```[\s\S]*?```/g,"");
   s = s.replace(/[\u{1F300}-\u{1FAFF}]/gu,"");
@@ -151,7 +139,7 @@ function normalizeDigits(s=""){
   return String(s||"").replace(/[\u0660-\u0669]/g, d => map[d] ?? d);
 }
 
-/* ===== استخراج الحالة ===== */
+/* ===== state extraction ===== */
 function buildState(messages, pack){
   const rx = pack?.extract_regex || {};
   const re = (p)=> p ? new RegExp(p,'i') : null;
@@ -203,7 +191,7 @@ function buildState(messages, pack){
     if(!Number.isFinite(v)) return null;
     const u = (unitText||"").toLowerCase();
     if(/m\b/.test(u)) return Math.round(v * (conv.m_to_cm || 100));
-    return Math.round(v); // افتراضي سم
+    return Math.round(v);
   }
   function parseNumeric(x){ const v = parseFloat(String(x).replace(",", ".")); return Number.isFinite(v) ? v : null; }
 
@@ -277,7 +265,7 @@ function buildState(messages, pack){
   return state;
 }
 
-/* ===== نوايا ===== */
+/* ===== intents ===== */
 function detectIntent(lastUser, pack){
   const intents = pack?.intents || {};
   const t = normalizeDigits(lastUser||"");
@@ -290,7 +278,7 @@ function detectIntent(lastUser, pack){
   return "chat";
 }
 
-/* ===== حسابات BMR/TDEE ===== */
+/* ===== energy calc ===== */
 function computeEnergy(state, pack){
   const W = +state.weight_kg, H = +state.height_cm, A = +state.age_years;
   if(!W || !H || !A || !state.sex || !state.activity_key) return null;
@@ -319,7 +307,7 @@ function computeEnergy(state, pack){
   };
 }
 
-/* ===== النواقص ===== */
+/* ===== missing fields ===== */
 function requiredFieldsByIntent(intent){
   const full = ["weight_kg","height_cm","age_years","sex","activity_key"];
   if(intent==="calc_calories" || intent==="calc_macros") return full;
@@ -344,33 +332,26 @@ function isAmbiguousAffirmation(s){
   return /\b(نعم|اي|أجل|تمام|طيب|اوكي|موافق|اكيد|Yes|Yeah|Ok|Okay)\b/i.test(String(s||""));
 }
 
-/* ===== تعليمات النظام ===== */
+/* ===== system prompt ===== */
 function systemPromptFromPack(pack){
   const base = String(pack?.system || "").trim();
   const extra = `
-[قيود أسلوبية حاسمة]
-- لا تعِدْ نسخ نصّ المستخدم أو بياناته حرفيًا داخل الرد. لا تقتبس كلامه ولا تسرده سطرًا بسطر.
-- إن احتجت تأكيدًا فاجعله في جملة موجزة مثل: "للتأكيد: هدفك خسارة الوزن؟"
-- لا تبدأ بأسطر فارغة. اجعل الافتتاح سطرًا واحدًا واضحًا ثم صلب الرد.
-- استخدم مخاطبة مناسبة (مذكر/مؤنث) إن أمكن، دون مبالغة.
+[قيود أسلوبية]
+- لا تعِدْ نسخ نصّ المستخدم أو بياناته حرفيًا داخل الرد.
+- إن احتجت تأكيدًا فاجعله في جملة موجزة.
+- لا تبدأ بأسطر فارغة. الرد 3–8 أسطر، عربية فصحى بسيطة.
 `.trim();
   return base ? (base + "\n" + extra) : extra;
 }
 
-/* ===== استدعاء النموذج — إعدادات حتمية ===== */
+/* ===== model call (deterministic, retries, diagnostics) ===== */
 async function callModel(model, body){
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
-  // فرض الحتمية
-  body.generationConfig = {
-    temperature: 0,
-    topP: 1,
-    topK: 1,
-    maxOutputTokens: 1024
-  };
+  body.generationConfig = { temperature: 0, topP: 1, topK: 1, maxOutputTokens: 1024 };
 
   const abort = new AbortController();
-  const timeoutMs = 24000;
-  const t = setTimeout(()=>abort.abort(), Math.max(1200, Math.min(26000, timeoutMs)));
+  const timeoutMs = 25000;
+  const t = setTimeout(()=>abort.abort(), timeoutMs);
 
   try{
     const resp = await fetch(url, {
@@ -382,8 +363,9 @@ async function callModel(model, body){
     const txt = await resp.text();
     let data = null; try{ data = JSON.parse(txt); }catch(_){}
     if(!resp.ok){
-      const msg = data?.error?.message || `HTTP_${resp.status}`;
-      return { ok:false, error: msg };
+      const code = data?.error?.code || resp.status;
+      const msg  = data?.error?.message || `HTTP_${resp.status}`;
+      return { ok:false, error: msg, code };
     }
     const reply =
       data?.candidates?.[0]?.content?.parts?.map(p=>p?.text||"").join("") ||
@@ -391,13 +373,29 @@ async function callModel(model, body){
     if(!reply || !reply.trim()) return { ok:false, error:"empty_reply" };
     return { ok:true, reply: sanitizeReply(reply) };
   }catch(e){
-    return { ok:false, error: String(e && e.message || e) };
+    return { ok:false, error: String(e && e.message || e), code: "network_or_timeout" };
   }finally{
     clearTimeout(t);
   }
 }
+async function tryModelsSequential(body){
+  const errors = {};
+  for (const model of MODEL_POOL){
+    // retry once if 429/500-range
+    const r1 = await callModel(model, body);
+    if (r1.ok) return { ok:true, model, reply: r1.reply };
+    errors[model] = r1.error;
+    if (String(r1.code).startsWith("5") || String(r1.code) === "429"){
+      await new Promise(res=>setTimeout(res, 600)); // brief backoff
+      const r2 = await callModel(model, body);
+      if (r2.ok) return { ok:true, model, reply: r2.reply };
+      errors[model] += ` | retry:${r2.error}`;
+    }
+  }
+  return { ok:false, errors };
+}
 
-/* ===== تحويلات مساعدة ===== */
+/* ===== gender note ===== */
 function genderHint(sex){
   if(sex==="female") return "المخاطبة: مؤنث (إن لزم).";
   if(sex==="male")   return "المخاطبة: مذكّر (إن لزم).";
@@ -405,7 +403,6 @@ function genderHint(sex){
 }
 function buildModelBody(pack, messages, state, intent, energy, extraUserDirective){
   const systemText = systemPromptFromPack(pack);
-
   const summary = [
     "سياق داخلي مختصر (لا تُظهره للمستخدم):",
     `- وزن: ${state.weight_kg ?? "?"} كجم`,
@@ -416,17 +413,17 @@ function buildModelBody(pack, messages, state, intent, energy, extraUserDirectiv
     `- هدف: ${state.goal ?? "?"}`,
     `- نظام: ${state.diet ?? "?"}`,
     genderHint(state.sex),
-    "- لا تعِد كتابة نص المستخدم أو بياناته داخل الرد. اكتفِ بتأكيد موجز عند الحاجة.",
-    "- الرد 3–8 أسطر، عربية فصحى بسيطة، بلا زخارف/إيموجي.",
-    "- اسأل سؤالًا واحدًا موجّهًا (أو سؤالين بحد أقصى).",
+    "- لا تعِد كتابة نص المستخدم أو بياناته داخل الرد.",
+    "- الرد 3–8 أسطر بالعربية الفصحى البسيطة.",
+    "- سؤال واحد موجّه (أو سؤالان كحد أقصى).",
     "- إن خرج السؤال عن التغذية: اعتذر بلطف وأعِد التوجيه.",
-    "- إن تجاهل المستخدم السؤال السابق: كرّر نفس السؤال بلطف بنفس المعنى."
+    "- إن تجاهل المستخدم السؤال السابق: كرّر نفس السؤال."
   ];
   if(energy){
     summary.push(
       `- BMR≈ ${energy.BMR} kcal`,
       `- TDEE≈ ${energy.TDEE} kcal (عامل نشاط ${energy.activity_factor})`,
-      `- هدف سعرات مبدئي≈ ${energy.kcal_target} kcal`
+      `- هدف سعرات≈ ${energy.kcal_target} kcal`
     );
   }
   if(extraUserDirective) summary.push(`- ملاحظة: ${extraUserDirective}`);
@@ -437,7 +434,6 @@ function buildModelBody(pack, messages, state, intent, energy, extraUserDirectiv
   return {
     systemInstruction: { role:"system", parts:[{ text: systemText }] },
     contents,
-    // generationConfig تُفرض حتميًا داخل callModel()
     safetySettings: []
   };
 }
@@ -448,7 +444,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
 
-  // اشتراك
+  // subscription
   try{
     const gate = await ensureActiveSubscription(event);
     if(!gate.ok) return bad(gate.code, gate.msg);
@@ -456,7 +452,7 @@ exports.handler = async (event) => {
     return bad(500, "subscription_gate_error");
   }
 
-  // Parse body
+  // parse
   let body = {};
   try{ body = JSON.parse(event.body || "{}"); }
   catch{ return bad(400, "invalid_json_body"); }
@@ -467,27 +463,26 @@ exports.handler = async (event) => {
   const lastAssistant = lastOfRole(messages, "assistant");
   const isGreetingOnly = (!messages.length) || GREET_RE.test(String(lastUser||"").trim());
 
-  // تحميل الحزمة
+  // load pack
   let pack;
   try{ pack = await loadPack(false); }
   catch(e){ pack = {}; }
 
-  // حارس نطاق سريع
-  const offscopeQuick = (scope === "diet_only") && lastUser && !SCOPE_ALLOW_RE.test(lastUser) && !GREET_RE.test(lastUser);
-  // نية
+  // scope guard
+  const offscopeQuick = (scope === "diet_only") && lastUser && !GREET_RE.test(lastUser) && !SCOPE_ALLOW_RE.test(lastUser);
   const intent = isGreetingOnly ? "greet" : detectIntent(lastUser, pack);
 
-  // بناء حالة المستخدم
+  // state + energy
   const state = buildState(messages, pack);
   const energy = computeEnergy(state, pack);
 
-  // كشف سؤال سابق غير مُجاب
+  // repeat previous unanswered
   let repeatPreviousQuestion = false;
   let previousQuestionText = null;
   if(lastAssistant){
     const hadQuestion = /[؟?]/.test(lastAssistant);
     if(hadQuestion){
-      const ambiguous = isAmbiguousAffirmation(lastUser);
+      const ambiguous = /\b(نعم|اي|أجل|تمام|طيب|اوكي|موافق|اكيد|Yes|Yeah|Ok|Okay)\b/i.test(String(lastUser||""));
       const missNow = computeMissing(state, intent);
       if(ambiguous || missNow.length>0){
         repeatPreviousQuestion = true;
@@ -496,22 +491,25 @@ exports.handler = async (event) => {
     }
   }
 
-  // تحية فقط
+  // greeting only → try models, else safe fallback (no more model_failed_greeting)
   if(isGreetingOnly){
-    const greeting = String(pack?.prompts?.greeting || "وعليكم السلام ورحمة الله، أنا مساعدك التغذوي. ما هدفك الحالي؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.");
+    const greetingText = String(pack?.prompts?.greeting || "وعليكم السلام ورحمة الله، أهلًا بك! ما هدفك الآن؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.");
     const bodyModel = {
       systemInstruction: { role:"system", parts:[{ text: systemPromptFromPack(pack) }] },
-      contents: [{ role:"user", parts:[{ text: greeting }] }],
+      contents: [{ role:"user", parts:[{ text: greetingText }] }],
       safetySettings: []
     };
-    for(const model of MODEL_POOL){
-      const r = await callModel(model, bodyModel);
-      if(r.ok) return ok({ reply: r.reply, model });
-    }
-    return bad(502, "model_failed_greeting");
+    const attempt = await tryModelsSequential(bodyModel);
+    if(attempt.ok) return ok({ reply: attempt.reply, model: attempt.model });
+    // fallback greeting (prevents model_failed_greeting)
+    return ok({
+      reply: greetingText,
+      model: "server-fallback",
+      diagnostics: { reason: "all_models_failed_on_greeting", errors: attempt.errors }
+    });
   }
 
-  // خارج النطاق
+  // off-scope
   if(offscopeQuick || intent === "off_scope"){
     const offScopeDirective = String(pack?.prompts?.off_scope || "أعتذر بلطف، اختصاصي تغذية فقط. أعد صياغة سؤالك ضمن التغذية (أنظمة، سعرات/ماكروز، وجبات، بدائل، حساسيات…). ما هدفك الغذائي الآن؟");
     const bodyModel = {
@@ -519,21 +517,19 @@ exports.handler = async (event) => {
       contents: [{ role:"user", parts:[{ text: offScopeDirective }] }],
       safetySettings: []
     };
-    for(const model of MODEL_POOL){
-      const r = await callModel(model, bodyModel);
-      if(r.ok) return ok({ reply: r.reply, model });
-    }
-    return ok({ reply: offScopeDirective, model: "server-fallback" });
+    const attempt = await tryModelsSequential(bodyModel);
+    if(attempt.ok) return ok({ reply: attempt.reply, model: attempt.model });
+    return ok({ reply: offScopeDirective, model: "server-fallback", diagnostics:{ reason:"all_models_failed_offscope", errors: attempt.errors } });
   }
 
-  // لو السؤال السابق لم يُجب — كرّر نفس السؤال
+  // repeat previous question
   if(repeatPreviousQuestion && previousQuestionText){
     const text = (pack?.prompts?.repeat_unanswered || "يبدو أن سؤالي السابق لم يُجب بعد. للمتابعة بدقة: {{question}}")
       .replace("{{question}}", previousQuestionText.trim());
     return ok({ reply: text, model: "server-guard" });
   }
 
-  // نواقص مطلوبة للحساب
+  // missing fields
   const missing = computeMissing(state, intent);
   if(missing.length>0){
     if(missing.length <= 2){
@@ -546,27 +542,18 @@ exports.handler = async (event) => {
     }
   }
 
-  // “نعم” مبهمة بعد سؤال ثنائي
-  if(isAmbiguousAffirmation(lastUser) && /(?:أم|or|\bvs\b)/i.test(lastAssistant||"")){
-    const text = String(pack?.prompts?.clarify_ambiguous_yes || "للتأكيد: هل تقصد {{option_a}} أم {{option_b}}؟")
-      .replace("{{option_a}}","الخيار الأول")
-      .replace("{{option_b}}","الخيار الثاني");
-    return ok({ reply: text, model:"server-guard" });
-  }
-
-  // بناء الطلب للنموذج
+  // build model body & call
   const bodyModel = buildModelBody(pack, messages, state, intent, energy, null);
-
-  // استدعاء النموذج عبر الحوض (حتمي)
-  const errors = {};
-  for (const model of MODEL_POOL){
-    const r = await callModel(model, bodyModel);
-    if (r.ok){
-      return ok({ reply: r.reply, model });
-    }
-    errors[model] = r.error;
+  const attempt = await tryModelsSequential(bodyModel);
+  if (attempt.ok){
+    return ok({ reply: attempt.reply, model: attempt.model });
   }
 
+  // ultimate fallback (non-greeting path)
   const safeFallback = "حدث تعذّر مؤقّت في توليد الرد. أعد المحاولة لاحقًا أو أرسل: وزنك/طولك/عمرك/جنسك/نشاطك وهدفك وسأحسبها لك فورًا.";
-  return bad(502, "All models failed", { errors, tried: MODEL_POOL, reply: safeFallback });
+  return ok({
+    reply: safeFallback,
+    model: "server-fallback",
+    diagnostics: { reason:"all_models_failed_main", errors: attempt.errors }
+  });
 };

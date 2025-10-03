@@ -472,7 +472,8 @@
         fats:+rec.macros.fat_g||0,
       },
       ingredients: (rec.ingredients||[]).map(x=>({name:x})),
-      steps: rec.steps||[]
+      steps: rec.steps||[],
+      servingSuggestions: Array.isArray(rec.serving_suggestions) ? rec.serving_suggestions.slice(0,5) : []
     };
   }
 
@@ -569,39 +570,11 @@
     }
   }
 
-  /* ===== طريقة التقديم (حتمية) ===== */
-  function buildServingSuggestions(view){
-    const c = (cuisine.value||"").toLowerCase();
-    const names = (view.ingredients||[]).map(i=>String(i.name||"").toLowerCase());
-    const has = (k)=> names.some(n=> n.includes(k));
-    const out = [];
-    if (c.includes("متوسطي") || c.includes("شرق") || c.includes("شامي") || c.includes("مصري")){
-      out.push("قدّم الطبق مع سلطة خضراء طازجة ورشة زيت زيتون بكر ممتاز.");
-      out.push("أضف رشة سماق/زعتر أو ليمون للتعزيز.");
-    }
-    if (c.includes("هندي") || c.includes("باكستاني")){
-      out.push("يُقدَّم مع خيار بالزبادي أو سلطة رايتا لتخفيف التوابل.");
-    }
-    if (c.includes("إيطالي")){
-      out.push("قدّم مع خبز كامل الحبة المحمّص أو سلطة جانبية بالجرجير.");
-    }
-    if (has("سمك") || has("جمبري") || has("روبيان")){
-      out.push("شرائح ليمون وتتبيلة أعشاب بسيطة بجانب الطبق.");
-    }
-    if (has("دجاج")){
-      out.push("يرش الوجه ببقدونس مفروم وقطرات عصير ليمون قبل التقديم.");
-    }
-    if (!out.length){
-      out.push("قدّم الطبق دافئًا مع طبق جانبي خفيف يتماشى مع النظام الغذائي المحدد.");
-    }
-    return Array.from(new Set(out)).slice(0,5);
-  }
-
   /* ======= حساب السعرات من الماكروز (وضع المخصص) ======= */
   function calcCaloriesFromMacros(p,c,f){
     const P = Number(p)||0, C = Number(c)||0, F = Number(f)||0;
     const kcal = (4*P) + (4*C) + (9*F);
-    return Math.max(0, Math.round(kcal)); // قَطع للأقرب
+    return Math.max(0, Math.round(kcal));
   }
   function isCustomDiet(){ return String(dietType.value) === 'custom'; }
 
@@ -641,9 +614,13 @@
     stepsBox.innerHTML = cleanSteps.map(s=>`<div class="step"><p>${s}</p></div>`).join("");
     renderTL(view.macros);
 
-    // طريقة التقديم
-    const serve = buildServingSuggestions(view);
-    servingList.innerHTML = serve.map(s=>`<li>${s}</li>`).join("");
+    // طريقة التقديم من الخادم (ذكاء اصطناعي فقط)
+    if (Array.isArray(view.servingSuggestions) && view.servingSuggestions.length){
+      servingList.innerHTML = view.servingSuggestions.map(s=>`<li>${s}</li>`).join("");
+    } else {
+      servingList.innerHTML = "";
+      setBanner("تم توليد الوصفة بدون قسم تقديم. يُرجى المحاولة مرة أخرى.", "amber");
+    }
 
     if (warning) setBanner("تنبيه: تم توليد الوصفة لكن بعض قيود النظام المختار أو المكونات المتاحة قد لا تكون مطبّقة بالكامل.", "amber");
     if (note === "repaired_to_meet_dr_moh_rules") setBanner("تم ضبط الوصفة تلقائيًا لتتوافق مع قواعد نظام د. محمد سعيد.", "amber");
@@ -677,14 +654,12 @@
       const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
       if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
       const custom = isCustomDiet();
-      // التحقق من الماكروز عند المخصص
       if(custom){
         const p=+customProtein.value||0, c=+customCarbs.value||0, f=+customFat.value||0;
         if(p<=0 && c<=0 && f<=0){ setError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); btn.disabled=false; spin.classList.add('hidden'); return; }
         const kcal = calcCaloriesFromMacros(p,c,f);
-        calorieTarget.value = kcal; // تأكيد التطابق قبل الإرسال
+        calorieTarget.value = kcal;
       }
-      // إعداد الحِمل
       const payload={
         mealType:mealType.value,
         cuisine:cuisine.value,
@@ -792,7 +767,7 @@
       if(!isCustomDiet()){
         if(v<100||v>2000){ setError("أدخل سعرات بين 100 و 2000"); return; }
       }else{
-        // في المخصص نتحقق منطقيًا فقط (الكالوري من الماكروز قد تتجاوز 2000 حسب إدخال المستخدم)
+        // في المخصص نتحقق منطقيًا فقط
         const p=+customProtein.value||0, c=+customCarbs.value||0, f=+customFat.value||0;
         if(p<=0 && c<=0 && f<=0){ setError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); return; }
         calorieTarget.value = calcCaloriesFromMacros(p,c,f);

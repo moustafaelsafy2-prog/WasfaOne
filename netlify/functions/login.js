@@ -1,7 +1,7 @@
 // /netlify/functions/login.js
 // Login with strong reasoned responses (ALL errors return 200 + ok:false)
-// This avoids FE hardcoded mapping of non-200 -> "device linked".
 // Order: suspended -> expired -> out_of_window -> inactive -> device -> success.
+// (تعديل طفيف): عند النجاح نعيد أيضًا حقول الخطة trial/plans لاحتياج الواجهة لاحقًا.
 
 import crypto from "crypto";
 
@@ -176,12 +176,24 @@ export async function handler(event){
     users[idx] = user;
     await ghPutJson(USERS_PATH, users, sha, `login: refresh session for ${user.email}`);
 
+    // (جديد) إرجاع حقول الخطة حتى تستفيد الواجهة لاحقًا
+    const plan = user.plan ?? null;
+    const trial_expires_at = user.trial_expires_at ?? null;
+    const daily_limit = Object.prototype.hasOwnProperty.call(user, "daily_limit") ? user.daily_limit : null;
+    const used_today = Object.prototype.hasOwnProperty.call(user, "used_today") ? user.used_today : null;
+    const last_reset = user.last_reset ?? null;
+
     return emitOk({
       ok: true,
       name: user.name || "",
       email: user.email,
       token: user.auth_token,
-      session_nonce: user.session_nonce
+      session_nonce: user.session_nonce,
+      plan,
+      trial_expires_at,
+      daily_limit,
+      used_today,
+      last_reset
     });
 
   }catch(err){

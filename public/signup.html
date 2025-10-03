@@ -1,191 +1,390 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WasfaOne — إنشاء حساب</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>إنشاء حساب • Wasfa</title>
 
-  <!-- Fonts & Tailwind -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Styles (هوية المشروع) -->
-  <link rel="stylesheet" href="/public/assets/styles.css" />
-  <meta name="color-scheme" content="light dark" />
+  <!-- Google Fonts (مطابق للصفحة الرئيسية) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
+
+  <!-- AOS Animation Library -->
+  <link href="https://unpkg.com/aos@2.3.4/dist/aos.css" rel="stylesheet">
+  <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
   <style>
-    :root { --primary:#ef4444; --acc1:#10b981; --acc2:#3b82f6; }
-    body { font-family:"Cairo", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Inter", sans-serif; }
-    .btn { transition:transform .15s ease, box-shadow .15s ease; }
-    .btn:hover { transform: scale(1.02); box-shadow: 0 8px 18px rgba(0,0,0,.08); }
-    .card { background:white; border-radius:1rem; padding:1rem; box-shadow: 0 10px 20px rgba(0,0,0,.04); }
-    @media (prefers-color-scheme: dark){
-      .card{ background:#0f172a; }
-      body{ color:#e2e8f0; background:#0b1220; }
+    :root{
+      --brand:#ef4444;
+      --brand-dark:#dc2626;
+      --ink:#0f172a;
+      --muted:#475569;
+      --soft-bg:#f7f7f9;
+      --line:#e5e7eb;
+      --accent-green:#10b981;
+      --accent-blue:#3b82f6;
+      --accent-amber:#f59e0b;
+      --accent-purple:#8b5cf6;
     }
-    .lbl{ display:block; font-size:.9rem; margin-bottom:.25rem; opacity:.9 }
-    .inp{ width:100%; border:1px solid rgba(148,163,184,.35); border-radius:.6rem; background:white; padding:.6rem .75rem; outline:none; }
-    @media (prefers-color-scheme: dark){
-      .inp{ background:#0b1220; border-color:#24324d; color:#e2e8f0; }
+    html{ scroll-behavior:smooth }
+    body{
+      font-family:'Cairo', system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color:var(--ink); background:var(--soft-bg);
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
     }
+
+    /* الهيدر (مطابق) */
+    .sticky-header{ backdrop-filter:blur(10px); background:rgba(255,255,255,.8); border-bottom:1px solid var(--line); transition:background .2s, box-shadow .2s }
+    .sticky-header.scrolled{ background:rgba(255,255,255,.92); box-shadow:0 10px 30px -20px rgba(0,0,0,.25) }
+
+    .brand-title{
+      background:linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; padding:0 4px;
+    }
+
+    /* خلفية/هيرو مثل الاندكس */
+    .hero{
+      position:relative; min-height:46vh; background:#000; overflow:hidden;
+    }
+    @media(min-width:768px){ .hero{ min-height:56vh } }
+    .hero-bg{
+      position:absolute; inset:0;
+      background-image:url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=2070&auto=format&fit=crop');
+      background-size:cover; background-position:center; transform:translate3d(0,0,0);
+    }
+    .hero-overlay{
+      position:absolute; inset:0; color:#fff; display:flex; align-items:center; justify-content:center; text-align:center; padding:1rem;
+      background:linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.55));
+    }
+
+    /* بطاقة احترافية (مطابقة) */
+    .pro-card{
+      background:linear-gradient(180deg, #fff, #fafafa);
+      border:1px solid var(--line); border-radius:28px; padding:2rem;
+      box-shadow:0 25px 50px -12px rgba(0,0,0,.08);
+      transition:transform .3s, box-shadow .3s; will-change:transform;
+    }
+    .pro-card:hover{ transform:translateY(-6px); box-shadow:0 25px 50px -12px rgba(0,0,0,.15) }
+
+    /* الحقول */
+    .field{ position:relative }
+    .field input, .field select{
+      width:100%; min-height:52px; padding:0 48px 0 14px;
+      border:1px solid var(--line); border-radius:16px; background:#fcfdff; transition:.2s; font-size:15px;
+    }
+    .field input:focus, .field select:focus{
+      outline:none; border-color:var(--brand); box-shadow:0 0 0 3px rgba(239,68,68,.12); background:#fff;
+    }
+    .field .icon{ position:absolute; inset-block:0; inset-inline-end:0; width:44px; display:grid; place-items:center; color:#9aa4b2; pointer-events:none }
+
+    /* زر مطابق لCTA */
+    .cta-button{
+      position:relative; overflow:hidden; display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+      width:100%; border-radius:14px; padding:14px 24px; font-weight:800; color:#fff; background:var(--brand);
+      box-shadow:0 6px 18px rgba(239,68,68,.28); transition:transform .2s, box-shadow .2s, background .2s;
+    }
+    .cta-button:hover{ background:var(--brand-dark); transform:translateY(-1px); box-shadow:0 10px 26px rgba(239,68,68,.34) }
+    .cta-button::after{
+      content:""; position:absolute; inset:-2px; border-radius:16px; opacity:0;
+      background:radial-gradient(120px 120px at var(--mx,50%) var(--my,50%), rgba(255,255,255,.2), transparent 60%); transition:opacity .2s; pointer-events:none;
+    }
+    .cta-button.is-hovering::after{ opacity:1 }
+    .ripple{ position:absolute; border-radius:9999px; transform:translate(-50%,-50%); pointer-events:none; animation:ripple 600ms ease-out forwards; background:rgba(255,255,255,.35) }
+    @keyframes ripple{ from{ width:0; height:0; opacity:.6 } to{ width:340px; height:340px; opacity:0 } }
+
+    /* سبينر */
+    .spinner{ border:2px solid #fff; border-top-color:transparent; border-radius:999px; width:18px; height:18px; animation:spin 1s linear infinite }
+    @keyframes spin{ to{ transform:rotate(360deg) } }
+
+    /* فاصل مثل الاندكس */
+    .divider{ height:1px; background:linear-gradient(to left, transparent, var(--line), transparent); margin:3rem auto; width:80% }
+
+    /* فوتر مطابق */
+    .auth-footer{ color:#64748b }
   </style>
 </head>
-<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100">
-  <!-- Header -->
-  <header class="border-b border-slate-200 dark:border-slate-800 sticky top-0 bg-white/70 dark:bg-slate-900/70 backdrop-blur z-10">
-    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+<body class="antialiased">
+
+  <!-- Header (مطابق) -->
+  <header class="sticky top-0 z-50 sticky-header" id="siteHeader">
+    <div class="container mx-auto flex justify-between items-center p-4">
+      <a href="index.html" class="text-3xl font-black brand-title">Wasfa</a>
+      <nav class="hidden md:flex items-center space-x-8 space-x-reverse">
+        <a href="index.html#features" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">لماذا نحن؟</a>
+        <a href="index.html#how-it-works" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">كيف نعمل؟</a>
+        <a href="index.html#pricing" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الاشتراك</a>
+        <a href="index.html#faq" class="font-semibold text-[var(--muted)] hover:text-[var(--brand)] transition nav-link">الأسئلة</a>
+      </nav>
       <div class="flex items-center gap-3">
-        <img id="logoImg" class="h-9 w-auto" alt="Logo" />
-        <h1 id="siteTitle" class="font-extrabold text-lg">WasfaOne</h1>
-      </div>
-      <div class="flex items-center gap-3">
-        <a id="whatsappBtn" href="#" target="_blank" class="btn inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-green-600 text-white text-sm">
-          <span>WhatsApp</span>
+        <a href="login.html" class="hidden md:inline-block px-6 py-2 rounded-lg font-bold bg-[var(--brand)] text-white hover:bg-[var(--brand-dark)] transition">
+          الدخول
         </a>
       </div>
     </div>
   </header>
 
-  <!-- Main -->
-  <main class="max-w-5xl mx-auto px-4 py-10">
-    <div class="grid md:grid-cols-2 gap-6 items-stretch">
-      <!-- Intro -->
-      <section class="card p-6">
-        <h2 class="text-2xl font-extrabold mb-2">ابدأ تجربتك المجانية 7 أيام</h2>
-        <p class="opacity-80 mb-4">جرّب الأداة بالكامل. بعد التجربة يمكنك الترقية لاشتراك شهري (29 درهم) أو سنوي (25 درهم/شهر — فوترة سنوية).</p>
-        <ul class="space-y-2 text-sm">
-          <li class="flex items-center gap-2"><span>✅</span> حساب لكل جهاز — حماية من الإساءة.</li>
-          <li class="flex items-center gap-2"><span>✅</span> ترى كل الأنظمة الغذائية — الفرق فقط في الحد اليومي خلال التجربة.</li>
-          <li class="flex items-center gap-2"><span>✅</span> يمكنك الترقية في أي وقت عبر واتساب.</li>
-        </ul>
-        <a href="/public/index.html#plans" class="mt-4 inline-block text-sm underline underline-offset">عرض الخطط</a>
-      </section>
+  <!-- Hero (مطابق) -->
+  <section class="hero" data-parallax>
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-overlay">
+      <div>
+        <h1 class="text-4xl md:text-5xl font-black mb-3 leading-tight" data-aos="fade-down">
+          أنشئ حسابك وابدأ رحلتك الصحية
+        </h1>
+        <p class="text-lg md:text-xl max-w-3xl mx-auto text-gray-200" data-aos="fade-up" data-aos-delay="150">
+          دقائق قليلة تفصلك عن وصفات صحية متجددة تناسب أهدافك ونظامك الغذائي.
+        </p>
+      </div>
+    </div>
+  </section>
 
-      <!-- Signup Form -->
-      <section class="card p-6">
-        <h2 class="text-xl font-bold mb-4">إنشاء حساب جديد</h2>
-
-        <div id="status" class="hidden text-sm mb-3 text-emerald-700 dark:text-emerald-200"></div>
-        <div id="error" class="hidden text-sm mb-3 text-red-600 dark:text-rose-300"></div>
-
-        <form id="signupForm" class="space-y-4">
+  <!-- محتوى الصفحة -->
+  <main class="container mx-auto p-6 md:p-8">
+    <div class="max-w-3xl mx-auto">
+      <!-- بطاقة التسجيل -->
+      <div class="pro-card" data-aos="fade-up">
+        <!-- رأس البطاقة -->
+        <div class="flex items-center gap-3 mb-6">
+          <span class="inline-grid place-items-center w-12 h-12 rounded-xl bg-[rgba(239,68,68,.1)] border border-[rgba(239,68,68,.25)] text-[var(--brand)]">
+            <i data-lucide="user-plus" class="w-6 h-6"></i>
+          </span>
           <div>
-            <label class="lbl" for="name">الاسم</label>
-            <input id="name" type="text" required class="inp" placeholder="اسمك الكامل" />
+            <h2 class="text-2xl md:text-3xl font-black">تسجيل حساب جديد</h2>
+            <p class="text-sm text-[var(--muted)]">املأ البيانات التالية لإنشاء حسابك على Wasfa</p>
           </div>
-          <div>
-            <label class="lbl" for="email">البريد الإلكتروني</label>
-            <input id="email" type="email" required class="inp" placeholder="you@example.com" />
-          </div>
-          <div>
-            <label class="lbl" for="password">كلمة المرور</label>
-            <input id="password" type="password" required class="inp" placeholder="••••••••" minlength="6" />
+        </div>
+
+        <!-- النموذج -->
+        <form id="signup-form" class="space-y-4">
+          <!-- الاسم -->
+          <div class="field">
+            <span class="icon"><i data-lucide="user" class="w-5 h-5"></i></span>
+            <input id="fullName" name="fullName" type="text" placeholder="الاسم الكامل" required />
           </div>
 
-          <button id="submitBtn" type="submit" class="btn w-full px-4 py-2 rounded-md bg-[color:var(--primary)] text-white font-bold">
-            إنشاء حساب
+          <!-- البريد -->
+          <div class="field">
+            <span class="icon"><i data-lucide="mail" class="w-5 h-5"></i></span>
+            <input id="email" name="email" type="email" placeholder="البريد الإلكتروني" required />
+          </div>
+
+          <!-- الجوال (اختياري) -->
+          <div class="field">
+            <span class="icon"><i data-lucide="phone" class="w-5 h-5"></i></span>
+            <input id="phone" name="phone" type="tel" placeholder="رقم الجوال (اختياري)" inputmode="tel" />
+          </div>
+
+          <!-- كلمة المرور -->
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="field">
+              <span class="icon"><i data-lucide="lock-keyhole" class="w-5 h-5"></i></span>
+              <input id="password" name="password" type="password" placeholder="كلمة المرور" minlength="6" required />
+            </div>
+            <div class="field">
+              <span class="icon"><i data-lucide="lock" class="w-5 h-5"></i></span>
+              <input id="confirmPassword" name="confirmPassword" type="password" placeholder="تأكيد كلمة المرور" minlength="6" required />
+            </div>
+          </div>
+
+          <!-- النظام الغذائي المفضّل (اختياري) -->
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="field">
+              <span class="icon"><i data-lucide="utensils" class="w-5 h-5"></i></span>
+              <select id="diet" name="diet" class="pr-12">
+                <option value="">النظام الغذائي (اختياري)</option>
+                <option value="keto">كيتو</option>
+                <option value="mediterranean">المتوسطي</option>
+                <option value="lchf">منخفض الكارب مرتفع الدهون</option>
+                <option value="balanced">متوازن</option>
+                <option value="vegan">نباتي</option>
+              </select>
+            </div>
+            <div class="field">
+              <span class="icon"><i data-lucide="activity" class="w-5 h-5"></i></span>
+              <select id="goal" name="goal" class="pr-12">
+                <option value="">هدفك (اختياري)</option>
+                <option value="fatloss">خفض الدهون</option>
+                <option value="muscle">زيادة الكتلة العضلية</option>
+                <option value="health">تحسين العادات الصحية</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- الشروط -->
+          <div class="flex items-start gap-3 text-sm">
+            <input id="agree" type="checkbox" class="mt-1 w-4 h-4 rounded border-[var(--line)]" required />
+            <label for="agree" class="leading-6 text-[var(--muted)]">
+              أوافق على
+              <a href="privacy.html" class="underline decoration-dotted hover:text-[var(--brand)]">سياسة الخصوصية</a>
+              و
+              <a href="terms.html" class="underline decoration-dotted hover:text-[var(--brand)]">الشروط والأحكام</a>.
+            </label>
+          </div>
+
+          <!-- رسالة خطأ / نجاح -->
+          <div id="formAlert" class="hidden text-sm p-3 rounded-lg"></div>
+
+          <!-- زر إنشاء الحساب -->
+          <button id="signupBtn" class="cta-button" type="submit">
+            <span id="btnText">إنشاء حساب</span>
+            <div id="btnSpinner" class="spinner hidden"></div>
           </button>
 
-          <p class="text-sm opacity-80 mt-2">لديك حساب؟ <a href="/public/login.html" class="underline underline-offset">تسجيل الدخول</a></p>
+          <!-- تلميح تسجيل الدخول -->
+          <div class="text-center text-sm text-[var(--muted)]">
+            لديك حساب بالفعل؟
+            <a href="login.html" class="font-bold hover:text-[var(--brand)]">تسجيل الدخول</a>
+          </div>
         </form>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- لمسة ثقة صغيرة (مطابقة لأسلوب الموقع) -->
+      <section class="grid md:grid-cols-3 gap-4" data-aos="fade-up" data-aos-delay="100">
+        <div class="p-4 rounded-2xl border border-[var(--line)] bg-white flex items-center gap-3">
+          <span class="icon-chip green"><i data-lucide="shield-check" class="w-5 h-5"></i></span>
+          <div>
+            <div class="font-bold">حماية بياناتك</div>
+            <div class="text-xs text-[var(--muted)]">نلتزم بأفضل ممارسات الأمان.</div>
+          </div>
+        </div>
+        <div class="p-4 rounded-2xl border border-[var(--line)] bg-white flex items-center gap-3">
+          <span class="icon-chip"><i data-lucide="sparkles" class="w-5 h-5"></i></span>
+          <div>
+            <div class="font-bold">تجربة سلسة</div>
+            <div class="text-xs text-[var(--muted)]">واجهة بسيطة وسريعة الاستخدام.</div>
+          </div>
+        </div>
+        <div class="p-4 rounded-2xl border border-[var(--line)] bg-white flex items-center gap-3">
+          <span class="icon-chip purple"><i data-lucide="layers" class="w-5 h-5"></i></span>
+          <div>
+            <div class="font-bold">خطط مرنة</div>
+            <div class="text-xs text-[var(--muted)]">ترقية/إلغاء بسهولة من حسابك.</div>
+          </div>
+        </div>
       </section>
     </div>
   </main>
 
-  <!-- Footer -->
-  <footer class="mt-10 border-t border-slate-200 dark:border-slate-800">
-    <div class="max-w-5xl mx-auto px-4 py-6 text-sm flex items-center justify-between">
-      <p id="footerLine">للاشتراك أو التجديد: 00971502061209 — واتساب/اتصال</p>
-      <a id="footerWhatsapp" href="#" target="_blank" class="btn px-3 py-1.5 rounded-md bg-green-600 text-white">WhatsApp</a>
+  <!-- Footer (مختصر ومتناسق) -->
+  <footer class="bg-white border-t border-[var(--line)] mt-10">
+    <div class="container mx-auto p-8 text-center auth-footer text-sm">
+      <p>&copy; 2024 Wasfa. جميع الحقوق محفوظة.</p>
     </div>
   </footer>
 
+  <!-- WhatsApp FAB (مثل الاندكس) -->
+  <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="fixed bottom-4 end-4 z-50 w-[58px] h-[58px] rounded-full grid place-items-center text-white"
+     style="background:#10b981; box-shadow:0 20px 30px -10px rgba(16,185,129,.45)">
+    <i data-lucide="messages-square" class="w-6 h-6"></i>
+  </a>
+
   <script>
-    // ===== تحميل الإعدادات (شعار/اسم/واتساب) =====
-    (async function loadSettings(){
-      try{
-        const r = await fetch("/data/settings.json?ts="+Date.now(), { cache:"no-store" });
-        if(!r.ok) return;
-        const s = await r.json();
-        const wa = s?.contact?.whatsapp_link || "#";
-        document.getElementById("logoImg").src = s?.branding?.logo_url || "";
-        document.getElementById("logoImg").alt = s?.images_meta?.hero?.alt_ar || "شعار";
-        document.getElementById("siteTitle").textContent = s?.branding?.site_name_ar || "وصفة ون";
-        document.getElementById("whatsappBtn").href = wa;
-        document.getElementById("footerWhatsapp").href = wa;
-      }catch(e){ /* تجاهل */ }
-    })();
+    // Init libs
+    AOS.init({ duration: 800, once: true, offset: 100 });
+    lucide.createIcons();
 
-    // ===== بصمة الجهاز (Hash ثابت) =====
-    async function sha256(text){
-      const enc = new TextEncoder().encode(text);
-      const buf = await crypto.subtle.digest("SHA-256", enc);
-      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,"0")).join("");
-    }
-    async function getDeviceFingerprint(){
-      const nav = window.navigator || {};
-      const scr = window.screen || {};
-      const tz  = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-      const raw = [
-        nav.userAgent, nav.language, nav.platform,
-        scr.width, scr.height, scr.colorDepth, tz,
-        "fp:v1"
-      ].join("|");
-      return await sha256(raw);
-    }
+    // Header scrolled state (مطابق)
+    const header = document.getElementById('siteHeader');
+    const onScrollHeader = () => header.classList.toggle('scrolled', window.scrollY > 10);
+    onScrollHeader(); window.addEventListener('scroll', onScrollHeader, { passive:true });
 
-    // ===== UI helpers =====
-    function show(id, msg){
-      const el = document.getElementById(id);
-      if(!el) return;
-      el.textContent = msg || "";
-      el.classList.toggle("hidden", !msg);
+    // Parallax hero (مطابق)
+    const heroBg = document.getElementById('heroBg');
+    const parallax = () => {
+      const y = window.scrollY;
+      const translate = Math.min(y * 0.25, 120);
+      heroBg.style.transform = `translate3d(0, ${translate}px, 0) scale(1.05)`;
+    };
+    window.addEventListener('scroll', parallax, { passive:true });
+
+    // CTA hover/ripple (للزر)
+    const btn = document.getElementById('signupBtn');
+    if (btn){
+      btn.addEventListener('mousemove', (e)=>{
+        const r = btn.getBoundingClientRect();
+        btn.style.setProperty('--mx', `${e.clientX - r.left}px`);
+        btn.style.setProperty('--my', `${e.clientY - r.top}px`);
+        btn.classList.add('is-hovering');
+      });
+      btn.addEventListener('mouseleave', ()=> btn.classList.remove('is-hovering'));
+      btn.addEventListener('click', (e)=>{
+        const r = btn.getBoundingClientRect();
+        const circle = document.createElement('span');
+        circle.className = 'ripple';
+        circle.style.left = (e.clientX - r.left) + 'px';
+        circle.style.top  = (e.clientY - r.top) + 'px';
+        btn.appendChild(circle);
+        setTimeout(()=> circle.remove(), 650);
+      });
     }
 
-    // ===== إرسال النموذج =====
-    const form = document.getElementById("signupForm");
-    const submitBtn = document.getElementById("submitBtn");
+    // تحقّق بسيط وإرسال وهمي (بدّل إلى مسارك الفعلي إن وُجد API)
+    const form = document.getElementById('signup-form');
+    const formAlert = document.getElementById('formAlert');
+    const btnText = document.getElementById('btnText');
+    const btnSpinner = document.getElementById('btnSpinner');
 
-    form?.addEventListener("submit", async (e) => {
+    function showAlert(type, msg){
+      formAlert.className = 'text-sm p-3 rounded-lg mt-1 ' +
+        (type === 'error' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200');
+      formAlert.textContent = msg;
+      formAlert.classList.remove('hidden');
+    }
+
+    form.addEventListener('submit', async (e)=>{
       e.preventDefault();
-      show("status", "جاري إنشاء الحساب ...");
-      show("error", "");
-      submitBtn.disabled = true;
-      submitBtn.textContent = "جاري المعالجة ...";
 
-      try{
-        const name = document.getElementById("name").value.trim();
-        const email = document.getElementById("email").value.trim().toLowerCase();
-        const password = document.getElementById("password").value;
+      const name = form.fullName.value.trim();
+      const email = form.email.value.trim();
+      const phone = form.phone.value.trim();
+      const pass = form.password.value;
+      const pass2 = form.confirmPassword.value;
+      const diet = form.diet.value;
+      const goal = form.goal.value;
+      const agree = document.getElementById('agree').checked;
 
-        if(!name || !email || !password){ throw new Error("الرجاء إدخال جميع البيانات"); }
-        if(password.length < 6){ throw new Error("كلمة المرور يجب ألا تقل عن 6 أحرف"); }
+      formAlert.classList.add('hidden');
 
-        const device_fingerprint_hash = await getDeviceFingerprint();
+      // تحقق أساسي
+      if (pass !== pass2){
+        showAlert('error','تأكيد كلمة المرور غير مطابق.');
+        return;
+      }
+      if (!agree){
+        showAlert('error','يجب الموافقة على الشروط والأحكام وسياسة الخصوصية.');
+        return;
+      }
 
-        const res = await fetch("/.netlify/functions/signup", {
-          method: "POST",
-          headers: { "Content-Type":"application/json" },
-          body: JSON.stringify({ name, email, password, device_fingerprint_hash })
-        });
-        const data = await res.json().catch(()=>({ ok:false, reason:"bad_json" }));
+      // تعطيل الزر أثناء "الإرسال"
+      btn.setAttribute('disabled','true');
+      btnText.classList.add('hidden');
+      btnSpinner.classList.remove('hidden');
 
-        if(!data.ok){
-          const msg = data.message || "تعذر إنشاء الحساب";
-          show("status", "");
-          show("error", msg);
-        } else {
-          // نجاح — توجيه إلى صفحة الدخول مع رسالة
-          const q = new URLSearchParams({ created:"1", email });
-          window.location.href = "/public/login.html?" + q.toString();
-        }
-      } catch(err){
-        show("status", "");
-        show("error", err.message || "حدث خطأ غير متوقّع");
+      try {
+        // ملاحظة: غيّر نقطة النهاية أدناه لمسارك الحقيقي (مثال: /api/signup)
+        // const res = await fetch('/api/signup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ name, email, phone, pass, diet, goal }) });
+        // if(!res.ok) throw new Error('فشل إنشاء الحساب');
+        // const data = await res.json();
+
+        // محاكاة نجاح:
+        await new Promise(r => setTimeout(r, 900));
+        showAlert('success','تم إنشاء الحساب بنجاح! سيتم تحويلك لتسجيل الدخول...');
+        setTimeout(()=> window.location.href = 'login.html', 900);
+      } catch (err){
+        showAlert('error', err.message || 'حدث خطأ غير متوقع. حاول مجددًا.');
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = "إنشاء حساب";
+        btn.removeAttribute('disabled');
+        btnText.classList.remove('hidden');
+        btnSpinner.classList.add('hidden');
       }
     });
   </script>

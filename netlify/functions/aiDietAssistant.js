@@ -1,9 +1,8 @@
 // /netlify/functions/aiDietAssistant.js
-// Deterministic Arabic diet assistant — NO auto-greeting without user input.
+// Deterministic Arabic diet assistant — robust greeting & scope detection (handles timestamps/extra lines).
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
-
 const MODEL_POOL = ["gemini-1.5-pro","gemini-1.5-flash","gemini-pro"];
 
 const OWNER = process.env.GITHUB_REPO_OWNER;
@@ -24,6 +23,7 @@ async function ghGetJson(path){
   return { json: JSON.parse(content), sha: data.sha };
 }
 
+/* === Dubai date & sub window === */
 function todayDubai(){
   const now = new Date();
   return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
@@ -35,6 +35,7 @@ function withinWindow(start, end){
   return true;
 }
 
+/* === HTTP === */
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
@@ -45,6 +46,7 @@ const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringif
 const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
 const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
 
+/* === subscription gate === */
 async function ensureActiveSubscription(event) {
   const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
   const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
@@ -61,6 +63,7 @@ async function ensureActiveSubscription(event) {
   return { ok:true, user };
 }
 
+/* === pack cache === */
 let PACK_CACHE = { data:null, ts:0 };
 async function loadPack(force=false){
   const maxAgeMs = 5*60*1000;
@@ -85,9 +88,7 @@ async function loadPack(force=false){
   }
 }
 
-const SCOPE_ALLOW_RE = /(?:سعرات|كالور|ماكروز|بروتين|دهون|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|صيام|كيتو|لو كارب|متوسطي|داش|نباتي|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf)/i;
-const GREET_RE = /^(?:\s*(?:السلام\s*عليكم|وعليكم\s*السلام|مرحبا|مرحباً|أهلًا|اهلاً|هلا|مساء الخير|صباح الخير)\b|^\s*السلام\s*$)/i;
-
+/* === helpers & normalization === */
 function sanitizeReply(t=""){
   let s = String(t||"").replace(/```[\s\S]*?```/g,"");
   s = s.replace(/[\u{1F300}-\u{1FAFF}]/gu,"");
@@ -95,6 +96,30 @@ function sanitizeReply(t=""){
   s = s.trim().replace(/\n{3,}/g,"\n\n");
   return s;
 }
+function normalizeDigits(s=""){
+  const map = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+  return String(s||"").replace(/[\u0660-\u0669]/g, d => map[d] ?? d);
+}
+/** يأخذ نص المستخدم كاملًا:
+ *  - يزيل المحارف الخفية/التنسيقية
+ *  - يقسم لأسطر، يأخذ آخر سطر غير فارغ
+ *  - يحذف الطوابع الزمنية الشائعة في بدايته (مثل 00:58 أو [00:58])
+ *  - يطبع الأرقام العربية → إنجليزية
+ */
+function extractUtterance(raw=""){
+  const cleaned = String(raw||"")
+    .replace(/[\u200B-\u200F\u202A-\u202E]/g,"") // محارف اتجاه خفية
+    .replace(/\r/g,"");
+  const lines = cleaned.split("\n").map(l=>l.trim()).filter(Boolean);
+  const last = lines.length ? lines[lines.length-1] : "";
+  const noTs = last.replace(/^\[?\s*\d{1,2}:\d{2}\s*\]?\s*[-–:]?\s*/,"");
+  return normalizeDigits(noTs).trim();
+}
+
+/* === intent & scope detection (robust) === */
+const GREET_ANY_RE = /(السلام\s*عليكم|سلام\s*عليكم|السلام|سلام|مرحبا|مرحباً|أهلًا|اهلاً|هلا|صباح الخير|مساء الخير)/i;
+const SCOPE_ALLOW_RE = /(?:سعرات|كالور|ماكروز|بروتين|دهون|كارب|كربوهيدرات|ألياف|ماء|ترطيب|نظام|حِمية|رجيم|وجبة|وصفات|صيام|كيتو|لو كارب|متوسطي|داش|نباتي|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf)/i;
+
 function toGeminiContents(messages){
   const hist = (Array.isArray(messages)? messages : []).slice(-16);
   return hist.map(m => ({
@@ -114,11 +139,8 @@ function lastUserMessage(messages){
   }
   return "";
 }
-function normalizeDigits(s=""){
-  const map = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
-  return String(s||"").replace(/[\u0660-\u0669]/g, d => map[d] ?? d);
-}
 
+/* === state extraction === */
 function buildState(messages, pack){
   const rx = pack?.extract_regex || {};
   const re = (p)=> p ? new RegExp(p,'i') : null;
@@ -236,58 +258,22 @@ function buildState(messages, pack){
   return state;
 }
 
-function detectIntent(lastUser, pack){
+/* === intent === */
+function detectIntent(utter, pack){
   const intents = pack?.intents || {};
-  const t = normalizeDigits(lastUser||"");
-  function hit(keys){ return Array.isArray(keys) && keys.some(k=> new RegExp(k,'i').test(t)); }
-  if(GREET_RE.test(t)) return "greet";
+  function hit(keys){ return Array.isArray(keys) && keys.some(k=> new RegExp(k,'i').test(utter)); }
+  if(GREET_ANY_RE.test(utter)) return "greet";
   if(hit(intents.off_scope)) return "off_scope";
   if(hit(intents.calc_calories)) return "calc_calories";
   if(hit(intents.calc_macros)) return "calc_macros";
   if(hit(intents.diet_pick)) return "diet_pick";
   return "chat";
 }
-
-function computeEnergy(state, pack){
-  const W = +state.weight_kg, H = +state.height_cm, A = +state.age_years;
-  if(!W || !H || !A || !state.sex || !state.activity_key) return null;
-  const act = pack?.knowledge?.activity_factors || {};
-  const factor = act[state.activity_key] || 1.2;
-  let BMR = 0;
-  if(state.sex==="male"){ BMR = 10*W + 6.25*H - 5*A + 5; }
-  else { BMR = 10*W + 6.25*H - 5*A - 161; }
-  const TDEE = BMR * factor;
-  let kcal = TDEE;
-  if(state.goal==="loss") kcal = TDEE * 0.8;
-  else if(state.goal==="gain") kcal = TDEE * 1.1;
-  else if(state.goal==="maintain") kcal = TDEE;
-  return { BMR: Math.round(BMR), TDEE: Math.round(TDEE), kcal_target: Math.round(kcal/10)*10, activity_factor: factor };
-}
-
-function requiredFieldsByIntent(intent){
-  const full = ["weight_kg","height_cm","age_years","sex","activity_key"];
-  if(intent==="calc_calories" || intent==="calc_macros") return full;
-  return [];
-}
-function computeMissing(state, intent){
-  const need = new Set(requiredFieldsByIntent(intent));
-  const miss = [];
-  for(const k of need){ if(state[k]==null) miss.push(k); }
-  return miss;
-}
-function arabicLabel(field){
-  return ({
-    weight_kg:"الوزن (كجم)",
-    height_cm:"الطول (سم)",
-    age_years:"العمر (سنة)",
-    sex:"الجنس (ذكر/أنثى)",
-    activity_key:"مستوى النشاط (خامل/خفيف/متوسط/عال/رياضي)"
-  })[field] || field;
-}
 function isAmbiguousAffirmation(s){
   return /\b(نعم|اي|أجل|تمام|طيب|اوكي|موافق|اكيد|Yes|Yeah|Ok|Okay)\b/i.test(String(s||""));
 }
 
+/* === system prompt === */
 function systemPromptFromPack(pack){
   const base = String(pack?.system || "").trim();
   const extra = `
@@ -299,6 +285,7 @@ function systemPromptFromPack(pack){
   return base ? (base + "\n" + extra) : extra;
 }
 
+/* === model calls (deterministic) === */
 async function callModel(model, body){
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   body.generationConfig = { temperature: 0, topP: 1, topK: 1, maxOutputTokens: 1024 };
@@ -306,10 +293,7 @@ async function callModel(model, body){
   const timeoutMs = 25000;
   const t = setTimeout(()=>abort.abort(), timeoutMs);
   try{
-    const resp = await fetch(url, {
-      method:"POST", headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(body), signal: abort.signal
-    });
+    const resp = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body), signal: abort.signal });
     const txt = await resp.text();
     let data = null; try{ data = JSON.parse(txt); }catch(_){}
     if(!resp.ok){
@@ -342,6 +326,44 @@ async function tryModelsSequential(body){
   return { ok:false, errors };
 }
 
+/* === energy & missing === */
+function computeEnergy(state, pack){
+  const W = +state.weight_kg, H = +state.height_cm, A = +state.age_years;
+  if(!W || !H || !A || !state.sex || !state.activity_key) return null;
+  const act = pack?.knowledge?.activity_factors || {};
+  const factor = act[state.activity_key] || 1.2;
+  let BMR = 0;
+  if(state.sex==="male"){ BMR = 10*W + 6.25*H - 5*A + 5; }
+  else { BMR = 10*W + 6.25*H - 5*A - 161; }
+  const TDEE = BMR * factor;
+  let kcal = TDEE;
+  if(state.goal==="loss") kcal = TDEE * 0.8;
+  else if(state.goal==="gain") kcal = TDEE * 1.1;
+  else if(state.goal==="maintain") kcal = TDEE;
+  return { BMR: Math.round(BMR), TDEE: Math.round(TDEE), kcal_target: Math.round(kcal/10)*10, activity_factor: factor };
+}
+function requiredFieldsByIntent(intent){
+  const full = ["weight_kg","height_cm","age_years","sex","activity_key"];
+  if(intent==="calc_calories" || intent==="calc_macros") return full;
+  return [];
+}
+function computeMissing(state, intent){
+  const need = new Set(requiredFieldsByIntent(intent));
+  const miss = [];
+  for(const k of need){ if(state[k]==null) miss.push(k); }
+  return miss;
+}
+function arabicLabel(field){
+  return ({
+    weight_kg:"الوزن (كجم)",
+    height_cm:"الطول (سم)",
+    age_years:"العمر (سنة)",
+    sex:"الجنس (ذكر/أنثى)",
+    activity_key:"مستوى النشاط (خامل/خفيف/متوسط/عال/رياضي)"
+  })[field] || field;
+}
+
+/* === build model body === */
 function genderHint(sex){
   if(sex==="female") return "المخاطبة: مؤنث (إن لزم).";
   if(sex==="male")   return "المخاطبة: مذكّر (إن لزم).";
@@ -380,6 +402,7 @@ function buildModelBody(pack, messages, state, intent, energy, extraUserDirectiv
   return { systemInstruction: { role:"system", parts:[{ text: systemText }] }, contents, safetySettings: [] };
 }
 
+/* === Handler === */
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return jsonRes(204, {});
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
@@ -396,32 +419,36 @@ exports.handler = async (event) => {
 
   const messages = Array.isArray(body.messages) ? body.messages.map(m=>({ role:String(m.role||"").toLowerCase(), content:String(m.content||"") })) : [];
 
-  // 🔒 التغيير الحاسم: لا ردّ إطلاقًا إن لم يصل نص من المستخدم
   if (!messages.length) return ok({ reply: "", model: "no-op", diagnostics:{ reason:"no_messages_provided" } });
 
-  const lastUser = lastUserMessage(messages);
+  const lastUserRaw = lastUserMessage(messages) || "";
+  const utter = extractUtterance(lastUserRaw);
   const lastAssistant = lastOfRole(messages, "assistant");
-  const hasUserUtterance = typeof lastUser === "string" && lastUser.trim().length > 0;
 
-  // تحية فقط الآن تُفعّل فقط إن وُجدت رسالة مستخدم وتطابق التحية
-  const isGreetingOnly = hasUserUtterance && GREET_RE.test(String(lastUser||"").trim());
+  // greeting only: now detected on the cleaned utterance (anywhere in the line)
+  const isGreetingOnly = utter && GREET_ANY_RE.test(utter);
 
   let pack;
   try{ pack = await loadPack(false); }
   catch(e){ pack = {}; }
 
-  const offscopeQuick = hasUserUtterance && !GREET_RE.test(lastUser) && !SCOPE_ALLOW_RE.test(lastUser);
-  const intent = isGreetingOnly ? "greet" : (hasUserUtterance ? detectIntent(lastUser, pack) : "chat");
+  // scope guard uses the cleaned utterance
+  const offscopeQuick = !!utter && !GREET_ANY_RE.test(utter) && !SCOPE_ALLOW_RE.test(utter);
 
+  // intents on cleaned utterance
+  const intent = isGreetingOnly ? "greet" : detectIntent(utter, pack);
+
+  // state/energy from full history
   const state = buildState(messages, pack);
   const energy = computeEnergy(state, pack);
 
+  // repeat previous question if unanswered
   let repeatPreviousQuestion = false;
   let previousQuestionText = null;
   if(lastAssistant){
     const hadQuestion = /[؟?]/.test(lastAssistant);
     if(hadQuestion){
-      const ambiguous = isAmbiguousAffirmation(lastUser);
+      const ambiguous = isAmbiguousAffirmation(utter);
       const missNow = computeMissing(state, intent);
       if(ambiguous || missNow.length>0){
         repeatPreviousQuestion = true;
@@ -432,11 +459,7 @@ exports.handler = async (event) => {
 
   if(isGreetingOnly){
     const greetingText = String(pack?.prompts?.greeting || "وعليكم السلام ورحمة الله، أهلًا بك! ما هدفك الآن؟ ثم أرسل: وزنك/طولك/عمرك/جنسك/نشاطك.");
-    const bodyModel = {
-      systemInstruction: { role:"system", parts:[{ text: systemPromptFromPack(pack) }] },
-      contents: [{ role:"user", parts:[{ text: greetingText }] }],
-      safetySettings: []
-    };
+    const bodyModel = { systemInstruction: { role:"system", parts:[{ text: systemPromptFromPack(pack) }] }, contents: [{ role:"user", parts:[{ text: greetingText }] }], safetySettings: [] };
     const attempt = await tryModelsSequential(bodyModel);
     if(attempt.ok) return ok({ reply: attempt.reply, model: attempt.model });
     return ok({ reply: greetingText, model: "server-fallback", diagnostics:{ reason:"all_models_failed_on_greeting" } });
@@ -444,19 +467,14 @@ exports.handler = async (event) => {
 
   if(offscopeQuick){
     const offScopeDirective = String(pack?.prompts?.off_scope || "أعتذر بلطف، اختصاصي تغذية فقط. أعد صياغة سؤالك ضمن التغذية (أنظمة، سعرات/ماكروز، وجبات، بدائل، حساسيات…). ما هدفك الغذائي الآن؟");
-    const bodyModel = {
-      systemInstruction: { role:"system", parts:[{ text: systemPromptFromPack(pack) }] },
-      contents: [{ role:"user", parts:[{ text: offScopeDirective }] }],
-      safetySettings: []
-    };
+    const bodyModel = { systemInstruction: { role:"system", parts:[{ text: systemPromptFromPack(pack) }] }, contents: [{ role:"user", parts:[{ text: offScopeDirective }] }], safetySettings: [] };
     const attempt = await tryModelsSequential(bodyModel);
     if(attempt.ok) return ok({ reply: attempt.reply, model: attempt.model });
     return ok({ reply: offScopeDirective, model: "server-fallback", diagnostics:{ reason:"all_models_failed_offscope" } });
   }
 
   if(repeatPreviousQuestion && previousQuestionText){
-    const text = (pack?.prompts?.repeat_unanswered || "يبدو أن سؤالي السابق لم يُجب بعد. للمتابعة بدقة: {{question}}")
-      .replace("{{question}}", previousQuestionText.trim());
+    const text = (pack?.prompts?.repeat_unanswered || "يبدو أن سؤالي السابق لم يُجب بعد. للمتابعة بدقة: {{question}}").replace("{{question}}", previousQuestionText.trim());
     return ok({ reply: text, model: "server-guard" });
   }
 

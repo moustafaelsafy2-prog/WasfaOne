@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- Feather Icons for potential future use, though we embed SVGs in JS -->
+  <!-- Feather Icons (احتياطي) -->
   <script src="https://unpkg.com/feather-icons"></script>
 
   <style>
@@ -23,22 +23,11 @@
         -moz-osx-font-smoothing: grayscale;
     }
     /* Tab Navigation Styling */
-    nav.tabs button {
-        position: relative;
-        transition: color 0.3s ease;
-    }
-    nav.tabs button.active {
-        color: #ef4444; /* red-500 */
-    }
+    nav.tabs button { position: relative; transition: color 0.3s ease; }
+    nav.tabs button.active { color: #ef4444; }
     nav.tabs button.active::after {
-        content: '';
-        position: absolute;
-        bottom: -1px;
-        right: 0;
-        width: 100%;
-        height: 2px;
-        background-color: #ef4444; /* red-500 */
-        border-radius: 9999px;
+        content: ''; position: absolute; bottom: -1px; right: 0; width: 100%; height: 2px;
+        background-color: #ef4444; border-radius: 9999px;
     }
     section.tab { display: none }
     section.tab.active { display: block }
@@ -46,34 +35,20 @@
     
     /* Custom Icon Button Style */
     .icon-btn {
-        width: 40px;
-        height: 40px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 9999px; /* full circle */
-        background-color: #f8fafc; /* slate-50 */
-        color: #64748b; /* slate-500 */
-        border: 1px solid #e2e8f0; /* slate-200 */
+        width: 40px; height: 40px; display: inline-flex; align-items: center; justify-content: center;
+        border-radius: 9999px; background-color: #f8fafc; color: #64748b; border: 1px solid #e2e8f0;
         transition: all 0.2s ease-in-out;
     }
     .icon-btn:hover {
-        background-color: #f1f5f9; /* slate-100 */
-        color: #1e293b; /* slate-800 */
-        transform: scale(1.05);
+        background-color: #f1f5f9; color: #1e293b; transform: scale(1.05);
         box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     }
-    .icon-btn.danger:hover {
-        background-color: #fee2e2; /* red-100 */
-        color: #b91c1c; /* red-700 */
-        border-color: #fecaca; /* red-200 */
-    }
-    .icon {
-        width: 20px;
-        height: 20px;
-    }
-    .muted {
-        color: #64748b; /* slate-500 */
+    .icon-btn.danger:hover { background-color: #fee2e2; color: #b91c1c; border-color: #fecaca; }
+    .icon { width: 20px; height: 20px; }
+    .muted { color: #64748b; }
+    .badge {
+      display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px;
+      font-size:.75rem; font-weight:600; border:1px solid #e2e8f0; background:#f8fafc; color:#0f172a;
     }
   </style>
 </head>
@@ -87,7 +62,6 @@
           <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500"><path d="M12 20.94c1.5 0 2.75 1.06 4 1.06 3 0 6-8 6-12.5A4.5 4.5 0 0 0 18 5.5c0 1.5-1.5 2.5-3 2.5s-3-1-3-2.5A4.5 4.5 0 0 0 7.5 9.5c0 4.5 3 12.5 6 12.5 1.25 0 2.5-1.06 4-1.06Z"/><path d="M12 20.94c-1.5 0-2.75 1.06-4 1.06-3 0-6-8-6-12.5A4.5 4.5 0 0 1 6 5.5c0 1.5 1.5 2.5 3 2.5s3-1 3-2.5A4.5 4.5 0 0 1 16.5 9.5c0 4.5-3 12.5-6 12.5-1.25 0-2.5-1.06-4-1.06Z"/></svg>
           <span>لوحة تحكم WasfaOne</span>
         </h1>
-        <!-- تم تعديل السطر التالي فقط ليعكس عدم الحفظ المحلي -->
         <p class="text-sm text-slate-500 mt-1">أدخل كلمة مرور الأدمن عند الطلب — لا تُحفظ محليًا.</p>
       </div>
       <nav class="tabs" id="tabs">
@@ -110,7 +84,7 @@
         <div class="bg-white border border-slate-200 rounded-2xl shadow-lg p-6 sm:p-8">
           <h2 class="text-xl font-bold text-slate-900 mb-6">إدارة المستخدمين</h2>
 
-          <!-- Create User -->
+          <!-- Create / Upsert User -->
           <form id="createUserForm" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
             <div><input required name="name" placeholder="الاسم الكامل" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
             <div><input required name="email" placeholder="البريد الإلكتروني" type="email" class="block w-full rounded-lg border-slate-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"/></div>
@@ -129,7 +103,7 @@
                 <span>حدِّث المستخدم بدلًا من الإنشاء (إذا كان البريد موجودًا)</span>
               </label>
               <button class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-red-600 py-2.5 px-5 text-sm font-semibold text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200 hover:scale-105" type="submit">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/><line x1="12" y1="17" x2="12" y2="17"/></svg>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span>حفظ المستخدم</span>
               </button>
             </div>
@@ -148,6 +122,7 @@
                       <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الحالة</th>
                       <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">البداية</th>
                       <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">النهاية</th>
+                      <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">الخطة</th>
                       <th class="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">عمليات</th>
                     </tr>
                   </thead>
@@ -280,16 +255,12 @@
       const btn = e.target.closest('button[data-tab]'); if(!btn) return; activateTab(btn.dataset.tab);
     });
 
-    // ===== Admin key =====
-    // إبقاء الثابت كما هو دون استخدامه للحفظ المحلي (تم إيقاف الحفظ المحلي تمامًا)
-    const ADMIN_KEY_STORAGE='wasfa_admin_key';
+    // ===== Admin key (بدون تخزين محلي) =====
     let ADMIN_KEY = '';
-
     async function promptAdminKey(){
       if(!ADMIN_KEY){
         ADMIN_KEY = prompt('أدخل كلمة مرور الأدمن:');
         if(!ADMIN_KEY) throw new Error('admin_key_required');
-        // تم إزالة أي تخزين في localStorage لضمان إمكانية الدخول من أي جهاز/متصفح دون ربط سابق
       }
     }
 
@@ -299,18 +270,51 @@
     const textareaClass = inputClass + " min-h-[90px]";
 
     function escapeHtml(s){return (s||'').replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));}
-    function el(tag, attrs={}, children=[]){const e=document.createElement(tag);Object.entries(attrs).forEach(([k,v])=>{if(k==='class')e.className=v;else if(k==='text')e.textContent=v;else e.setAttribute(k,v)});children.forEach(c=>e.appendChild(c));return e;}
+    function el(tag, attrs={}, children=[]){const e=document.createElement(tag);Object.entries(attrs).forEach(([k,v])=>{if(k==='class')e.className=v;else if(k==='text')e.textContent=v;else if(k==='innerHTML')e.innerHTML=v;else e.setAttribute(k,v)});children.forEach(c=>e.appendChild(c));return e;}
     async function api(path, method='GET', body){
       await promptAdminKey();
       const res = await fetch('/.netlify/functions/'+path,{method,headers:{'content-type':'application/json','x-admin-key':ADMIN_KEY},body: body? JSON.stringify(body): undefined});
-      if(res.status===401){
-        // عند الرفض نُصفر المفتاح فقط — بلا إزالة من localStorage لأنه غير مستخدم
-        ADMIN_KEY='';
-        throw new Error('unauthorized');
-      }
+      if(res.status===401){ ADMIN_KEY=''; throw new Error('unauthorized'); }
       let data={}; try{ data=await res.json(); }catch(_){}
       if(!res.ok || data.ok===false){ throw new Error(data.error||('request_failed_'+res.status)); }
       return data;
+    }
+
+    function todayDubaiISO(){
+      // نستخدم UTC+4 كمرجع تقريبًا لعرض متسق (العرض فقط)
+      const now = new Date();
+      const tzOffsetMs = 4 * 60 * 60 * 1000;
+      const d = new Date(now.getTime() + tzOffsetMs);
+      const y = d.getUTCFullYear();
+      const m = String(d.getUTCMonth()+1).padStart(2,'0');
+      const dd = String(d.getUTCDate()).padStart(2,'0');
+      return \`\${y}-\${m}-\${dd}\`;
+    }
+    function addDaysISO(iso, days){
+      const [y,m,d] = (iso||'').split('-').map(n=>parseInt(n,10));
+      const dt = new Date(Date.UTC(y||1970, (m||1)-1, d||1));
+      dt.setUTCDate(dt.getUTCDate() + (days||0));
+      const yy = dt.getUTCFullYear();
+      const mm = String(dt.getUTCMonth()+1).padStart(2,'0');
+      const dd = String(dt.getUTCDate()).padStart(2,'0');
+      return \`\${yy}-\${mm}-\${dd}\`;
+    }
+    function daysLeft(start,end){
+      if(!end) return '—';
+      const now = new Date(todayDubaiISO());
+      const e = new Date(end);
+      const diff = Math.ceil((e - now)/(1000*60*60*24));
+      return (isFinite(diff)? diff: '—');
+    }
+    function inferPlan(u){
+      // استدلال وصفي للخطة انطلاقًا من طول النافذة
+      if(!u.start_date || !u.end_date) return 'غير محدد';
+      const s = new Date(u.start_date), e = new Date(u.end_date);
+      const days = Math.round((e - s)/(1000*60*60*24));
+      if (days >= 360 && days <= 370) return 'سنوي';
+      if (days >= 28 && days <= 33)   return 'شهري';
+      if (days >= 6 && days <= 9)     return 'تجربة';
+      return 'مخصّص';
     }
 
     // ===== Modal system =====
@@ -340,25 +344,24 @@
     }
     modalCancel.addEventListener('click', ()=> closeModal(false));
     modalClose.addEventListener('click',  ()=> closeModal(false));
-    modalRoot.addEventListener('click', (e)=>{ if(e.target===modalRoot.firstElementChild) closeModal(false); }); // Close on backdrop click
+    modalRoot.addEventListener('click', (e)=>{ if(e.target===modalRoot.firstElementChild) closeModal(false); });
     modalConfirm.addEventListener('click', async ()=>{
       if(typeof modalConfirmHandler === 'function'){
         modalConfirm.disabled = true;
         try{ const ok = await modalConfirmHandler(); closeModal(ok!==false); }
         catch(err){ alert('فشلت العملية: '+ err.message); }
         finally{ modalConfirm.disabled = false; }
-      } else {
-        closeModal(true);
-      }
+      } else { closeModal(true); }
     });
 
-    // ===== Icons (Lucide Icons) =====
+    // ===== Icons (Lucide-like) =====
     const icons = {
       edit:   '<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4Z"/></svg>',
       reset:  '<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M21 13a9 9 0 1 1-3-7.7L21 8"/></svg>',
       trash:  '<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>',
       note:   '<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z"/><path d="M15 3v4a1 1 0 0 0 1 1h4"/></svg>',
       key:    '<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 18v3c0 .6.4 1 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4Z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg>',
+      plan:   '<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h7v7H3z"/><path d="M14 3h7v7h-7z"/><path d="M14 14h7v7h-7z"/><path d="M3 14h7v7H3z"/></svg>',
       close:  '<svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>'
     };
 
@@ -394,6 +397,16 @@
       return view;
     }
 
+    function planBadge(u){
+      const type = inferPlan(u);
+      const left = daysLeft(u.start_date, u.end_date);
+      const tone = (type==='سنوي')?'bg-emerald-50 text-emerald-700 border-emerald-200'
+                 : (type==='شهري')? 'bg-sky-50 text-sky-700 border-sky-200'
+                 : (type==='تجربة')? 'bg-amber-50 text-amber-700 border-amber-200'
+                 : 'bg-slate-50 text-slate-700 border-slate-200';
+      return `<span class="badge ${tone}">${type}${Number.isFinite(left)? \` — متبقٍ \${left} يوم\` : ''}</span>`;
+    }
+
     function rowTemplate(u){
       const tr = document.createElement('tr');
       tr.dataset.email = u.email;
@@ -408,9 +421,11 @@
         </td>
         <td class="px-4 py-3 align-top text-sm text-slate-600">${u.start_date||'—'}</td>
         <td class="px-4 py-3 align-top text-sm text-slate-600">${u.end_date||'—'}</td>
+        <td class="px-4 py-3 align-top">${planBadge(u)}</td>
         <td class="px-4 py-3 align-top">
           <div class="flex items-center flex-wrap gap-2">
-            <button class="icon-btn js-edit" title="تعديل">${icons.edit}</button>
+            <button class="icon-btn js-plan"  title="الخطة/الترقية">${icons.plan}</button>
+            <button class="icon-btn js-edit"  title="تعديل">${icons.edit}</button>
             <button class="icon-btn js-reset" title="إعادة ربط">${icons.reset}</button>
             <button class="icon-btn js-pass"  title="تغيير كلمة السر">${icons.key}</button>
             <button class="icon-btn js-notes" title="ملاحظات">${icons.note}</button>
@@ -419,7 +434,7 @@
           <div class="js-notes-view"></div>
         </td>`;
 
-      // Hide duplicated email column on smaller screens if desired
+      // Hide duplicated email column on smaller screens
       tr.children[1].classList.add('hidden', 'lg:table-cell');
 
       const notesViewHost = tr.querySelector('.js-notes-view');
@@ -436,11 +451,95 @@
       currentUsers.forEach(u => tbody.appendChild(rowTemplate(u)));
     }
 
-    // === Icon handlers -> open modals (logic is unchanged) ===
+    // === Icon handlers -> open modals ===
     function attachRowIconHandlers(tr, notesView){
       const email = tr.dataset.email;
 
-      // Edit modal
+      // ===== Plan / Upgrade modal =====
+      tr.querySelector('.js-plan').addEventListener('click', async ()=>{
+        const user = currentUsers.find(u => u.email === email);
+        if (!user) return;
+        const today = todayDubaiISO();
+        const trialEnd  = addDaysISO(today, 7);
+        const monthEnd  = addDaysISO(today, 30);
+        const yearEnd   = addDaysISO(today, 365);
+
+        // واجهة سريعة للترقية + تخصيص
+        const wrap = el('div',{class:'space-y-4'},[
+          el('div',{class:'grid grid-cols-1 sm:grid-cols-3 gap-3'},[
+            el('button',{class:'inline-flex items-center justify-center gap-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 px-3 py-2 text-sm font-semibold hover:bg-amber-100 transition-colors js-trial'},
+              [document.createTextNode('تفعيل تجربة 7 أيام')]),
+            el('button',{class:'inline-flex items-center justify-center gap-2 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 px-3 py-2 text-sm font-semibold hover:bg-sky-100 transition-colors js-month'},
+              [document.createTextNode('ترقية شهرية (30 يوم)')]),
+            el('button',{class:'inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-2 text-sm font-semibold hover:bg-emerald-100 transition-colors js-year'},
+              [document.createTextNode('ترقية سنوية (365 يوم)')]),
+          ]),
+          el('div',{class:'border-t border-slate-200 pt-3'},[
+            el('p',{class:'text-sm font-semibold text-slate-700',text:'تخصيص نافذة الاشتراك'}),
+            (()=>{
+              const grid = el('div',{class:'grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2'});
+              const sInp = el('input',{class:rowInputClass,type:'date',value:user.start_date||today,placeholder:'start'});
+              const eInp = el('input',{class:rowInputClass,type:'date',value:user.end_date||monthEnd,placeholder:'end'});
+              const stSel= el('select',{class:rowInputClass},[]);
+              stSel.innerHTML = '<option value="active">فعّال</option><option value="suspended">معلّق</option>';
+              stSel.value = user.status || 'active';
+              grid.appendChild(el('div',{},[el('label',{class:'block text-xs muted mb-1',text:'بداية'}), sInp]));
+              grid.appendChild(el('div',{},[el('label',{class:'block text-xs muted mb-1',text:'نهاية'}),   eInp]));
+              grid.appendChild(el('div',{},[el('label',{class:'block text-xs muted mb-1',text:'الحالة'}),  stSel]));
+              // خزن للمُعالج
+              wrap._custom = { sInp, eInp, stSel };
+              return grid;
+            })(),
+            el('div',{class:'flex justify-end mt-2'},[
+              el('button',{class:'inline-flex items-center rounded-lg bg-slate-800 text-white px-4 py-2 text-sm font-semibold hover:bg-slate-700 transition-colors js-save-custom',innerHTML:'حفظ التخصيص'})
+            ])
+          ]),
+          el('div',{class:'text-xs text-slate-500'},[
+            document.createTextNode('تلميح: الترقية تضبط الحالة إلى "فعّال" تلقائيًا وتعيد تعيين سبب القفل.')
+          ])
+        ]);
+
+        // أزرار الإجراءات السريعة
+        const runTrial = async ()=>{
+          // ⚠️ عدِّل action هنا إذا كان اسم طريقتك مختلفًا داخل adminUsers.js
+          await api('adminUsers?action=setTrial','POST', { email, days:7, start_date: today, end_date: trialEnd });
+          await loadUsers();
+        };
+        const runMonthly = async ()=>{
+          await api('adminUsers?action=upgradeMonthly','POST', { email, start_date: today, end_date: monthEnd });
+          await loadUsers();
+        };
+        const runAnnual = async ()=>{
+          await api('adminUsers?action=upgradeAnnual','POST', { email, start_date: today, end_date: yearEnd });
+          await loadUsers();
+        };
+        const runCustom = async ()=>{
+          const s = wrap._custom.sInp.value || today;
+          const e = wrap._custom.eInp.value || monthEnd;
+          const status = wrap._custom.stSel.value || 'active';
+          await api('adminUsers?action=setWindow','POST', { email, start_date: s, end_date: e, status });
+          await loadUsers();
+        };
+
+        wrap.querySelector('.js-trial').addEventListener('click', runTrial);
+        wrap.querySelector('.js-month').addEventListener('click', runMonthly);
+        wrap.querySelector('.js-year').addEventListener('click', runAnnual);
+        wrap.querySelector('.js-save-custom').addEventListener('click', async ()=>{
+          await runCustom();
+          alert('تم حفظ النافذة المخصّصة');
+          closeModal(true);
+        });
+
+        openModal({
+          title:"الخطة / الترقية",
+          node:wrap,
+          hint:"اختر ترقية سريعة أو عيّن نافذة اشتراك مخصّصة يدويًا.",
+          confirmText:"إغلاق",
+          onConfirm: ()=> true
+        });
+      });
+
+      // ===== Edit modal =====
       tr.querySelector('.js-edit').addEventListener('click', async ()=>{
         const user = currentUsers.find(u => u.email === email);
         if (!user) return;
@@ -489,11 +588,11 @@
         });
       });
 
-      // Reset device modal
+      // ===== Reset device modal =====
       tr.querySelector('.js-reset').addEventListener('click', ()=>{
         const body = el('div',{class:'space-y-2'},[
           el('p',{class:'text-sm'},[document.createTextNode('سيتم مسح ربط الجهاز والجلسة للمستخدم:'), el('code',{class:'mx-1 text-red-600 font-mono'},[document.createTextNode(email)])]),
-          el('p',{class:'text-xs muted'},[document.createTextNode('يُستخدم هذا عند مواجهة خطأ 423 أو تغيير كلمة السر.')])
+          el('p',{class:'text-xs muted'},[document.createTextNode('يُستخدم هذا عند مواجهة خطأ ارتباط الجهاز أو تغيير كلمة السر.')])
         ]);
         openModal({
           title:"إعادة ربط الجهاز",
@@ -504,7 +603,7 @@
         });
       });
 
-      // Password modal
+      // ===== Password modal =====
       tr.querySelector('.js-pass').addEventListener('click', ()=>{
         const frm = el('div',{class:'space-y-3'},[
           (()=>{
@@ -533,7 +632,7 @@
         });
       });
 
-      // Notes modal
+      // ===== Notes modal =====
       tr.querySelector('.js-notes').addEventListener('click', ()=>{
         const currentText = notesView.querySelector('.js-notes-view-text')?.textContent || '';
         const frm = el('div',{class:'space-y-3'},[
@@ -555,7 +654,7 @@
         });
       });
 
-      // Delete modal
+      // ===== Delete modal =====
       tr.querySelector('.js-delete').addEventListener('click', ()=>{
         const body = el('div',{class:'space-y-2'},[
           el('p',{class:'text-sm'},[document.createTextNode('هل تريد حذف المستخدم نهائيًا؟')]),
@@ -576,7 +675,7 @@
       });
     }
 
-    // Create User (logic is unchanged)
+    // Create / Upsert User
     document.getElementById('createUserForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
       const fd = new FormData(e.currentTarget);
@@ -605,7 +704,7 @@
       alert('تم الحفظ');
     });
 
-    // ===== Settings (logic is unchanged) =====
+    // ===== Settings =====
     let currentSettings=null;
     async function loadSettings(){
       try{
@@ -637,7 +736,7 @@
       wrap.appendChild(g1); wrap.appendChild(g2);
       wrap.querySelector('[data-k="description_ar"]').value = d.description_ar||'';
       wrap.querySelector('[data-k="description_en"]').value = d.description_en||'';
-      const tools=el('div',{class:'flex justify-end pt-2'},[el('button',{class:'icon-btn danger',title:'حذف',innerHTML:icons.trash})]);
+      const tools=el('div',{class:'flex justify-end pt-2'},[el('button',{class:'icon-btn danger',title:'حذف',innerHTML:'<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>'})]);
       tools.querySelector('button').addEventListener('click',()=> wrap.remove());
       wrap.appendChild(tools);
       return wrap;
@@ -652,7 +751,7 @@
       const row=el('div',{class:'grid grid-cols-1 sm:grid-cols-[1fr,2fr,auto] gap-2 items-center'},[
         el('input',{class:inputClass,'data-k':'key',value:k||'',placeholder:'key (e.g., hero)'}),
         el('input',{class:inputClass,'data-k':'val',value:v||'',placeholder:'https://...jpg'}),
-        el('button',{class:'icon-btn danger',title:'حذف',innerHTML:icons.trash})
+        el('button',{class:'icon-btn danger',title:'حذف',innerHTML:'<svg class="icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M3 6h18M8 6V4m8 2V4M6 6l1 14h10l1-14"/></svg>'})
       ]);
       row.querySelector('button').addEventListener('click',()=> row.remove());
       return row;
@@ -689,7 +788,7 @@
       const contact={ phone_display:cf.phone_display.value.trim(), whatsapp_link:cf.whatsapp_link.value.trim(), email:cf.email.value.trim(),
         social:{ instagram:cf.instagram.value.trim(), tiktok:cf.tiktok.value.trim(), youtube:cf.youtube.value.trim() } };
       const diet_systems=Array.from(document.querySelectorAll('#dietsList .bg-slate-50')).map(card=>{
-        const get=(sel)=> card.querySelector(`[data-k="${sel}"]`).value.trim();
+        const get=(sel)=> card.querySelector(\`[data-k="\${sel}"]\`).value.trim();
         return { id:get('id'), name_ar:get('name_ar'), name_en:get('name_en'), description_ar:get('description_ar'), description_en:get('description_en') };
       }).filter(d=> d.id);
       const images={}; document.querySelectorAll('#imagesList .grid').forEach(row=>{

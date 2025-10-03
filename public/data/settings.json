@@ -1,4 +1,5 @@
 {
+  "default_lang": "ar",
   "branding": {
     "site_name_ar": "وصفة ون",
     "site_name_en": "WasfaOne",
@@ -19,7 +20,7 @@
       "id": "dr_mohamed_saeed",
       "name_ar": "نظام د. محمد سعيد",
       "name_en": "Dr. Mohamed Saeed Protocol",
-      "description_ar": "نظام خاص بالدكتور محمد سعيدأخصائي التغذية العلاجية.",
+      "description_ar": "نظام خاص بالدكتور محمد سعيد أخصائي التغذية العلاجية.",
       "description_en": "Net carbs ≤ 5 g/serving. No sugars, artificial sweeteners, processed meats/additives (MSG/nitrates/nitrites/colors/flavors), or refined seed oils. Allow EVOO, butter/ghee, avocado, raw nuts."
     },
     {
@@ -204,5 +205,15 @@
       "alt_ar": "صورة بانر",
       "alt_en": "Banner image"
     }
+  },
+  "pricing": {
+    "monthly_aed": 29,
+    "yearly_per_month_aed": 25,
+    "yearly_total_aed": 300,
+    "trial_days": 7
+  },
+  "legal": {
+    "privacy_url": "privacy.html",
+    "terms_url": "terms.html"
   }
 }

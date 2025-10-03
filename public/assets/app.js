@@ -1,8 +1,11 @@
 /* WasfaOne Frontend — Server-only flow (Netlify Function) with Custom Macros */
 
 const API_ENDPOINT = "/.netlify/functions/generateRecipe";
-
 const API_IMAGE_ENDPOINT = "/.netlify/functions/generateRecipeImage";
+
+// Global settings cache (for WhatsApp link / plans CTA)
+let WHATSAPP_LINK = "#";
+const PLANS_URL = "/public/index.html#plans";
 
 // DOM refs
 let mealTypeEl, cuisineEl, dietTypeEl, calorieTargetEl, commonAllergyEl, customAllergyEl, focusEl;
@@ -17,8 +20,12 @@ function showStatus(message, isError = false) {
   statusMsg.classList.toggle("text-red-600", !!isError);
   statusMsg.classList.toggle("text-emerald-700", !isError);
 }
-function showError(message) {
-  errorMsg.textContent = message || "";
+function showError(message, withHTML = false) {
+  if (withHTML) {
+    errorMsg.innerHTML = message || "";
+  } else {
+    errorMsg.textContent = message || "";
+  }
   errorMsg.classList.toggle("hidden", !message);
 }
 function $(sel) { return document.querySelector(sel); }
@@ -38,6 +45,7 @@ function clearOutput() {
   preparationSteps.innerHTML = "";
   rawJson.textContent = "";
 }
+
 function validateRecipeSchema(rec) {
   const must = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
   if (!rec || typeof rec !== "object") return { ok:false, error:"recipe_not_object" };
@@ -50,6 +58,20 @@ function validateRecipeSchema(rec) {
   if (!Array.isArray(rec.ingredients) || !rec.ingredients.length) return { ok:false, error:"ingredients_empty" };
   if (!Array.isArray(rec.steps) || !rec.steps.length) return { ok:false, error:"steps_empty" };
   return { ok:true };
+}
+
+// Build auth headers from localStorage
+function getSessionHeaders() {
+  try {
+    const token = localStorage.getItem("auth_token") || "";
+    const nonce = localStorage.getItem("session_nonce") || "";
+    const headers = { "Content-Type":"application/json" };
+    if (token) headers["X-Auth-Token"] = token;
+    if (nonce) headers["X-Session-Nonce"] = nonce;
+    return headers;
+  } catch {
+    return { "Content-Type":"application/json" };
+  }
 }
 
 // Render
@@ -71,7 +93,6 @@ function renderRecipe(recipe) {
 // ====== إضافة توليد وعرض صورة الطبق عبر Gemini (واجهة مستقلة) ======
 async function generateAndRenderRecipeImage(recipe) {
   try {
-    // تجهيز الحمولة للوظيفة الخلفية
     const payload = {
       title: recipe.title || "",
       ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
@@ -91,10 +112,7 @@ async function generateAndRenderRecipeImage(recipe) {
       return;
     }
 
-    // إدراج الصورة بجانب الاسم داخل <h2 id="recipeTitle">
     if (!recipeTitle) return;
-    // نبني العنوان مجددًا: صورة + نص
-    // ملاحظة: لا نغير أي تصميم عام — تنسيق محلي داخل img فقط.
     const img = document.createElement("img");
     img.src = data.image.data_url;
     img.alt = recipe.title || "صورة الطبق";
@@ -112,7 +130,6 @@ async function generateAndRenderRecipeImage(recipe) {
     titleSpan.textContent = recipe.title || "";
     titleSpan.style.verticalAlign = "middle";
 
-    // في حال كان العنوان يحتوي نصًا سابقًا — نعيد بناؤه للصورة + النص
     recipeTitle.innerHTML = "";
     recipeTitle.appendChild(img);
     recipeTitle.appendChild(titleSpan);
@@ -128,6 +145,19 @@ function normalizeAllergies(arr) {
     .map(s => String(s || "").trim())
     .filter(Boolean)
     .slice(0, 10);
+}
+
+// Friendly upgrade CTA builder
+function buildUpgradeCTA(msg) {
+  const what = `
+    <div class="space-y-3">
+      <div>${msg}</div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <a href="${PLANS_URL}" class="inline-flex items-center px-3 py-1.5 rounded-md bg-emerald-600 text-white text-sm">الترقية الآن</a>
+        <a href="${WHATSAPP_LINK}" target="_blank" class="inline-flex items-center px-3 py-1.5 rounded-md bg-green-600 text-white text-sm">تواصل عبر واتساب</a>
+      </div>
+    </div>`;
+  return what;
 }
 
 // Main action
@@ -148,8 +178,7 @@ async function onGenerate() {
         : []
     );
 
-  const isCustom = 
-    dietTypeEl && dietTypeEl.value === "custom";
+  const isCustom = dietTypeEl && dietTypeEl.value === "custom";
 
   const customMacros = isCustom ? {
     protein_g: customProteinEl ? (+customProteinEl.value || 0) : 0,
@@ -161,7 +190,7 @@ async function onGenerate() {
     mealType: mealTypeEl ? mealTypeEl.value : "",
     cuisine: cuisineEl ? cuisineEl.value : "",
     dietType: dietTypeEl ? dietTypeEl.value : "",
-    calorieTarget: calorieTargetEl ? (Number(calorieTargetEl.value) || 500) : 500,
+    caloriesTarget: calorieTargetEl ? (Number(calorieTargetEl.value) || 500) : 500,
     allergies,
     focus: (focusEl && focusEl.value) || "",
     customMacros,
@@ -171,12 +200,48 @@ async function onGenerate() {
   try {
     const res = await fetch(API_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type":"application/json" },
+      headers: getSessionHeaders(),
       body: JSON.stringify(payload)
     });
 
     const data = await res.json().catch(() => ({}));
+
+    // Explicit subscription handling
     if (!res.ok || !data.ok) {
+      const code = res.status;
+      const err = String(data?.error || "");
+      // 401 Unauthorized / Bad session
+      if (code === 401 || err === "unauthorized" || err === "bad_session") {
+        showError("يجب تسجيل الدخول مجددًا. سيتم نقلك لصفحة الدخول.");
+        showStatus("", false);
+        setTimeout(() => { window.location.href = "/public/login.html"; }, 900);
+        return;
+      }
+      // 403 Trial/Subscription gates
+      if (code === 403) {
+        if (err === "trial_expired") {
+          showError(buildUpgradeCTA("انتهت مدة التجربة المجانية الخاصة بك."), true);
+          showStatus("", false);
+          return;
+        }
+        if (err === "trial_daily_limit_reached") {
+          showError(buildUpgradeCTA("لقد بلغت الحدّ اليومي للتجربة المجانية اليوم."), true);
+          showStatus("", false);
+          return;
+        }
+        if (err === "subscription_expired") {
+          showError(buildUpgradeCTA("انتهت صلاحية الاشتراك."), true);
+          showStatus("", false);
+          return;
+        }
+        if (err === "inactive_or_out_of_window") {
+          showError(buildUpgradeCTA("الحساب غير نشط أو خارج نافذة الاشتراك."), true);
+          showStatus("", false);
+          return;
+        }
+      }
+
+      // Fallback generic
       throw new Error(data?.error || "تعذر الاتصال بالخادم.");
     }
 
@@ -188,7 +253,6 @@ async function onGenerate() {
   } catch (err) {
     showError(err.message || "حدث خطأ غير متوقع.");
     showStatus("", false);
-  
   } finally {
     generateBtn.disabled = false;
     if (loadingIndicator) loadingIndicator.classList.add("hidden");
@@ -227,7 +291,7 @@ function setup() {
     const v = calorieTargetEl ? (+calorieTargetEl.value || 0) : 0;
     if (v < 100 || v > 2000) { showError("أدخل سعرات بين 100 و 2000"); return; }
     if (dietTypeEl && dietTypeEl.value === "custom") {
-      const p = Number(customProteinEl.value)||0, c = Number(customCarbsEl.value)||0, f = Number(customFatEl.value)||0;
+      const p = Number(customProteinEl?.value)||0, c = Number(customCarbsEl?.value)||0, f = Number(customFatEl?.value)||0;
       if (p<=0 && c<=0 && f<=0) { showError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); return; }
     }
     onGenerate();
@@ -244,6 +308,7 @@ async function loadSettingsAndBindDietList() {
     if (!res.ok) throw new Error("settings_fetch_failed");
     const s = await res.json();
     const diets = Array.isArray(s?.diet_systems) ? s.diet_systems : [];
+    WHATSAPP_LINK = s?.contact?.whatsapp_link || WHATSAPP_LINK;
 
     if (dietTypeEl && diets.length) {
       dietTypeEl.innerHTML = diets.map(d => `<option value="${d.id}">${d.name_ar}</option>`).join("");

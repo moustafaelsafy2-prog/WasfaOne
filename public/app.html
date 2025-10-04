@@ -33,7 +33,10 @@
     .tl-pill:hover{ transform:translateY(-3px); box-shadow:0 6px 12px rgba(0,0,0,.06) }
     .tl-pill .name{ display:block; font-weight:800; font-size:14px }
     .tl-pill .grams{ display:block; font-weight:900; font-size:18px; margin-top:4px }
-    .tl-energy{ background:#fef2f2; border-color:#f87171; color:#b91c1c } .tl-protein{ background:#eff6ff; border-color:#60a5فا; color:#1e40af } .tl-carbs{ background:#f0fdf4; border-color:#4ade80; color:#15803d } .tl-fat{ background:#fffbeb; border-color:#facc15; color:#a16207 }
+    .tl-energy{ background:#fef2f2; border-color:#f87171; color:#b91c1c } 
+    .tl-protein{ background:#eff6ff; border-color:#60a5fa; color:#1e40af } 
+    .tl-carbs{ background:#f0fdf4; border-color:#4ade80; color:#15803d } 
+    .tl-fat{ background:#fffbeb; border-color:#facc15; color:#a16207 }
     .panel{ position:sticky; top:24px; background:#fff; border:1px solid var(--line); border-radius:22px; padding:22px; box-shadow:0 12px 30px rgba(0,0,0,.04) }
     .ingredient-list li{ position:relative; padding-right:1.5rem; line-height:1.9; margin-bottom:.5rem; color: var(--muted) }
     .ingredient-list li::before{ content:''; position:absolute; right:0; top:10px; width:8px; height:8px; border-radius:50%; background:var(--brand); box-shadow:0 0 8px rgba(239,68,68,.5) }
@@ -132,7 +135,7 @@
         </div>
         <div class="form-group">
           <label for="customCarbs" class="form-label">كربوهيدرات (جم/حصة)</label>
-          <input id="customCarbs" type="number" min="0" step="1" value="35" class="form-field" placeholder="مثال: 35">
+          <input id="customCarbs" type="number" min="0" step="1" value="5" class="form-field" placeholder="مثال: 5">
         </div>
         <div class="form-group">
           <label for="customFat" class="form-label">دهون (جم/حصة)</label>
@@ -367,23 +370,24 @@
     };
   }
 
-  /* ===== قواعد "د. محمد سعيد" (واجهة) ===== */
+  /* ===== قواعد "د. محمد سعيد" (واجهة) — محدثة: كارب ≤ 5 جم وسماح بزيوت زيتون/أفوكادو/سمسم/جوز الهند ===== */
   const DR_MOH_REGEX = /محمد\s*سعيد|dr_mohamed_saeed/i;
   const N = s => String(s||"").normalize().toLowerCase()
     .replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g,"")
     .replace(/\u0640/g,"").replace(/[إأآا]/g,"ا")
     .replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/\s+/g," ").trim();
   const ARR = a => (Array.isArray(a)?a:[]).map(x=>N(x));
-  const SWEETENERS = ARR(["ستيفيا","سكر","محلي","شراب","سيرب","دبس","عسل"]);
-  const PROC_OILS  = ARR(["كانولا","صويا","ذره","بذر العنب","زيوت نباتيه","مهدرج","مارجرين"]);
+  const SWEETENERS = ARR(["ستيفيا","سكر","محلي","شراب","سيرب","دبس","عسل","سكر بني","سكر جوز الهند","اريثريتول","سوربيتول","مالتيتول"]);
+  const PROC_OILS  = ARR(["كانولا","صويا","ذره","بذر العنب","زيوت نباتيه","مهدرج","مارجرين","دوار الشمس","عباد الشمس","زيت نباتي","rapeseed","sunflower","corn oil","soy oil","grapeseed"]);
+  const ALLOWED_PLANT_OILS = ARR(["زيت زيتون","زيت الافوكادو","زيت أفوكادو","زيت سمسم","زيت جوز الهند"]);
   const LEGUMES    = ARR(["فول","فاصوليا","حمص","عدس","بازلاء","لوبيا","ترمس"]);
   const GRAINS_STARCH = ARR(["قمح","شوفان","شعير","ذره","ارز","أرز","برغل","كسكس","كينوا","دخن","نشاء","نشا","بطاطس","بطاطا","خبز","توست","مكرونه","باستا"]);
   const PROC_MEATS = ARR(["لانشون","نقانق","سلامي","بسطرمه","مرتديلا","هوت دوج"]);
   const ADDITIVES  = ARR(["msg","جلوتامات","نتريت","نترات","ملون","نكهات صناعيه","مواد حافظه","مستحلب"]);
-  const FRUITS_BANNED = ARR(["تفاح","موز","عنب","مانجو","برتقال","يوسفي","كمثرى","خوخ","مشمش","تين","رمان","اناناس","أناناس","بطيخ","شمام","جوافه","كيوي","تمر","زبيب"]);
+  const FRUITS_BANNED = ARR(["تفاح","موز","عنب","مانجو","برتقال","يوسفي","كمثرى","خوخ","مشمش","تين","رمان","اناناس","أناناس","بطيخ","شمام","جوافه","كيوي","تمر","زبيب","جريب فروت"]);
   const BERRIES_OK = ARR(["توت","توت بري","توت ازرق","توت اسود","فراوله"]);
-  const DAIRY_GENERIC = ARR(["حليب","زبادي","لبن"]);
-  const DAIRY_ALLOWED = ARR(["كريمه","كريمة الطبخ","قشده","قشطة","جبن كامل الدسم","شيدر","موزاريلا","بارميزان","ريكوتا","ماسكربوني","جبن حلوم","لبنه كاملة الدسم"]);
+  const DAIRY_GENERIC = ARR(["حليب","زبادي","لبن","لبنة","لبنه","قشطة","قشطه","كريمة","كريمه","جبن","جبنه"]);
+  const DAIRY_ALLOWED = ARR(["كريمة طبخ","كريمه طبخ","كريمه خفق","كريمة خفق","جبن كامل الدسم","جبنه كامله الدسم","جبن حيواني","جبنه حيوانيه","قشطه بلدي","قشطة بلدي","شيدر كامل الدسم","موزاريلا كامله الدسم"]);
 
   function isDrMohSelected(){ return DR_MOH_REGEX.test(String(dietType?.value||"")); }
   function violatesDrMohClient(view){
@@ -391,20 +395,28 @@
       const carbs = Number(view?.macros?.carbs||0);
       const titleN = N(view?.title||"");
       const ingN = N((view?.ingredients||[]).map(i=>i.name||i).join(" "));
-      if (titleN.includes("كيتو")) return "لا يجوز ذكر كلمة «كيتو».";
-      // صفر كارب تمامًا — إن أردت هامش 3 جم غيّر الشرط إلى (>3)
-      if (carbs > 0) return `الكربوهيدرات ${carbs} جم/حصة — يجب أن تكون 0 جم.`;
+      if (titleN.includes("كيتو") || /keto/i.test(titleN)) return "لا يجوز ذكر كلمة «كيتو».";
+      // الحد الأقصى للكارب 5 جم/حصة
+      if (carbs > 5) return `الكربوهيدرات ${carbs} جم/حصة — الحد الأقصى 5 جم.`;
+      // محليات/سكريات
       if (SWEETENERS.some(k=>ingN.includes(k))) return "توجد سكريات/محلّيات ممنوعة.";
-      if (PROC_OILS.some(k=>ingN.includes(k))) return "توجد زيوت نباتية/مهدرجة ممنوعة.";
+      // زيوت ممنوعة + كلمة «زيت» عامة بدون تحديد مسموح
+      if (PROC_OILS.some(k=>ingN.includes(k))) return "توجد زيوت بذرية/مهدرجة/صناعية ممنوعة.";
+      const mentionsGenericOil = ingN.includes(" زيت");
+      const mentionsAllowedOil = ALLOWED_PLANT_OILS.some(k=>ingN.includes(k));
+      if (mentionsGenericOil && !mentionsAllowedOil) return "ذُكر «زيت» دون تحديد نوع؛ المسموح فقط: زيت الزيتون/الأفوكادو/السمسم/جوز الهند.";
+      // مضافات ولحوم مصنّعة
       if (ADDITIVES.some(k=>ingN.includes(k))) return "توجد مضافات صناعية ممنوعة.";
       if (PROC_MEATS.some(k=>ingN.includes(k))) return "توجد لحوم مصنّعة ممنوعة.";
-      if ([...LEGUMES,...GRAINS_STARCH].some(k=>ingN.includes(k))) return "توجد بقوليات/حبوب/نشويات ممنوعة.";
-      const hasOtherFruit = FRUITS_BANNED.some(k=> ingN.includes(k));
-      const hasBerry = BERRIES_OK.some(k=> ingN.includes(k));
-      if (hasOtherFruit && !hasBerry) return "توجد فواكه غير التوتيات — وهذا ممنوع.";
+      // بقوليات/حبوب/نشويات/طحين
+      if ([...LEGUMES,...GRAINS_STARCH].some(k=>ingN.includes(k))) return "توجد بقوليات/حبوب/نشويات/طحين — ممنوعة.";
+      // فواكه — يسمح فقط بالتوتيات
+      const hasNonBerryFruit = FRUITS_BANNED.some(k=> ingN.includes(k));
+      if (hasNonBerryFruit) return "توجد فواكه غير التوتيات — وهذا ممنوع.";
+      // ألبان — يسمح فقط كريمة الطبخ + الجبن الحيواني كامل الدسم
       const mentionsGenericDairy = DAIRY_GENERIC.some(k=>ingN.includes(k));
       const mentionsAllowedDairy = DAIRY_ALLOWED.some(k=>ingN.includes(k));
-      if (mentionsGenericDairy && !mentionsAllowedDairy) return "ذُكرت منتجات ألبان عامة غير مسموحة (المسموح كريمة الطبخ والأجبان الدسمة).";
+      if (mentionsGenericDairy && !mentionsAllowedDairy) return "منتجات الألبان المسموحة: كريمة الطبخ والأجبان الحيوانية كاملة الدسم فقط.";
       return "";
     }catch{ return ""; }
   }
@@ -496,7 +508,7 @@
     stepsBox.innerHTML = cleanSteps.map(s=>`<div class="step"><p>${s}</p></div>`).join("");
     renderTL(view.macros);
 
-    /* ——— تشديد نظام د. محمد سعيد في الواجهة ——— */
+    /* ——— تشديد نظام د. محمد سعيد في الواجهة (كارب ≤ 5 جم) ——— */
     if (isDrMohSelected()){
       const reason = violatesDrMohClient(view);
       if (reason){
@@ -571,7 +583,6 @@
       const data=await callAPI(payload);
       const view=map(data.recipe);
 
-      // ملاحظة إضافية من الخادم تُفهمها الواجهة
       if (data.note === "strict_drmoh_rules_enforced" && isDrMohSelected()){
         setBanner("تم تطبيق قواعد نظام د. محمد سعيد بدقة.", "amber");
       }
@@ -684,7 +695,7 @@
 
   /* بدء الصفحة */
   document.addEventListener('DOMContentLoaded', ()=>{
-    ensureSessionOrRedirect();      // يعتمد الآن على wasfa_token + wasfa_session_nonce
+    ensureSessionOrRedirect();
     resetView();
     loadPublicSettingsAndBind();
     bindCustomMacrosSync();
@@ -722,19 +733,20 @@
     }
 
     // الدردشة
+    const chatFab=$('chatFab'), chatPanel=$('chatPanel'), chatClose=$('chatClose');
+    $('chatSend').addEventListener('click', sendChat);
+    $('chatInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); }});
     chatFab.addEventListener('click', async ()=>{
       if (chatPanel.style.display !== 'flex'){ openChat(); await ensureAssistantStarted(); }
       else { closeChat(); }
     });
     chatClose.addEventListener('click', ()=> closeChat());
-    $('chatSend').addEventListener('click', sendChat);
-    $('chatInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); sendChat(); }});
     document.addEventListener('keydown', (e)=>{
       if (e.shiftKey && (e.key==='M' || e.key==='m')){ e.preventDefault(); if (chatPanel.style.display==='flex') closeChat(); else { openChat(); ensureAssistantStarted(); } }
       if (e.key === 'Escape' && chatPanel.style.display==='flex'){ e.preventDefault(); closeChat(); }
     });
-    setTimeout(()=>{ chatHint?.classList.add('hidden'); }, 6000);
-    unreadBadge?.classList.remove('hidden');
+    setTimeout(()=>{ $('chatHint')?.classList.add('hidden'); }, 6000);
+    $('unreadBadge')?.classList.remove('hidden');
   });
 </script>
 </body>

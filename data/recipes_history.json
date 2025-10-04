@@ -103,7 +103,8 @@
         "5dbb01dc398278f49dba8ad4ded7ca1675a339b2309707dbd45046b99a1d5ec8",
         "0eafe665ef4f96a900f64f7f1c0b108f209bb6ca2254b046ad46f580d95b6688",
         "1037725a73deb139a50cae77a347a9203a14ad5116f03b951c4cb375b3009435",
-        "d9f297a02c1c6758fde45ab0884782104c83550942d49ceceb7707acb1d83b7b"
+        "d9f297a02c1c6758fde45ab0884782104c83550942d49ceceb7707acb1d83b7b",
+        "f58bbdfefbb2172b35136b17e7b8863c4b59f981395b15437a45070cbf1adcb7"
       ],
       "bans": [
         "title:كفته بالصينيه مع طحينه القرنبيط",
@@ -129,7 +130,9 @@
         "title:باذنجان يوناني بالفرن مع جبنه الفيتا",
         "ings:cb5f8a70fcce1dc33b8720a734b198da0ed8f9f56de29fb962f37f21a3480c04",
         "title:سمك ابو سيف مشوي بالليمون والاعشاب مع سلطه السبانخ",
-        "ings:f4b96de9e209d0d9396f008401101c0aa5ba0b6c92b9d46f0df1634d27ddfdac"
+        "ings:f4b96de9e209d0d9396f008401101c0aa5ba0b6c92b9d46f0df1634d27ddfdac",
+        "title:كباب حلبي",
+        "ings:82d5956516d80da0cdaa5ec81f5e4d2ebfa5d5d85f7c5cce07bdc0cc126811ca"
       ]
     }
   }

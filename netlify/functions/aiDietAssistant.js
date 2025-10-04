@@ -1,18 +1,20 @@
 // /netlify/functions/aiDietAssistant.js
-// Arabic Diet Assistant — Human-like, flexible, memory-aware
-// • نفس أسلوب استدعاء Gemini العامل لديك (v1beta generateContent):
-//   systemInstruction + contents + tools(functionDeclarations) + generationConfig + safetySettings[]
-// • تسلسل عبر MODEL_POOL + مهلة/إلغاء + تتبّع أخطاء واضح
-// • أدوات محلية (calculateCalories/parseFoods/correctText) مع تنفيذ محلّي عبر function calling loop
-// • ذاكرة خفيفة قابلة للإرجاع للعميل لتُرسل في الطلب التالي
-// • حارس نطاق (تغذية فقط) + تحية افتراضية عند أول نداء بدون رسالة
-// • استخراج مرن لرسالة المستخدم: messages[] | message | text | prompt | q
+// ============================================================================
+// AI Diet Assistant (Arabic-first) — Fully dynamic nutrition via Gemini
+// - No embedded food DB: nutrient queries are generated dynamically; the model
+//   is instructed to rely on USDA / CIQUAL / McCance internally at generation.
+// - Human-like, flexible, typo-tolerant. One micro-question when needed.
+// - Deterministic local tools: Katch / Mifflin / Cunningham + 4/4/9 (+7 for alcohol if present).
+// - Smart diet selection with rationale. Memory rollup without repeating notices.
+// - Neutral greeting. No medical disclaimer repetition (flag-only).
+// ============================================================================
 
-/* ───────────────────────── إعدادات عامة ───────────────────────── */
+/* ============================================================================
+   0) Env & Models
+============================================================================ */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// تماثل تجميعة generateRecipe لضمان أعلى توافر/سرعة
 const MODEL_POOL = [
   "gemini-1.5-pro-latest",
   "gemini-1.5-pro",
@@ -26,454 +28,569 @@ const MODEL_POOL = [
   "gemini-1.5-flash-latest"
 ];
 
-// أقصى حجم للذاكرة النصية
-const MAX_MEMORY_CHARS = 14000;
+const MODEL_TIMEOUT_MS   = 30000;   // per round timeout
+const TOOLS_MAX_LOOP     = 5;       // function-calling max rounds
+const MAX_OUTPUT_TOKENS  = 1600;    // output cap
+const MAX_MEMORY_CHARS   = 24000;   // rolling memory window
 
-/* ───────────────────────── HTTP ───────────────────────── */
-const headers = {
-  "Content-Type": "application/json; charset=utf-8",
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
-  "Access-Control-Allow-Methods": "POST, OPTIONS"
+/* ============================================================================
+   1) HTTP helpers
+============================================================================ */
+function corsHeaders(){
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization"
+  };
+}
+const ok  = (payload)=>({ statusCode:200, headers:corsHeaders(), body:JSON.stringify({ ok:true, ...payload }) });
+const bad = (code, error, extra={})=>({ statusCode:code, headers:corsHeaders(), body:JSON.stringify({ ok:false, error, ...extra }) });
+
+/* ============================================================================
+   2) Arabic normalization, parsing & utils
+============================================================================ */
+function normalizeDigits(s=""){
+  return String(s)
+    .replace(/[٠-٩]/g, d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d))
+    .replace(/[۰-۹]/g, d=>"۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+}
+function normalizeArabic(s=""){
+  return normalizeDigits(s)
+    .replace(/[\u200B-\u200F\u202A-\u202E]/g,"")
+    .replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g,"") // tashkeel
+    .replace(/\u0640/g,"") // tatweel
+    .replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه").replace(/ؤ/g,"و").replace(/ئ/g,"ي")
+    .replace(/\s{2,}/g," ")
+    .trim()
+    .toLowerCase();
+}
+function round1(x){ return Math.round((Number(x)+Number.EPSILON)*10)/10; }
+function round0(x){ return Math.round(Number(x)); }
+function clamp(x, min, max){ return Math.max(min, Math.min(max, x)); }
+function toNum(x){ const n = Number(x); return Number.isFinite(n) ? n : null; }
+function approxTokens(msgs, out){
+  const inLen = (msgs||[]).map(m => (m.content||"").length).reduce((a,b)=>a+b,0) || 0;
+  const outLen = (out||"").length;
+  return Math.round((inLen + outLen)/4);
+}
+
+/* ============================================================================
+   3) Conversation helpers & guards
+============================================================================ */
+const GREET_RE = /(السلام\s*عليكم|سلام\s*عليكم|السلام|سلام|مرحبا|مرحباً|اهلا|أهلاً|هلا|صباح الخير|مساء الخير|هاي)/i;
+const SCOPE_ALLOW_RE = /(?:سعرات|كالور|حراري|ماكروز|بروتين|دهون|كارب|كربوهيدرات|الياف|ماء|ترطيب|نظام|حميه|رجيم|وجبه|وصفات|صيام|كيتو|لو\s*كارب|متوسطي|داش|نباتي|balanced|macro|protein|carb|fat|fiber|calorie|diet|meal|fasting|glycemic|keto|mediterranean|dash|vegan|lchf)/i;
+const OOD_RE = /(دواء|ادويه|روشته|جرعه|تشخيص|سرطان|عدوي|اشعه|تحاليل|سياسه|اختراق|قرصنه|سلاح|ماليات|استثمار|تداول|وصفات طبيه)/i;
+const YESY_RE = /\b(نعم|ايوه|أيوه|ايه|تمام|طيب|اوك|اوكي|ok|okay|yes|yeah)\b/i;
+
+const MEDICAL_NOTICE_FLAG = "<<<MEDICAL_NOTICE_SHOWN>>>";
+
+function extractLastUser(messages=[]){
+  const u = [...messages].reverse().find(m => m && m.role==="user" && m.content);
+  return u ? String(u.content) : "";
+}
+function lastAssistant(messages=[]){
+  const a = [...messages].reverse().find(m => m && m.role==="assistant" && m.content);
+  return a ? String(a.content) : "";
+}
+function isGreetingOnly(utter){
+  return !!utter && GREET_RE.test(utter) && !SCOPE_ALLOW_RE.test(utter) && !/\d/.test(utter);
+}
+function makeMemoryBlob(prevBlob, newTurn){
+  const joined = `${(prevBlob||"").slice(-MAX_MEMORY_CHARS/2)}\n${newTurn}`.slice(-MAX_MEMORY_CHARS);
+  return joined;
+}
+function isAmbiguousYes(s){ return YESY_RE.test(String(s||"")); }
+
+/* ============================================================================
+   4) Deterministic Nutrition Math (local tools)
+      Engines: Katch / Mifflin / Cunningham + activity + 4/4/9 (+7 alcohol)
+============================================================================ */
+const ActivityFactor = { sedentary:1.2, light:1.375, moderate:1.55, high:1.725, athlete:1.9 };
+function activityFactor(level){ return ActivityFactor[String(level||"").toLowerCase()] || 1.4; }
+
+function BMR_Mifflin({ sex="male", age, height_cm, weight_kg }){
+  const s = (String(sex).toLowerCase()==="female") ? -161 : 5;
+  return 10*weight_kg + 6.25*height_cm - 5*age + s;
+}
+function BMR_Katch({ weight_kg, bodyfat_pct }){
+  const bf = clamp(Number(bodyfat_pct||0)/100, 0, 0.6);
+  const lbm = weight_kg * (1 - bf);
+  return 370 + 21.6 * lbm;
+}
+function BMR_Cunningham({ weight_kg, bodyfat_pct }){
+  const bf = clamp(Number(bodyfat_pct||0)/100, 0, 0.6);
+  const lbm = weight_kg * (1 - bf);
+  return 500 + 22 * lbm;
+}
+function chooseBmrEngine({ bodyfat_pct, athlete=false }){
+  const hasBf = Number.isFinite(Number(bodyfat_pct));
+  if (athlete && hasBf) return "cunningham";
+  if (hasBf) return "katch";
+  if (athlete) return "cunningham";
+  return "mifflin";
+}
+function calcDaily({
+  sex, age, height_cm, weight_kg,
+  activity_level="moderate",
+  goal="recomp",               // cut|recomp|bulk
+  bodyfat_pct=null, athlete=false,
+  protein_per_kg=null,
+  carb_pref="balanced"         // balanced|low|keto|high
+}){
+  // sanity bounds (non-intrusive)
+  if (age<10 || age>90 || height_cm<120 || height_cm>230 || weight_kg<30 || weight_kg>250){
+    // لا نمنع — فقط نواصل الحساب مع ملاحظة ضمنية سيضيفها النموذج إذا سُئل.
+  }
+
+  const base = { sex, age:Number(age), height_cm:Number(height_cm), weight_kg:Number(weight_kg) };
+  const engine = chooseBmrEngine({ bodyfat_pct, athlete });
+  let BMR = 0;
+  if (engine==="katch") BMR = BMR_Katch({ weight_kg: base.weight_kg, bodyfat_pct });
+  else if (engine==="cunningham") BMR = BMR_Cunningham({ weight_kg: base.weight_kg, bodyfat_pct });
+  else BMR = BMR_Mifflin(base);
+
+  const AF = activityFactor(activity_level);
+  const TDEE_base = BMR * AF;
+
+  let adjPct = 0;
+  if (goal==="cut")  adjPct = -15;
+  if (goal==="bulk") adjPct = +12;
+  const TDEE_goal = TDEE_base * (1 + adjPct/100);
+
+  let protein = (Number(protein_per_kg)>0) ? Number(protein_per_kg)*base.weight_kg
+                                           : clamp(1.6*base.weight_kg, 1.4*base.weight_kg, 2.4*base.weight_kg);
+  protein = round1(protein);
+  const p_kcal = protein * 4;
+
+  const rem_kcal = Math.max(0, TDEE_goal - p_kcal);
+  let fat_ratio=0.35, carb_ratio=0.35;
+  if (carb_pref==="low")  { fat_ratio=0.45; carb_ratio=0.20; }
+  if (carb_pref==="keto") { fat_ratio=0.75; carb_ratio=0.05; }
+  if (carb_pref==="high") { fat_ratio=0.20; carb_ratio=0.55; }
+  if (goal==="cut" && carb_pref==="balanced")  { fat_ratio=0.40; carb_ratio=0.25; }
+  if (goal==="bulk" && carb_pref==="balanced") { fat_ratio=0.30; carb_ratio=0.45; }
+
+  const fat_kcal  = rem_kcal * fat_ratio;
+  const carb_kcal = rem_kcal * carb_ratio;
+
+  const fat_g   = round1(fat_kcal/9);
+  const carbs_g = round1(carb_kcal/4);
+
+  const calories = round0(p_kcal + fat_g*9 + carbs_g*4); // 4/4/9 strict
+  return {
+    engine,
+    BMR: round1(BMR),
+    TDEE_base: round1(TDEE_base),
+    TDEE_goal: round1(TDEE_goal),
+    protein_g: protein,
+    fat_g,
+    carbs_g,
+    calories,
+    model: "4/4/9 strict",
+    note: "تقديرات منهجية دقيقة كبداية؛ اضبط أسبوعيًا حسب التقدم."
+  };
+}
+
+/* ============================================================================
+   5) Intent, parsing & unit normalization (no fixed food DB)
+============================================================================ */
+const UNIT_ALIASES = {
+  ml: ["مل","ml","مليلتر","ميليلتر","ملي"],
+  g:  ["جم","غ","g","جرام","غرام"]
 };
-const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringify(obj) });
-const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
-const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
+function guessUnitToken(s){
+  const n = normalizeArabic(s);
+  for (const [u, arr] of Object.entries(UNIT_ALIASES)){
+    if (arr.some(a => n.includes(a))) return u;
+  }
+  // common colloquial
+  if (/\bكوب\b/.test(n)) return "ml?"; // ambiguous; handled by model with assumption disclosure
+  if (/\bربع لتر|نص لتر|نصف لتر|لتر\b/.test(n)) return "ml";
+  return null;
+}
+function extractQuantityAndFood(s){
+  // tolerant: "حليب 100", "100 مل حليب", "حليب بقر كامل الدسم ١٠٠ مل", "كوب حليب"
+  const raw = normalizeDigits(String(s||"")).trim();
+  const numMatch = raw.match(/(\d+(?:\.\d+)?)/);
+  let qty = numMatch ? Number(numMatch[1]) : null;
+  const unit = guessUnitToken(raw);
+  // remove quantity token for name
+  let name = raw.replace(numMatch ? numMatch[0] : "", "").trim();
+  name = name.replace(/(مل|ml|مليلتر|ميليلتر|ملي|جم|غ|g|جرام|غرام|كوب|ربع لتر|نصف لتر|نص لتر|لتر)/gi, "").trim();
+  return { name: name || raw, qty, unit };
+}
 
-/* ───────────────────────── أدوات محلية (Tooling) ───────────────────────── */
-/** تعريف الأدوات كما يفهمها Gemini (function calling) **/
+/* ============================================================================
+   6) Tools exposed to Gemini (no static food DB)
+============================================================================ */
 const Tools = {
-  calculateCalories: {
-    name: "calculateCalories",
-    description:
-      "احسب BMR وTDEE وتوزيع الماكروز حسب الهدف (cut|recomp|bulk) مع الجنس/العمر/الطول/الوزن/النشاط.",
+  calculateDaily: {
+    name: "calculateDaily",
+    description: "حساب BMR/TDEE/الماكروز بدقة بمحركات Katch/Mifflin/Cunningham بحسب بيانات الجسم والهدف والنشاط.",
     parameters: {
       type: "OBJECT",
       properties: {
-        sex: { type: "STRING", description: "male|female" },
-        age: { type: "NUMBER", description: "بالسنوات" },
-        height_cm: { type: "NUMBER", description: "الطول بالسم" },
-        weight_kg: { type: "NUMBER", description: "الوزن بالكجم" },
-        activity_level: { type: "STRING", description: "sedentary|light|moderate|high|athlete" },
-        goal: { type: "STRING", description: "cut|recomp|bulk" },
-        macro_pref: {
-          type: "OBJECT",
-          description: "اختياري: نسب الماكروز",
-          properties: {
-            protein_ratio: { type: "NUMBER" },
-            fat_ratio: { type: "NUMBER" },
-            carb_ratio: { type: "NUMBER" }
-          }
-        },
-        protein_per_kg: { type: "NUMBER", description: "جرام/كجم (يغلب على النسب إن وُجد)" },
-        deficit_or_surplus_pct: { type: "NUMBER", description: "±% من TDEE (اختياري)" }
+        sex:            { type:"STRING" },
+        age:            { type:"NUMBER" },
+        height_cm:      { type:"NUMBER" },
+        weight_kg:      { type:"NUMBER" },
+        activity_level: { type:"STRING" },
+        goal:           { type:"STRING" },
+        bodyfat_pct:    { type:"NUMBER" },
+        athlete:        { type:"BOOLEAN" },
+        protein_per_kg: { type:"NUMBER" },
+        carb_pref:      { type:"STRING" }
       },
       required: ["sex","age","height_cm","weight_kg","activity_level","goal"]
     }
   },
 
-  parseFoods: {
-    name: "parseFoods",
-    description:
-      "حلّل عناصر طعام نصية حرة وأعد تقديرًا للسعرات/البروتين/الدهون/الكارب لكل عنصر + الإجمالي.",
+  chooseDiet: {
+    name: "chooseDiet",
+    description: "اختيار النظام الأنسب (keto/low_carb/mediterranean/dash/balanced/psmf/vegan/…) بناءً على الهدف/النشاط/الدهون/التفضيلات/الحالات الصحية.",
     parameters: {
       type: "OBJECT",
       properties: {
-        items: { type: "ARRAY", items: { type: "STRING" }, description: "عناصر الطعام" },
-        locale: { type: "STRING", description: "ar|en" }
+        goal:          { type:"STRING" },
+        activity_level:{ type:"STRING" },
+        bodyfat_pct:   { type:"NUMBER" },
+        health_flags:  { type:"ARRAY", items:{type:"STRING"} },
+        preferences:   { type:"ARRAY", items:{type:"STRING"} }
       },
-      required: ["items"]
+      required: ["goal"]
     }
   },
 
   correctText: {
     name: "correctText",
-    description:
-      "تصحيح عربي بسيط للأخطاء الشائعة مع الحفاظ على المعنى. يعيد النص المصحح فقط.",
-    parameters: {
-      type: "OBJECT",
-      properties: { text: { type: "STRING" } },
-      required: ["text"]
-    }
+    description: "تصحيح لغوي عربي/لهجي دون تغيير المعنى. يعيد النص المصحح فقط.",
+    parameters: { type:"OBJECT", properties:{ text:{ type:"STRING" } }, required:["text"] }
   }
 };
 
-/** تنفيذ الأدوات محليًا **/
 const LocalToolExecutors = {
-  calculateCalories: (args) => {
-    const { sex, age, height_cm, weight_kg, activity_level, goal, macro_pref, protein_per_kg, deficit_or_surplus_pct } = args || {};
-    // عوامل النشاط
-    function activityFactor(level) {
-      switch ((level || "").toLowerCase()) {
-        case "sedentary": return 1.2;
-        case "light":     return 1.375;
-        case "moderate":  return 1.55;
-        case "high":      return 1.725;
-        case "athlete":   return 1.9;
-        default:          return 1.4;
-      }
-    }
-    const clamp = (x, min, max) => Math.max(min, Math.min(max, x));
-    const round1 = (n) => Math.round((n + Number.EPSILON) * 10) / 10;
-
-    // معادلة Mifflin–St Jeor
-    const s = sex && String(sex).toLowerCase() === "female" ? -161 : 5;
-    const BMR = 10 * weight_kg + 6.25 * height_cm - 5 * age + s;
-
-    const TDEE_base = BMR * activityFactor(activity_level);
-    const adjPct = (typeof deficit_or_surplus_pct === "number")
-      ? deficit_or_surplus_pct
-      : (goal === "cut" ? -15 : goal === "bulk" ? 12 : 0);
-
-    const TDEE = TDEE_base * (1 + adjPct / 100);
-
-    // بروتين
-    const protein = (typeof protein_per_kg === "number" && protein_per_kg > 0)
-      ? protein_per_kg * weight_kg
-      : clamp(1.6 * weight_kg, 1.4 * weight_kg, 2.2 * weight_kg);
-
-    const protein_kcal = protein * 4;
-
-    // نسب افتراضية حسب الهدف
-    let fat_ratio = 0.35, carb_ratio = 0.35;
-    if (goal === "cut")  { fat_ratio = 0.40; carb_ratio = 0.25; }
-    if (goal === "bulk") { fat_ratio = 0.30; carb_ratio = 0.45; }
-    if (macro_pref) {
-      fat_ratio  = (macro_pref.fat_ratio  ?? fat_ratio);
-      carb_ratio = (macro_pref.carb_ratio ?? carb_ratio);
-    }
-
-    const rem_kcal = Math.max(0, TDEE - protein_kcal);
-    const fat  = (rem_kcal * fat_ratio)  / 9;
-    const carbs= (rem_kcal * carb_ratio) / 4;
-
-    return {
-      BMR: round1(BMR),
-      TDEE_base: round1(TDEE_base),
-      TDEE: round1(TDEE),
-      protein_g: round1(protein),
-      fat_g: round1(fat),
-      carbs_g: round1(carbs),
-      notes: "تقديرات عملية لضبط البداية. راقب الوزن/المحيط أسبوعيًا وعدّل ±5–10%."
-    };
+  calculateDaily: (args)=>{
+    try{
+      return { ok:true, result: calcDaily({
+        sex: args.sex, age: args.age, height_cm: args.height_cm, weight_kg: args.weight_kg,
+        activity_level: args.activity_level, goal: args.goal,
+        bodyfat_pct: args.bodyfat_pct ?? null, athlete: !!args.athlete,
+        protein_per_kg: args.protein_per_kg ?? null, carb_pref: args.carb_pref || "balanced"
+      })};
+    }catch(e){ return { ok:false, error: String(e && e.message || e) }; }
   },
 
-  parseFoods: (args) => {
-    const round1 = (n) => Math.round((n + Number.EPSILON) * 10) / 10;
-    const db = {
-      "بيضة كبيرة":             { kcal:72,  p:6,   f:5,   c:0.4, unit:"حبة" },
-      "100g صدر دجاج":          { kcal:165, p:31,  f:3.6, c:0,   unit:"100g" },
-      "100g لحم بقري خالي":     { kcal:170, p:26,  f:7,   c:0,   unit:"100g" },
-      "100g تونة مصفاة":        { kcal:132, p:29,  f:1,   c:0,   unit:"100g" },
-      "100g ارز مطبوخ":         { kcal:130, p:2.7, f:0.3, c:28,  unit:"100g" },
-      "100g شوفان":             { kcal:389, p:17,  f:7,   c:66,  unit:"100g" },
-      "100g افوكادو":           { kcal:160, p:2,   f:15,  c:9,   unit:"100g" },
-      "ملعقة زيت زيتون":       { kcal:119, p:0,   f:13.5,c:0,   unit:"ملعقة" },
-      "100g جبنه قريش":         { kcal:98,  p:11,  f:4.3, c:3.4, unit:"100g" },
-      "100g زبادي يوناني":      { kcal:59,  p:10,  f:0.4, c:3.6, unit:"100g" },
-      "حبة موز":                { kcal:105, p:1.3, f:0.4, c:27,  unit:"حبة" },
-      "تفاحة":                  { kcal:95,  p:0.5, f:0.3, c:25,  unit:"حبة" }
-    };
-    const norm = (s)=>String(s||"").trim().toLowerCase();
-    const items = (args?.items||[]).map(s=>String(s||"").trim()).filter(Boolean);
+  chooseDiet: (args)=>{
+    try{
+      const goal = String(args.goal||"recomp").toLowerCase();
+      const activity_level = String(args.activity_level||"moderate").toLowerCase();
+      const bodyfat_pct = toNum(args.bodyfat_pct);
+      const flags = (Array.isArray(args.health_flags)?args.health_flags:[]).map(normalizeArabic);
+      const prefs = (Array.isArray(args.preferences)?args.preferences:[]).map(normalizeArabic);
 
-    const mapped = items.map(raw=>{
-      const key = norm(raw);
-      const match = Object.keys(db).find(k=>key.includes(norm(k)));
-      if(!match){
-        return { item: raw, approx:true, kcal:0, protein_g:0, fat_g:0, carbs_g:0, note:"حدد الوزن/الكمية بدقة" };
+      let picked = "balanced";
+      const rationale = [];
+
+      if (flags.includes("diabetes") || flags.includes("سكر") || flags.includes("insulin_resistance")){
+        picked = "low_carb"; rationale.push("تحكّم أدق بالسكر وصافي الكارب.");
       }
-      const r = db[match];
-      return { item: raw, approx:false, kcal:r.kcal, protein_g:r.p, fat_g:r.f, carbs_g:r.c, ref_unit:r.unit };
-    });
+      if (flags.includes("hypertension") || flags.includes("ضغط")){
+        picked = "dash"; rationale.push("خفض الصوديوم ورفع الخضار والفواكه.");
+      }
+      if (flags.includes("fatty_liver") || flags.includes("كبد دهني")){
+        picked = "mediterranean"; rationale.push("دهون غير مشبعة وألياف وأوميغا-3.");
+      }
 
-    const totals = mapped.reduce((a,x)=>({ kcal:a.kcal+(x.kcal||0), p:a.p+(x.protein_g||0), f:a.f+(x.fat_g||0), c:a.c+(x.carbs_g||0)}), {kcal:0,p:0,f:0,c:0});
-    return { items: mapped, totals: { kcal: round1(totals.kcal), protein_g: round1(totals.p), fat_g: round1(totals.f), carbs_g: round1(totals.c) } };
+      if (prefs.includes("keto")) { picked = "keto"; rationale.push("تفضيل المستخدم للكارب المنخفض جدًا."); }
+      if (goal==="cut" && picked==="balanced" && (bodyfat_pct!=null && bodyfat_pct>25)){
+        picked="low_carb"; rationale.push("خسارة دهون أسرع وتحكّم أفضل بالشّهية.");
+      }
+      if (prefs.includes("vegan")) { picked="vegan"; rationale.push("تفضيل نباتي كامل."); }
+      if (prefs.includes("high_protein")) { rationale.push("رفع البروتين للشبع وبناء العضلات."); }
+      if (prefs.includes("halal")) { rationale.push("التزام الحلال في المصدر والتحضير."); }
+
+      const act = normalizeArabic(activity_level);
+      if ((act.includes("athlete")||act.includes("high")) && picked==="keto"){
+        rationale.push("تنبيه: الكيتو قد يحد من الأداء الهوائي/اللاهوائي.");
+      }
+
+      const alt = (picked==="keto") ? "low_carb" : (picked==="low_carb" ? "mediterranean" : "balanced");
+      return { ok:true, result: { picked, alternative:alt, rationale: rationale.length?rationale:["خيار متوازن قابل للتخصيص."] } };
+    }catch(e){ return { ok:false, error:String(e && e.message || e) }; }
   },
 
-  correctText: (args) => {
-    const t = String(args?.text||"").trim();
-    if(!t) return { corrected: "" };
-    let x = normalizeArabic(t);
-    x = x.replace(/\s{2,}/g," ").trim();
-    // أمثلة سريعة شائعة:
-    x = x.replace(/\bريجيم\b/gi,"نظام غذائي")
-         .replace(/\bكالوري\b/gi,"سعرات")
-         .replace(/\bكارب\b/gi,"كربوهيدرات");
-    return { corrected: x };
+  correctText: (args)=>{
+    const t = String((args && args.text) || "").trim();
+    if (!t) return { ok:true, result:{ corrected:"" } };
+    const n = normalizeArabic(t)
+      .replace(/\bريجيم\b/g,"نظام غذائي")
+      .replace(/\bكالوري\b/g,"سعرات")
+      .replace(/\bالديم\b/g,"الدسم")
+      .replace(/\bخليب\b/g,"حليب")
+      .replace(/\s{2,}/g," ")
+      .trim();
+    return { ok:true, result:{ corrected:n } };
   }
 };
 
-/* ───────────────────────── أدوات مساعدة للنص العربي/الذاكرة ───────────────────────── */
-function normalizeDigits(s=""){
-  const ar = "٠١٢٣٤٥٦٧٨٩", fa = "۰۱۲۳۴۵۶۷۸۹";
-  return String(s).replace(/[٠-٩]/g, d => ar.indexOf(d)).replace(/[۰-۹]/g, d => fa.indexOf(d));
-}
-function normalizeArabic(s){
-  return String(s||"")
-    .replace(/[\u064B-\u065F\u0610-\u061A\u06D6-\u06ED]/g,"") // تشكيل
-    .replace(/\u0640/g,"")                                    // تطويل
-    .replace(/[إأآ]/g,"ا").replace(/ى/g,"ي").replace(/ة/g,"ه")
-    .replace(/ؤ/g,"و").replace(/ئ/g,"ي")
-    .replace(/\s{2,}/g," ")
-    .trim();
-}
-function cleanUserText(s=""){ return normalizeDigits(normalizeArabic(s)).trim(); }
-function trimMemory(s){ return String(s||"").slice(-MAX_MEMORY_CHARS); }
-function approxTokens(chars){ return Math.round((chars||0)/4); }
-
-function isOutOfDomain(text){
-  const t = cleanUserText(text).toLowerCase();
-  return [
-    "دواء","ادويه","جرعه","تشخيص","تحاليل","اشعه","سرطان",
-    "سياسه","استثمار","سلاح","اختراق","برمجه خبيثه"
-  ].some(k=>t.includes(k));
-}
-
-/* ───────────────────────── شخصية المساعد (System) ───────────────────────── */
-function SYSTEM_PROMPT(){
-  return `
-أنت خبير تغذية بشري السلوك: مرن، لبق، يفهم اللهجات ويصحّح الأخطاء بلطف، ويتذكر سياق المحادثة ولا يكرر الأسئلة.
-[المسموح] كل ما يخص التغذية فقط: حساب السعرات/الماكروز، تحليل وجبات، اقتراح وجبات، توقيت الأكل، حساسيّات غذائية، ماء/ألياف/إلكترولايت.
-[المحظور] طب/أدوية/جرعات/تشخيص. عند الطلب الطبي: اعتذر وأعد توجيه الحديث للتغذية.
-[أسلوب الرد] عربية موجزة عملية:
-1) الهدف الحالي
-2) الأرقام (سعرات/ماكروز) إن لزم
-3) خطة/خيارات تنفيذية (3–5 نقاط)
-4) بدائل ونصائح سريعة
-5) سؤال توضيحي واحد فقط إذا لزم
-6) تنبيه أن الإرشادات ليست بديلًا طبيًا.
-لا تكرر سؤالًا سُئل سابقًا داخل نفس المحادثة. لا تنساق للحشو. صحّح الكلمات الشائعة ثم تابع الإجابة.
-`.trim();
-}
-
-/* ───────────────────────── تهيئة تعريف الأدوات للنموذج ───────────────────────── */
 function geminiToolsSpec(){
-  return [
-    {
-      functionDeclarations: Object.values(Tools).map(t => ({
-        name: t.name, description: t.description, parameters: t.parameters
-      }))
-    }
-  ];
+  return [{ functionDeclarations: Object.values(Tools).map(t=>({
+    name:t.name, description:t.description, parameters:t.parameters
+  })) }];
 }
 
-/* ───────────────────────── بناء بطاقة المستخدم والمُدخل ───────────────────────── */
-function buildUserCard(u={}, locale="ar"){
-  const L=[];
-  if(u.name) L.push(`الاسم: ${u.name}`);
-  if(u.sex) L.push(`الجنس: ${u.sex}`);
-  if(Number.isFinite(u.age)) L.push(`العمر: ${u.age}`);
-  if(Number.isFinite(u.height_cm)) L.push(`الطول: ${u.height_cm} سم`);
-  if(Number.isFinite(u.weight_kg)) L.push(`الوزن: ${u.weight_kg} كجم`);
-  if(u.activity_level) L.push(`النشاط: ${u.activity_level}`);
-  if(u.goal) L.push(`الهدف: ${u.goal}`);
-  if(u.preferences) L.push(`تفضيلات: ${Array.isArray(u.preferences)?u.preferences.join(", "):u.preferences}`);
-  if(u.allergies) L.push(`حساسيات: ${Array.isArray(u.allergies)?u.allergies.join(", "):u.allergies}`);
-  L.push(`اللغة: ${locale||"ar"}`);
-  return L.join(" | ");
+/* ============================================================================
+   7) System Prompt — strict dynamic authoritative DB usage
+============================================================================ */
+const SYSTEM_PROMPT_AR = `
+أنت "مساعد تغذية" احترافي يجيب بالعربية بوضوح ودقّة، ويتصرّف كإنسان: مرن، ذكي، لا يكرر الأسئلة، ويسأل سؤالًا واحدًا فقط عند الحاجة.
+
+[نطاقك]
+- التغذية فقط: حساب السعرات والماكروز، تحليل الأغذية، اقتراح وجبات وأنظمة، توقيت الأكل، الحساسيّات وعدم التحمل، ألياف/ماء/إلكترولايت.
+- ممنوع: الأدوية/التشخيص/التحاليل/الطب/السياسة/الاختراق/التمويل الشخصي.
+
+[المصدر الغذائي الديناميكي]
+- عند طلب "قيمة غذائية/سعرات/ماكروز" لمكوّن/وجبة/علامة تجارية:
+  - استعن داخليًا (ذهنيًا) بقواعد البيانات المعتمدة: USDA FoodData Central / CIQUAL / McCance & Widdowson.
+  - طبّق تحويلات منطقية للوزن/الحجم (جم/مل/قطعة) بناء على وصف المستخدم.
+  - أعِد الأرقام مباشرة: السعرات، البروتين، الدهون، الكارب، والألياف وصافي الكارب إن أمكن — **أولًا بالأرقام** ثم ملاحظة قصيرة إن وجدت افتراضات (نوع الحليب/طريقة التحضير…).
+  - **ممنوع** اختراع قيم بلا سند؛ إن كان هناك غموض، اطرح **سؤالًا واحدًا صغيرًا** أو اذكر الافتراض.
+
+[الحسابات الشخصية]
+- استخدم أداة "calculateDaily" لاستنتاج BMR/TDEE/الماكروز بدقة بمحركات: Katch-McArdle (عند توافر نسبة الدهون)، Mifflin-St Jeor (عند عدم توافرها)، Cunningham (للرياضيين).
+- التزم بطاقة الطاقة 4/4/9 (والكحول 7 عند وجوده).
+
+[اختيار النظام]
+- استخدم أداة "chooseDiet" لاختيار نظام مناسب بناء على الهدف/النشاط/نسبة الدهون/التفضيلات/الإشارات الصحية؛ قدّم **سببًا وجيزًا** وخيارًا بديلًا واحدًا.
+
+[الحوار الذكي]
+- محادثة ودية مختصرة. عند موافقة مبهمة (نعم/تمام)، اقترح **مسارين** واضحين بدل إعادة السؤال.
+- لا تُكرّر التنبيه الطبي إن رأيت العلامة <<<MEDICAL_NOTICE_SHOWN>>> في السياق.
+- لا تعِدْ كتابة سؤال المستخدم داخل الرد، ولا تُطِل المقدّمات.
+
+[التنسيق]
+- أجب بالأرقام أولًا عند تحليل الأغذية، ثم سطر ملاحظات قصير عند الحاجة. استخدم نقاطًا قصيرة عند عرض القوائم.
+`.trim();
+
+/* ============================================================================
+   8) Gemini call with iterative function-calling
+============================================================================ */
+async function callGeminiOnce(model, contents, signal){
+  const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
+  const body = {
+    contents,
+    tools: geminiToolsSpec(),
+    systemInstruction: { role:"system", parts:[{ text: SYSTEM_PROMPT_AR }] },
+    generationConfig: { temperature:0.2, topP:0.9, maxOutputTokens: MAX_OUTPUT_TOKENS },
+    safetySettings: []
+  };
+  const r = await fetch(url, { method:"POST", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body), signal });
+  const text = await r.text();
+  let data = null;
+  try{ data = JSON.parse(text); } catch{ data = null; }
+  if(!r.ok) throw new Error(data?.error?.message || `http_${r.status}`);
+  return data;
 }
 
-function userPrompt({ message, memoryBlob, userCard }){
-  const msg  = cleanUserText(message||"");
-  const mem  = memoryBlob ? `\n[سياق مختصر]\n${trimMemory(memoryBlob)}` : "";
-  const card = userCard   ? `\n[بطاقة المستخدم]\n${userCard}` : "";
-  return `${card}${mem}\n\n[الطلب]\n${msg}\n\nأجب وفق أسلوب النظام أعلاه: عملي، موجز، بلا حشو.`;
-}
-
-/* ───────────────────────── استدعاء Gemini مع function calling loop ───────────────────────── */
 async function callGeminiWithTools({ model, messages, memoryBlob }){
-  // تحويل الرسائل لصيغة Gemini
+  // Build contents
   const contents = [];
-  if(memoryBlob){
-    contents.push({ role:"user", parts:[{ text:`سياق سابق مختصر:\n${trimMemory(memoryBlob)}` }] });
-  }
-  for(const m of (messages||[])){
-    const role = m.role === "assistant" ? "model" : m.role; // user|model
-    if(role === "system") continue; // سنستخدم systemInstruction
+  if (memoryBlob) contents.push({ role:"user", parts:[{ text:`سياق سابق مختصر:\n${memoryBlob}` }] });
+  for (const m of messages) {
+    const role = m.role === "assistant" ? "model" : m.role;
+    if (role === "system") continue;
     contents.push({ role, parts:[{ text: String(m.content||"") }] });
   }
 
-  // حلقة تنفيذ الأدوات (حتى 4 دورات)
-  let loop = 0;
-  let lastResponse = null;
-  let toolInvocations = [];
-  let currentContents = contents.slice();
+  let loop=0, lastData=null;
+  const toolInvocations=[];
+  let current = contents.slice();
 
-  while(loop < 4){
+  while (loop < TOOLS_MAX_LOOP) {
     loop++;
-
-    const body = {
-      contents: currentContents,
-      tools: geminiToolsSpec(),
-      systemInstruction: { role:"system", parts:[{ text: SYSTEM_PROMPT() }] },
-      generationConfig: { temperature: 0.25, topP: 0.95, maxOutputTokens: 1500 },
-      safetySettings: []
-    };
-
-    const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
     const abort = new AbortController();
-    const t = setTimeout(()=>abort.abort(), 28000);
+    const t = setTimeout(()=>abort.abort("timeout"), MODEL_TIMEOUT_MS);
     let data;
-
     try{
-      const resp = await fetch(url, {
-        method:"POST",
-        headers: { "Content-Type":"application/json" },
-        body: JSON.stringify(body),
-        signal: abort.signal
-      });
+      data = await callGeminiOnce(model, current, abort.signal);
+    } finally { clearTimeout(t); }
+    lastData = data;
 
-      const raw = await resp.text();
-      try{ data = JSON.parse(raw); }catch{ data = null; }
-      if(!resp.ok){
-        const msg = data?.error?.message || `HTTP_${resp.status}`;
-        throw new Error(msg);
-      }
-    }finally{ clearTimeout(t); }
+    const cand = data?.candidates?.[0];
+    const parts = cand?.content?.parts || [];
+    const calls = parts.map(p=>p?.functionCall).filter(Boolean);
+    if (!calls || !calls.length) break;
 
-    lastResponse = data;
-    const candidate = data?.candidates?.[0];
-    if(!candidate) break;
-
-    const parts = candidate?.content?.parts || [];
-    const functionCalls = parts.map(p=>p?.functionCall).filter(Boolean);
-
-    if(!functionCalls?.length){
-      // لا يوجد نداء أداة -> إجابة نهائية
-      break;
-    }
-
-    // نفذ جميع النداءات محليًا وارجع بردّ الأداة
-    for(const fc of functionCalls){
-      const name = fc?.name;
-      let args = {};
-      try{ args = fc?.args ? JSON.parse(fc.args) : {}; }catch{ args = {}; }
-
+    for (const fc of calls) {
+      const name = fc.name;
+      const args = safeParseJSON(fc.args || "{}");
       const exec = LocalToolExecutors[name];
       let result;
-      if(exec){
-        try{ result = exec(args); }catch(e){ result = { error:`tool-exec-failed:${e.message}` }; }
-      }else{
-        result = { error:`tool-not-found:${name}` };
+      if (exec) {
+        try { result = exec(args); }
+        catch(e){ result = { ok:false, error:String(e && e.message || e) }; }
+      } else {
+        result = { ok:false, error:`tool_not_found:${name}` };
       }
-
       toolInvocations.push({ name, args, result });
 
-      currentContents.push({
+      current.push({
         role: "tool",
-        parts: [
-          { functionResponse: { name, response: { name, content: result } } }
-        ]
+        parts: [{ functionResponse: { name, response:{ name, content: result } } }]
       });
     }
-    // سيعيد الدور لتوليد ردّ نهائي بعد تغذية نتائج الأدوات
   }
 
-  return { lastResponse, toolInvocations };
+  const finalText = lastData?.candidates?.[0]?.content?.parts?.map(p=>p.text).filter(Boolean).join("\n").trim() || "";
+  return { reply: finalText, toolInvocations };
 }
 
-/* ───────────────────────── اختيار نموذج مع السقوط الاحتياطي ───────────────────────── */
-async function generateWithFallback(payload){
-  const errors = {};
-  for(const model of MODEL_POOL){
-    try{
-      const out = await callGeminiWithTools({ model, ...payload });
-      const text =
-        out?.lastResponse?.candidates?.[0]?.content?.parts
-          ?.map(p => p?.text || "")
-          ?.filter(Boolean)
-          ?.join("\n")
-          ?.trim() || "";
+/* ============================================================================
+   9) Greeting, medical notice (once), ambiguity micro-choices
+============================================================================ */
+function neutralGreeting(){ return "مرحبًا بك 👋 أنا مساعد تغذية هنا لدعمك. كيف تحب أن نبدأ؟"; }
 
-      if(text){
-        return { ok:true, model, text, toolInvocations: out.toolInvocations };
-      }else{
-        errors[model] = "empty-response";
+function stampMedicalOnce(memory){
+  if (!memory || !memory.includes(MEDICAL_NOTICE_FLAG)) {
+    // لا نعرض نصًا للمستخدم — فقط نختم الذاكرة حتى لا يكرره النموذج لاحقًا
+    const mem = makeMemoryBlob(memory||"", `assistant_notice:${MEDICAL_NOTICE_FLAG}`);
+    return { memory: mem, stamped:true };
+  }
+  return { memory, stamped:false };
+}
+
+function compactUserCard(u={}, locale="ar"){
+  const L=[];
+  if (u.name) L.push(`الاسم:${u.name}`);
+  if (u.sex) L.push(`الجنس:${u.sex}`);
+  if (Number.isFinite(u.age)) L.push(`العمر:${u.age}`);
+  if (Number.isFinite(u.height_cm)) L.push(`الطول:${u.height_cm}سم`);
+  if (Number.isFinite(u.weight_kg)) L.push(`الوزن:${u.weight_kg}كجم`);
+  if (u.activity_level) L.push(`النشاط:${u.activity_level}`);
+  if (u.goal) L.push(`الهدف:${u.goal}`);
+  if (Array.isArray(u.preferences)&&u.preferences.length) L.push(`تفضيلات:${u.preferences.join(",")}`);
+  if (Array.isArray(u.health_flags)&&u.health_flags.length) L.push(`حالات:${u.health_flags.join(",")}`);
+  L.push(`اللغة:${locale||"ar"}`);
+  return L.join(" | ");
+}
+
+function buildModelMessages({ messages, userCard, memoryHasNotice }){
+  const noticeLine = memoryHasNotice ? `علامة_التنبيه:${MEDICAL_NOTICE_FLAG}` : `بدون_تكرار_تنبيه`;
+  const injected = [{
+    role:"user",
+    content:
+      `بطاقة تعريف (للتخصيص فقط، لا للعرض): ${userCard}\n—\n` +
+      `التزم بسؤال واحد عند الحاجة. لا تكرار. ${noticeLine}`
+  }];
+  return injected.concat(messages||[]);
+}
+
+/* ============================================================================
+   10) Handler
+============================================================================ */
+exports.handler = async (event)=>{
+  try{
+    if (event.httpMethod==="OPTIONS") return { statusCode:200, headers:corsHeaders(), body:"" };
+    if (event.httpMethod!=="POST") return bad(405,"Method Not Allowed");
+    if (!GEMINI_API_KEY) return bad(500,"GEMINI_API_KEY is missing");
+
+    const req = JSON.parse(event.body || "{}");
+    const { messages=[], memory="", user={}, locale="ar" } = req;
+
+    const lastUser = extractLastUser(messages);
+    const norm = normalizeArabic(lastUser);
+
+    // Out-of-domain guard
+    if (OOD_RE.test(norm)) {
+      const reply = "احترم سؤالك، لكن دوري محصور في **التغذية فقط**. أخبرني بما يفيد تغذيتك الآن: هدفك (خسارة/ثبات/زيادة)، طولك، وزنك، نشاطك، وحساسياتك — أو اذكر اسم الطعام وكميته لأحلّلها فورًا.";
+      const newMem = makeMemoryBlob(memory, `user:${lastUser}\nassistant:${reply}`);
+      return ok({ reply, memory:newMem, meta:{ guard:"out_of_domain" } });
+    }
+
+    // Neutral greeting
+    if (isGreetingOnly(lastUser) || !messages.length) {
+      // stamp medical flag once, without showing text
+      const stamped = stampMedicalOnce(memory);
+      const reply = neutralGreeting();
+      const updated = makeMemoryBlob(stamped.memory, `user:${lastUser}\nassistant:${reply}`);
+      return ok({ reply, memory: updated, meta:{ model:"deterministic-greeting" } });
+    }
+
+    // Ambiguous "yes-like" — propose two tracks
+    const prevA = lastAssistant(messages);
+    if (prevA && isAmbiguousYes(lastUser)) {
+      const reply = "نبدأ بأي مسار؟\n1) تحليل صنف/وجبة الآن.\n2) حساب سعراتك وماكروزك بدقة.\nأرسل: 1 أو 2.";
+      const updated = makeMemoryBlob(memory, `user:${lastUser}\nassistant:${reply}`);
+      return ok({ reply, memory: updated, meta:{ intent:"ambiguous_yes_choice" } });
+    }
+
+    // Pre-parse food phrase to reduce ambiguity (no DB lookup)
+    let preface = null;
+    if (/\b(سعرات|كالوري|كالوريات|ماكروز|قيمة|تحليل)\b/.test(norm) || /\bمل|ml|جم|غ|g|جرام|غرام|كوب\b/i.test(lastUser) ){
+      const parsed = extractQuantityAndFood(lastUser);
+      if (parsed && parsed.name){
+        const parts = [];
+        parts.push(`وصف_مستخدم: "${lastUser}"`);
+        if (parsed.qty!=null) parts.push(`كمية_مرصودة: ${parsed.qty}`);
+        if (parsed.unit) parts.push(`وحدة_مرصودة: ${parsed.unit}`);
+        if (parts.length) preface = `مساعدة تفسير: ${parts.join(" | ")}`;
       }
-    }catch(e){
-      errors[model] = String(e && e.message || e);
     }
-  }
-  return { ok:false, errors, tried: MODEL_POOL };
-}
 
-/* ───────────────────────── استخراج رسالة المستخدم بمرونة ───────────────────────── */
-function extractLastUserMessage(req){
-  // 1) messages[]
-  if (Array.isArray(req?.messages) && req.messages.length){
-    const lastU = [...req.messages].reverse().find(m=>m && m.role==="user" && m.content);
-    if(lastU?.content) return String(lastU.content);
-  }
-  // 2) مفاتيح شائعة
-  for(const k of ["message","text","prompt","q"]){
-    if(typeof req?.[k] === "string" && req[k].trim()) return req[k];
-  }
-  return "";
-}
+    // Prepare model messages
+    const userCard = compactUserCard(user, locale);
+    const memoryHasNotice = (memory || "").includes(MEDICAL_NOTICE_FLAG);
+    const baseMessages = buildModelMessages({ messages, userCard, memoryHasNotice });
 
-/* ───────────────────────── Handler ───────────────────────── */
-exports.handler = async (event) => {
-  if (event.httpMethod === "OPTIONS") return jsonRes(204, {});
-  if (event.httpMethod !== "POST")   return bad(405, "Method Not Allowed");
-  if (!GEMINI_API_KEY)               return bad(500, "GEMINI_API_KEY is missing on the server");
+    const decoratedMessages = preface
+      ? [{ role:"user", content: preface }].concat(baseMessages)
+      : baseMessages;
 
-  let req = {};
-  try{ req = JSON.parse(event.body || "{}"); }catch{ req = {}; }
-
-  const { messages = [], memory = "", user = {}, locale = "ar" } = req;
-
-  // رسالة المستخدم (مرنة)
-  const lastUserMsg = extractLastUserMessage(req);
-
-  // تحية تلقائية عند النداء الأول بدون رسالة
-  if(!lastUserMsg){
-    const greeting = "مرحبًا بك 👋 أنا مساعد التغذية. أرسل: الجنس/العمر/الطول/الوزن/النشاط/الهدف وسأحسب لك السعرات والماكروز مع خطة يومية عملية.";
-    const mem = `${trimMemory(memory)}\nassistant:${greeting}`.slice(-MAX_MEMORY_CHARS);
-    return ok({ reply: greeting, memory: mem, meta:{ model:null, guard:"empty_init" } });
-  }
-
-  // نطاق التغذية فقط
-  if(isOutOfDomain(lastUserMsg)){
-    const reply = "اختصاصي تغذية فقط. أخبرني بهدفك وبياناتك (الجنس، العمر، الطول، الوزن، النشاط) لأضبط لك السعرات والماكروز وخيارات وجبات مناسبة.";
-    const mem = `${trimMemory(memory)}\nuser:${lastUserMsg}\nassistant:${reply}`.slice(-MAX_MEMORY_CHARS);
-    return ok({ reply, memory: mem, meta:{ model:null, guard:"out_of_domain" } });
-  }
-
-  // رسائل مزخرفة إلى النموذج (نحافظ على systemInstruction + tools + contents)
-  const userCard = buildUserCard(user || {}, locale);
-  const decoratedMessages = [
-    { role:"user", content: `بطاقة المستخدم للتخصيص فقط (لا للعرض):\n${userCard}\n—\nتعليمات: كن مرنًا، صحّح لغويًا بلطف، لا تكرر الأسئلة، تذكّر السياق، واسأل سؤالًا واحدًا فقط عند الحاجة.` },
-    ...messages
-  ];
-
-  const attempt = await generateWithFallback({
-    messages: decoratedMessages,
-    memoryBlob: memory || ""
-  });
-
-  if(!attempt.ok){
-    const reply = "تعذّر مؤقت في التوليد. أعد الإرسال بصياغة مختصرة أو أرسل بياناتك (الجنس، العمر، الطول، الوزن، النشاط، الهدف) لحسابات دقيقة وخطة عملية.";
-    const mem = `${trimMemory(memory)}\nuser:${lastUserMsg}\nassistant:${reply}`.slice(-MAX_MEMORY_CHARS);
-    return ok({ reply, memory: mem, meta:{ model:"server-fallback", diagnostics: attempt.errors, tried: attempt.tried } });
-  }
-
-  // ما بعد المعالجة الخفيفة + تنبيه طبي
-  let text = String(attempt.text||"").replace(/\n{3,}/g,"\n\n").trim();
-  if (!/ليست بديل/i.test(text)) {
-    text += "\n\n**تنبيه:** الإرشادات ليست بديلاً عن الاستشارة الطبية.";
-  }
-
-  // تحديث الذاكرة
-  const newMemory = `${trimMemory(memory)}\nuser:${lastUserMsg}\nassistant:${text}`.slice(-MAX_MEMORY_CHARS);
-
-  return ok({
-    reply: text,
-    memory: newMemory,
-    meta: {
-      model: attempt.model,
-      tools: attempt.toolInvocations || [],
-      tokens_hint: approxTokens((event.body||"").length + text.length)
+    // Try models sequentially
+    const errors = {};
+    for (const model of MODEL_POOL) {
+      try{
+        const { reply, toolInvocations } = await callGeminiWithTools({
+          model,
+          messages: decoratedMessages,
+          memoryBlob: (memory||"").slice(-MAX_MEMORY_CHARS)
+        });
+        if (reply) {
+          // stamp medical notice once (no text surfaced)
+          const stamped = stampMedicalOnce(memory);
+          const updatedMem = makeMemoryBlob(stamped.memory, `user:${lastUser}\nassistant:${reply}`);
+          return ok({
+            reply,
+            memory: updatedMem,
+            meta:{
+              model,
+              tools: toolInvocations,
+              tokens_hint: approxTokens(decoratedMessages, reply)
+            }
+          });
+        }
+        errors[model] = "empty_reply";
+      }catch(e){
+        errors[model] = String(e && e.message || e);
+        continue;
+      }
     }
-  });
+
+    const fallback = "تعذّر توليد رد دقيق الآن. اكتب: اسم الطعام + الكمية (مثال: \"حليب كامل الدسم 200 مل\") لأحلّل فورًا، أو أرسل: الجنس/العمر/الطول/الوزن/النشاط/الهدف لأحسب السعرات والماكروز بدقة.";
+    const newMem = makeMemoryBlob(memory, `assistant:${fallback}`);
+    return ok({ reply:fallback, memory:newMem, meta:{ model:"server-fallback", errors } });
+
+  }catch(e){
+    return ok({
+      reply: "حدث خطأ غير متوقع. أعد صياغة سؤالك باختصار (مثال: \"حليب كامل الدسم 200 مل\" أو \"ذكر 30 سنة 178سم 78كجم نشاط متوسط هدف خسارة\").",
+      error: String(e && e.message || e)
+    });
+  }
 };
+
+/* ============================================================================
+   11) Safe JSON
+============================================================================ */
+function safeParseJSON(s, fallback={}){
+  try{ return JSON.parse(s); } catch{ return fallback; }
+}

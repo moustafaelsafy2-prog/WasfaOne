@@ -92,11 +92,14 @@
     },
     "mustafa2@gmail.com": {
       "fingerprints": [
-        "c1ee64c6955ed32b42ad8c9d965fddcc67a7328b4d12697fa32f868ba9de5d00"
+        "c1ee64c6955ed32b42ad8c9d965fddcc67a7328b4d12697fa32f868ba9de5d00",
+        "6d3aca52aa0e4023c1eb70ad8e32883796dbe937053650f877c24e522cef6960"
       ],
       "bans": [
         "title:كفته بالصينيه مع طحينه القرنبيط",
-        "ings:af2d5f90a3454b5ff9e519974447edceef097d1bc883b48bd9789d56c163ecfc"
+        "ings:af2d5f90a3454b5ff9e519974447edceef097d1bc883b48bd9789d56c163ecfc",
+        "title:كباب باذنجان حلبي",
+        "ings:6b1982e8150f24e4b46580c733849bd6bda84dd497b4701ec7f8bb0f2586988d"
       ]
     }
   }

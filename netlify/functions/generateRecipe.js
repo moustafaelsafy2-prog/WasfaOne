@@ -1,7 +1,7 @@
 // netlify/functions/generateRecipe.js
 // توليد وصفات احترافية بالعربية — منع تكرار نهائي + أسماء أطباق أصيلة ومعروفة.
 // يحافظ على نفس الـ API ونفس مخطط الإخراج المستخدم في الواجهة الأمامية.
-// صارم في الطاقة (4/4/9) و"جرامات فقط" للمكوّنات، والالتزام بالأنظمة والحساسيات.
+// صارم في الطاقة (4/4/9) و"جرامات فقط" للمكوّنات، والتزام بالأنظمة والحساسيات.
 
 // ===== إعدادات النماذج =====
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
@@ -15,6 +15,13 @@ const MODEL_POOL = [
   "gemini-1.5-flash-latest",
   "gemini-1.5-flash-001"
 ];
+
+// ==== Time & Retry Budget ====
+const CALL_TIMEOUT_MS = 12000;        // تقليل زمن نداء التوليد
+const NAMECHECK_TIMEOUT_MS = 7000;    // تقليل زمن فحص الاسم
+const NAMECHECK_MIN_CONF = 0.72;      // قبول الثقة ≥ 0.72
+const MAX_MODELS = 2;                 // موديلان فقط لكل طلب
+const MAX_ATTEMPTS_PER_MODEL = 2;     // محاولتان فقط لكل موديل
 
 // ===== تخزين مستخدمين/اشتراك + سجل الوصفات (GitHub) =====
 const OWNER = process.env.GITHUB_REPO_OWNER;
@@ -325,13 +332,22 @@ function pushRecipeToHistory(userNode, input, recipe){
   return fp;
 }
 
-// ===== إعدادات مطابخ مختصرة (إرشاد تنويع — دون قوائم أطباق) =====
+// ===== إعدادات مطابخ مختصرة (إرشاد تنويع — بلا قوائم أطباق) =====
 const CUISINE_GUIDES = {
-  "شرق أوسطي": `- نوّع بين الأقاليم والأساليب (شوي/طاجن/كبسة…)، اجعل العنوان يعكس التقنية.`,
-  "متوسطي (Mediterranean)": `- مزج يوناني/إسباني/إيطالي/تركي-إيجه مع اختلاف النكهات.`,
-  "مطبخ مصري": `- اختلاف منزلي/إسكندراني/ريفي مع بدائل منخفضة كارب عند الحاجة.`,
-  "هندي": `- شمالي/جنوبي/بنغالي مع ضبط الكارب.`,
-  "أمريكي": `- مشاوي/داينر منزلي/صحي كاليفورني.`
+  "مطبخ مصري": `- منزلي/إسكندراني/ريفي؛ اختلاف تقنية (طاجن/تسبيك/شوي).`,
+  "شامي": `- لبناني/سوري/فلسطيني؛ حمضي-عشبي (سماق/ليمون/زيت زيتون).`,
+  "خليجي": `- كبسات/مندي/مظبي؛ توابل دافئة ونكهات دخانية.`,
+  "مغربي": `- طواجن/طاجين؛ كمون/كركم/زنجبيل/قرفة مع زيت زيتون.`,
+  "تونسي": `- حرارات معتدلة وهريسة مع زيت زيتون.`,
+  "جزائري": `- يخنات وتتبيلات بصلصة طماطم معتدلة.`,
+  "ليبي": `- طواجن وبهارات متوسطية مع فلفل مطحون.`,
+  "متوسطي (Mediterranean)": `- يوناني/إيطالي/إسباني؛ فرق تقنيات الشوي/الخبز/اليخنات.`,
+  "إيطالي": `- أطباق لحوم/أسماك/خضار مشوية وخبز *ممنوع* في الأنظمة منخفضة الكارب.`,
+  "يوناني": `- زيت زيتون/أعشاب/ليمون؛ أطباق بحرية وخضار.`,
+  "تركي": `- مشويات/مقبلات زيت الزيتون؛ أجبان ولحوم.`,
+  "هندي": `- شمالي/جنوبي؛ اتحكم بالكارب (بدون خبز/أرز في الكيتو).`,
+  "تايلندي": `- حلو-حامض-حار مع أعشاب طازجة؛ اضبط الكارب.`,
+  "ياباني": `- أطباق بحرية/شوْي؛ تجنّب الأرز/السكر في الكيتو.`
 };
 
 // ===== بناء البرمبت الأساسي =====
@@ -411,7 +427,7 @@ function extractJsonFromCandidates(jr){
 }
 
 // ===== اتصال أحادي بالنموذج =====
-async function callOnce(model, input, banList = [], timeoutMs = 28000){
+async function callOnce(model, input, banList = [], timeoutMs = CALL_TIMEOUT_MS){
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   const body = {
     systemInstruction: { role:"system", parts:[{ text: systemInstruction(8) }] },
@@ -455,7 +471,7 @@ async function callOnce(model, input, banList = [], timeoutMs = 28000){
   }
 }
 
-// ===== تحقق أصالة اسم الطبق (بدون قوائم جاهزة — اعتماد كامل على الذكاء الاصطناعي) =====
+// ===== تحقق أصالة اسم الطبق (اعتماد كامل على الذكاء الاصطناعي) =====
 function nameCheckSystemInstruction(){
   return `
 أنت خبير مطابخ وثقافات غذائية. ستُراجع اسم طبق عربي وتقرر إن كان:
@@ -487,7 +503,7 @@ function buildNameCheckPrompt(recipe, input){
 أعد JSON فقط.
 `.trim();
 }
-async function verifyDishNameWithAI(model, recipe, input, timeoutMs = 16000){
+async function verifyDishNameWithAI(model, recipe, input, timeoutMs = NAMECHECK_TIMEOUT_MS){
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   const body = {
     systemInstruction: { role:"system", parts:[{ text: nameCheckSystemInstruction() }] },
@@ -607,15 +623,15 @@ exports.handler = async (event) => {
   const baseBanList = buildBanList(userNode);
 
   const errors = {};
-  for (const model of MODEL_POOL){
+  for (const model of MODEL_POOL.slice(0, MAX_MODELS)){
     let attempts = 0;
     let usedBanList = baseBanList.slice();
 
-    while (attempts < 4){
+    while (attempts < MAX_ATTEMPTS_PER_MODEL){
       attempts++;
 
       // توليد
-      let gen = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList);
+      let gen = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
       if (!gen.ok){ errors[`${model}#${attempts}`] = gen.error; continue; }
       let rec = gen.recipe;
 
@@ -624,69 +640,82 @@ exports.handler = async (event) => {
       rec.macros = reconcileCalories(rec.macros);
 
       if (titleTooGeneric(rec)) {
-        const rDiv = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList);
+        const rDiv = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, Math.min(8000, CALL_TIMEOUT_MS));
         if (rDiv.ok) rec = rDiv.recipe; else { rec = null; continue; }
       }
       if (wantDrMoh && violatesDrMoh(rec)){
-        const r2 = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList);
+        const r2 = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (r2.ok && !violatesDrMoh(r2.recipe)) rec = r2.recipe;
       }
       if (availableIngredients.length && !includesAllAvailable(rec, availableIngredients)){
-        const rAvail = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList);
+        const rAvail = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rAvail.ok && includesAllAvailable(rAvail.recipe, availableIngredients)) rec = rAvail.recipe;
       }
       if (wantDessert && (dessertLooksIllogical(rec) || (!wantDrMoh && dessertLacksSweetness(rec)))){
-        const rDess = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList);
+        const rDess = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rDess.ok && !dessertLooksIllogical(rDess.recipe) && (!wantDrMoh ? !dessertLacksSweetness(rDess.recipe) : true)) {
           rec = rDess.recipe;
         }
       }
       if (energyLooksOff(rec)){
-        const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList);
+        const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rEnergy.ok && !energyLooksOff(rEnergy.recipe)) rec = rEnergy.recipe;
       }
       if (caloriesTarget && targetCaloriesFar(rec, caloriesTarget)){
-        const rTarget = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList);
+        const rTarget = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rTarget.ok && !targetCaloriesFar(rTarget.recipe, caloriesTarget)) rec = rTarget.recipe;
       }
       if (macrosVsMassImplausible(rec)){
-        const rMass = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList);
+        const rMass = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rMass.ok && !macrosVsMassImplausible(rMass.recipe)) rec = rMass.recipe;
       }
 
       // اقتراحات تقديم متوافقة
       filterServingBlock(rec, input);
 
-      // ===== تحقق أصالة الاسم =====
-      const nameCheck = await verifyDishNameWithAI(model, rec, input);
-      if (nameCheck.ok){
-        const v = nameCheck.verdict; const conf = Number(v?.confidence_0_1 || 0);
-        if (!v.is_recognized || conf < 0.80){
-          // إعادة توليد بقيد "اسم أصيل" — دون قوائم جاهزة
+      /* ===== اسم طبق أصيل — مع مسار إنقاذ ===== */
+      const nameCheck = await verifyDishNameWithAI(model, rec, input, NAMECHECK_TIMEOUT_MS);
+      if (nameCheck.ok) {
+        const v = nameCheck.verdict;
+        const conf = Number(v?.confidence_0_1 || 0);
+
+        if (!v.is_recognized || conf < NAMECHECK_MIN_CONF) {
+          // محاولة واحدة بقيود اسم أصيل
           const constrained = await callOnce(
             model,
-            { ...input, customMacros, availableIngredients, _name_constraint:true },
-            [...usedBanList, addCanonicalNameConstraintPrompt(input, v)]
+            { ...input, customMacros, availableIngredients, _name_constraint: true },
+            [...usedBanList, addCanonicalNameConstraintPrompt(input, v)],
+            CALL_TIMEOUT_MS
           );
-          if (constrained.ok){
+
+          if (constrained.ok) {
             rec = constrained.recipe;
-            const check2 = await verifyDishNameWithAI(model, rec, input);
-            if (!(check2.ok && check2.verdict?.is_recognized && Number(check2.verdict?.confidence_0_1||0) >= 0.80)){
-              // فشل الاسم — نزيد محظورات ونكرر محاولة أخرى
-              usedBanList = Array.from(new Set([...usedBanList, `name_retry:${Date.now()%100000}`])).slice(-60);
-              continue;
-            }
-            // تطبيع: استخدام الاسم الكانوني إذا كان أوضح
-            if (check2.verdict.canonical_name_ar && normalizeArabic(check2.verdict.canonical_name_ar) !== normalizeArabic(rec.title)){
-              rec.title = check2.verdict.canonical_name_ar.trim();
+            const check2 = await verifyDishNameWithAI(model, rec, input, Math.min(6000, NAMECHECK_TIMEOUT_MS));
+            const pass2 = check2.ok && check2.verdict?.is_recognized && Number(check2.verdict?.confidence_0_1 || 0) >= NAMECHECK_MIN_CONF;
+
+            if (!pass2) {
+              // 🔁 مسار إنقاذ: نقبل أفضل نتيجة *غير عامة* ونمنع التكرار
+              if (titleTooGeneric(rec)) {
+                const lastTry = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, Math.min(8000, CALL_TIMEOUT_MS));
+                if (lastTry.ok) rec = lastTry.recipe; else { rec = null; continue; }
+              }
+            } else {
+              if (check2.verdict.canonical_name_ar && normalizeArabic(check2.verdict.canonical_name_ar) !== normalizeArabic(rec.title)) {
+                rec.title = check2.verdict.canonical_name_ar.trim();
+              }
             }
           } else {
-            // لم ننجح في اسم أصيل ضمن هذه الدورة
-            usedBanList = Array.from(new Set([...usedBanList, `name_fail:${Date.now()%100000}`])).slice(-60);
-            continue;
+            // فشل في توليد مقيد — لا نُسقط الطلب، نكمل بالوصفة الحالية إن لم يكن العنوان عامًا
+            if (titleTooGeneric(rec)) { rec = null; continue; }
           }
-        } else if (v.canonical_name_ar && normalizeArabic(v.canonical_name_ar) !== normalizeArabic(rec.title)){
+        } else if (v.canonical_name_ar && normalizeArabic(v.canonical_name_ar) !== normalizeArabic(rec.title)) {
           rec.title = v.canonical_name_ar.trim();
+        }
+      } else {
+        // تعذر فحص الاسم (شبكة/JSON) — لا نكسر التوليد
+        if (titleTooGeneric(rec)) {
+          const rDiv2 = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, Math.min(8000, CALL_TIMEOUT_MS));
+          if (rDiv2.ok) rec = rDiv2.recipe; else { rec = null; continue; }
         }
       }
 
@@ -706,5 +735,9 @@ exports.handler = async (event) => {
     }
   }
 
-  return bad(502, "generation_failed_for_all_models", { errors, tried: MODEL_POOL });
+  return bad(502, "generation_failed_for_all_models", {
+    reason: "time_budget_or_namecheck",
+    tried: MODEL_POOL.slice(0, MAX_MODELS),
+    timeouts: true
+  });
 };

@@ -33,7 +33,7 @@
     .tl-pill:hover{ transform:translateY(-3px); box-shadow:0 6px 12px rgba(0,0,0,.06) }
     .tl-pill .name{ display:block; font-weight:800; font-size:14px }
     .tl-pill .grams{ display:block; font-weight:900; font-size:18px; margin-top:4px }
-    .tl-energy{ background:#fef2f2; border-color:#f87171; color:#b91c1c } .tl-protein{ background:#eff6ff; border-color:#60a5fa; color:#1e40af } .tl-carbs{ background:#f0fdf4; border-color:#4ade80; color:#15803d } .tl-fat{ background:#fffbeb; border-color:#facc15; color:#a16207 }
+    .tl-energy{ background:#fef2f2; border-color:#f87171; color:#b91c1c } .tl-protein{ background:#eff6ff; border-color:#60a5فا; color:#1e40af } .tl-carbs{ background:#f0fdf4; border-color:#4ade80; color:#15803d } .tl-fat{ background:#fffbeb; border-color:#facc15; color:#a16207 }
     .panel{ position:sticky; top:24px; background:#fff; border:1px solid var(--line); border-radius:22px; padding:22px; box-shadow:0 12px 30px rgba(0,0,0,.04) }
     .ingredient-list li{ position:relative; padding-right:1.5rem; line-height:1.9; margin-bottom:.5rem; color: var(--muted) }
     .ingredient-list li::before{ content:''; position:absolute; right:0; top:10px; width:8px; height:8px; border-radius:50%; background:var(--brand); box-shadow:0 0 8px rgba(239,68,68,.5) }
@@ -53,13 +53,8 @@
     @keyframes fadeInUp{from{opacity:0; transform:translateY(20px)}to{opacity:1; transform:translateY(0)}} .fade-in-up{ animation:fadeInUp .6s ease-out forwards }
     @keyframes popIn{from{opacity:0; transform:translateY(10px) scale(.95)}to{opacity:1; transform:translateY(0) scale(1)}} .status-pop-in{ animation:popIn .5s ease-out forwards }
 
-    /* ===== Chat UI ===== */
-    .chat-fab{
-      position:fixed; bottom:22px; right:22px; z-index:60; display:inline-flex; align-items:center; gap:10px;
-      background: var(--brand); color:#fff; font-weight:900; border-radius:999px; padding:12px 16px;
-      box-shadow:0 10px 30px rgba(0,0,0,.2);
-      transition:transform .15s ease, box-shadow .2s ease, filter .2s ease;
-    }
+    /* Chat */
+    .chat-fab{ position:fixed; bottom:22px; right:22px; z-index:60; display:inline-flex; align-items:center; gap:10px; background: var(--brand); color:#fff; font-weight:900; border-radius:999px; padding:12px 16px; box-shadow:0 10px 30px rgba(0,0,0,.2); transition:transform .15s ease, box-shadow .2s ease, filter .2s ease; }
     .chat-fab:hover{ transform:translateY(-2px); filter:brightness(1.05); box-shadow:0 14px 36px rgba(0,0,0,.25) }
     .chat-fab .pulse{ position:absolute; inset:0; border-radius:999px; pointer-events:none; box-shadow:0 0 0 0 rgba(239,68,68,.4); animation:fabPulse 2s infinite; }
     @keyframes fabPulse{ 0%{ box-shadow:0 0 0 0 rgba(239,68,68,.45) } 70%{ box-shadow:0 0 0 14px rgba(239,68,68,0) } 100%{ box-shadow:0 0 0 0 rgba(239,68,68,0) } }
@@ -270,7 +265,7 @@
     </div>
   </div>
 
-  <!-- تحميل الأدوات العامة (تثبيت device_id + wasfaLogout + WasfaApp) -->
+  <!-- الأدوات العامة (تثبيت device_id + wasfaLogout + WasfaApp) -->
   <script src="/public/assets/app.js"></script>
 
 <script>
@@ -279,7 +274,7 @@
   const API_ASSISTANT = "/.netlify/functions/aiDietAssistant";
   const $=id=>document.getElementById(id);
 
-  // ===== جلسة موحّدة: قراءة المفاتيح التي خزّنتها صفحة login =====
+  /* ===== جلسة موحّدة: تقرأ مفاتيح صفحة login ===== */
   function getSess(){
     try{
       const token = localStorage.getItem('wasfa_token');
@@ -294,10 +289,11 @@
     if(!sess) window.location.replace('login.html');
   }
 
-  // ===== عناصر الإدخال/الإخراج
+  // inputs
   const mealType=$('mealType'), cuisine=$('cuisine'), dietType=$('dietType'),
         calorieTarget=$('calorieTarget'), commonAllergy=$('commonAllergy'),
-        customAllergy=$('customAllergy'), availableIngredients=$('availableIngredients'),
+        customAllergy=$('customAllergy'),
+        availableIngredients=$('availableIngredients'),
         btn=$('generateBtn'), spin=$('loadingIndicator'),
         statusMsg=$('statusMsg'), errMsg=$('errorMsg'),
         banner=$('banner'), toast=$('toast'), dietHelp=$('dietHelp'),
@@ -305,13 +301,14 @@
         customCarbs=$('customCarbs'), customFat=$('customFat'),
         calorieHint=$('calorieHint');
 
+  // outputs
   const resultContainer = $('resultContainer'), contentArea = $('contentArea'),
         recipeTitle=$('recipeTitle'), timeValue=$('timeValue'),
         servingsValue=$('servingsValue'), ingList=$('ingredientsList'),
         stepsBox=$('preparationSteps'), tlWrap=$('tl-wrap'),
         servingList=$('servingList');
 
-  /* ===== Toast & UI helpers ===== */
+  /* ===== Toast & helpers ===== */
   function pushToast(text,type="info",ms=3500){
     const d=document.createElement('div');
     d.className=`toast-item ${type}`; d.textContent=text; toast.appendChild(d);
@@ -370,7 +367,7 @@
     };
   }
 
-  // ===== استدعاء واجهات الخادم باستخدام الجلسة الموحّدة
+  /* ===== API: enforced diet rules ===== */
   async function callAPI(payload){
     const sess = getSess();
     if(!sess){ window.location.replace("login.html"); return { ok:false }; }
@@ -388,6 +385,7 @@
     return data;
   }
 
+  /* توليد صورة الطبق */
   async function generateDishImage(view){
     try{
       if(!view || !view.title) return;
@@ -423,6 +421,7 @@
     }
   }
 
+  /* حساب السعرات (المخصص) */
   function calcCaloriesFromMacros(p,c,f){ const P=+p||0, C=+c||0, F=+f||0; return Math.max(0, Math.round(4*P + 4*C + 9*F)); }
   function isCustomDiet(){ return String(dietType.value) === 'custom'; }
   function syncCaloriesLockUI(){
@@ -462,9 +461,11 @@
       setBanner("تم توليد الوصفة بدون قسم تقديم. يُرجى إعادة المحاولة.", "amber");
     }
 
-    if (warning) setBanner("تنبيه: قد لا تكون بعض قيود النظام أو المكونات المتاحة مطبّقة بالكامل.", "amber");
+    // إشعارات التقيّد بالأنظمة الغذائية كما في نسختك السابقة
+    if (warning) setBanner("تنبيه: قد لا تكون بعض قيود النظام أو المكوّنات المتاحة مطبّقة بالكامل.", "amber");
     if (note === "repaired_to_meet_dr_moh_rules") setBanner("تم ضبط الوصفة تلقائيًا لتتوافق مع قواعد نظام د. محمد سعيد.", "amber");
     if (note === "aligned_with_available_ingredients") setBanner("تمت مواءمة الوصفة مع المكونات المتاحة لديك.", "amber");
+    if (note === "strict_diet_rules_enforced") setBanner("تم تطبيق قواعد النظام الغذائي بدقة على هذه الوصفة.", "amber");
 
     generateDishImage(view);
 
@@ -485,33 +486,41 @@
     return Array.from(new Set(parts));
   }
 
+  /* التوليد مع مفاتيح فرض القواعد */
   async function generate(){
     setError(""); setStatus("جارٍ التوليد …", true);
     btn.disabled=true; spin.classList.remove('hidden');
     try{
       const allergies=[]; if(commonAllergy.value) allergies.push(commonAllergy.value);
       if(customAllergy.value.trim()) allergies.push(customAllergy.value.trim());
+
       const custom = (String(dietType.value)==='custom');
       if(custom){
         const p=+customProtein.value||0, c=+customCarbs.value||0, f=+customFat.value||0;
         if(p<=0 && c<=0 && f<=0){ setError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); btn.disabled=false; spin.classList.add('hidden'); return; }
         calorieTarget.value = calcCaloriesFromMacros(p,c,f);
       }
+
       const payload={
-        mealType:mealType.value,
-        cuisine:cuisine.value,
-        dietType:dietType.value,
+        mealType: mealType.value,
+        cuisine: cuisine.value,
+        dietType: dietType.value,
         caloriesTarget: custom ? Number(calorieTarget.value)||0 : (Number(calorieTarget.value)||500),
         customMacros: custom ? { protein_g:+customProtein.value||0, carbs_g:+customCarbs.value||0, fat_g:+customFat.value||0 } : null,
         allergies,
         availableIngredients: parseAvailableList(availableIngredients.value),
+        // مفاتيح فرض الالتزام بالأنظمة كما كانت لديك
+        enforceDietRules: true,
+        respectAllergies: true,
+        alignToAvailableIngredients: true,
         lang:"ar"
       };
+
       const data=await callAPI(payload);
       const view=map(data.recipe);
       render(view, data.note, data.warning);
       setStatus(`تم التوليد بنجاح`, true);
-      pushToast(`تم توليد الوصفة بنجاح`,"success");
+      pushToast(`تم توليد الوصفة مع تطبيق قواعد النظام الغذائي`,"success");
     }catch(e){
       setStatus("", true);
       setError(e.message||"فشل التوليد");
@@ -521,6 +530,7 @@
     }
   }
 
+  /* الإعدادات العامة والقوائم */
   async function loadPublicSettingsAndBind(){
     try{
       const res = await fetch("data/settings.json?ts="+Date.now(), { cache:"no-store" });
@@ -547,7 +557,7 @@
     }catch(_){ /* silent */ }
   }
 
-  /* ===== Chat ===== */
+  /* Chat (نفس منطقك السابق) */
   const chatFab=$('chatFab'), chatPanel=$('chatPanel'), chatClose=$('chatClose'),
         chatBody=$('chatBody'), chatInput=$('chatInput'), chatSend=$('chatSend'),
         chatHint=$('chatHint'), unreadBadge=$('unreadBadge');
@@ -614,7 +624,7 @@
     finally{ chatInput?.focus(); }
   }
 
-  // ===== بدء الصفحة
+  /* بدء الصفحة */
   document.addEventListener('DOMContentLoaded', ()=>{
     ensureSessionOrRedirect();      // يعتمد الآن على wasfa_token + wasfa_session_nonce
     resetView();
@@ -634,14 +644,13 @@
       resetView(); generate();
     });
 
-    // خروج يستخدم wasfaLogout() (يحافظ على wasfa_device_id)
+    // خروج يحافظ على wasfa_device_id
     const logoutBtn = $('logoutBtn');
     if (logoutBtn){
       logoutBtn.addEventListener('click', ()=>{
         if (typeof window.wasfaLogout === 'function') {
           window.wasfaLogout();
         } else {
-          // احتياطي فقط
           try{
             const id = localStorage.getItem('wasfa_device_id');
             localStorage.removeItem('wasfa_token');
@@ -654,10 +663,7 @@
       });
     }
 
-    // Chat UI
-    const chatFab=$('chatFab'), chatClose=$('chatClose');
-    const unreadBadge=$('unreadBadge'), chatHint=$('chatHint');
-    const chatPanel=$('chatPanel');
+    // الدردشة
     chatFab.addEventListener('click', async ()=>{
       if (chatPanel.style.display !== 'flex'){ openChat(); await ensureAssistantStarted(); }
       else { closeChat(); }

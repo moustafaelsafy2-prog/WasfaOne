@@ -4,7 +4,8 @@
       "fingerprints": [
         "d1bda7c09c11704ad5a460f98075d10a6919da96712a5920bd70a0d538b43554",
         "cc53479ee6b84a2edca156dc17de2ee36ac1e34e1245f8ecfca9183530b96d71",
-        "e52cf05dc4ff1ae841412a07b7279c7358bfd83ff1cc8841ea5ba3c55d1dd9a5"
+        "e52cf05dc4ff1ae841412a07b7279c7358bfd83ff1cc8841ea5ba3c55d1dd9a5",
+        "7e631c9eda4f1ea4204c1ed53cd17079d07ed4421628358604e3eb36b4d1f343"
       ],
       "bans": [
         "title:كباب دجاج بالليمون والكزبره",
@@ -12,7 +13,9 @@
         "title:طاجين الدجاج بالزيتون والليمون المخلل",
         "ings:a895dffbe2ae208b7958b38162910668515907708cdf40ca5cce7b5dcbf40305",
         "title:دجاج مشوي بالبهارات الحلبيه",
-        "ings:d427fb25cbc7be5e931f2c39ac31c3458e944161f4032279ef049b09753ed045"
+        "ings:d427fb25cbc7be5e931f2c39ac31c3458e944161f4032279ef049b09753ed045",
+        "title:مندي دجاج بالفرن",
+        "ings:a9aa42d7cd353fd958e6ab5f9f2d01f6e8dc0046317fdb830f398c2f4a3d722e"
       ]
     }
   }

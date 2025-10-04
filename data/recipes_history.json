@@ -3,13 +3,16 @@
     "mustafa@gmail.com": {
       "fingerprints": [
         "d1bda7c09c11704ad5a460f98075d10a6919da96712a5920bd70a0d538b43554",
-        "cc53479ee6b84a2edca156dc17de2ee36ac1e34e1245f8ecfca9183530b96d71"
+        "cc53479ee6b84a2edca156dc17de2ee36ac1e34e1245f8ecfca9183530b96d71",
+        "e52cf05dc4ff1ae841412a07b7279c7358bfd83ff1cc8841ea5ba3c55d1dd9a5"
       ],
       "bans": [
         "title:كباب دجاج بالليمون والكزبره",
         "ings:a191e3e456dfa20b0fb4ca686d14700db16d3e9b275955bda91bd93382e7d14e",
         "title:طاجين الدجاج بالزيتون والليمون المخلل",
-        "ings:a895dffbe2ae208b7958b38162910668515907708cdf40ca5cce7b5dcbf40305"
+        "ings:a895dffbe2ae208b7958b38162910668515907708cdf40ca5cce7b5dcbf40305",
+        "title:دجاج مشوي بالبهارات الحلبيه",
+        "ings:d427fb25cbc7be5e931f2c39ac31c3458e944161f4032279ef049b09753ed045"
       ]
     }
   }

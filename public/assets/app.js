@@ -1,3 +1,58 @@
+/* ===== WasfaOne: shared device/session utilities (added) =====
+   - تثبيت wasfa_device_id مرة واحدة فقط
+   - wasfaLogout(): يحذف مفاتيح الجلسة فقط ويُبقي wasfa_device_id
+   - WasfaApp helpers: ensureDeviceId(), saveSession(), getSession()
+*/
+(() => {
+  const LS = {
+    get(k){ try{return localStorage.getItem(k);}catch{return null;} },
+    set(k,v){ try{localStorage.setItem(k,v);}catch{} },
+    remove(k){ try{localStorage.removeItem(k);}catch{} },
+  };
+
+  // UUID v4 (قصير)
+  const wasfaUUID = () =>
+    ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c/4).toString(16)
+    );
+
+  function ensureDeviceId(){
+    let id = LS.get('wasfa_device_id');
+    if(!id){ id = wasfaUUID(); LS.set('wasfa_device_id', id); }
+    return id;
+  }
+
+  // ضمّن الـ ID من أوّل تحميل لأي صفحة
+  try { ensureDeviceId(); } catch {}
+
+  // دالة الخروج — لا تمسح wasfa_device_id
+  window.wasfaLogout = function wasfaLogout(){
+    const id = LS.get('wasfa_device_id');
+    LS.remove('wasfa_token');
+    LS.remove('wasfa_session_nonce');
+    LS.remove('wasfa_user');
+    // أبقِ اللغة إن وُجدت
+    if (id) LS.set('wasfa_device_id', id); else LS.set('wasfa_device_id', wasfaUUID());
+    try { window.location.href = '/login.html'; } catch {}
+  };
+
+  // Helpers لحفظ/قراءة الجلسة
+  window.WasfaApp = window.WasfaApp || {};
+  window.WasfaApp.ensureDeviceId = ensureDeviceId;
+  window.WasfaApp.saveSession = ({token,session_nonce,user})=>{
+    if(token) LS.set('wasfa_token', token);
+    if(session_nonce) LS.set('wasfa_session_nonce', session_nonce);
+    if(user) LS.set('wasfa_user', JSON.stringify(user));
+  };
+  window.WasfaApp.getSession = ()=>{
+    return {
+      token: LS.get('wasfa_token'),
+      session_nonce: LS.get('wasfa_session_nonce'),
+      user: (()=>{ try{return JSON.parse(LS.get('wasfa_user')||'null');}catch{return null;} })(),
+    };
+  };
+})();
+
 /* WasfaOne Frontend — Server-only flow (Netlify Function) with Custom Macros */
 
 const API_ENDPOINT = "/.netlify/functions/generateRecipe";

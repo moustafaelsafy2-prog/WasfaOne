@@ -99,7 +99,8 @@
         "a243a4db47acebfcb5d39d146746e929de21b03f6e77aee985fc4e2420e81732",
         "063eed01c94167d726ae9efe809f57a0736cb15626467318fb8f60681670a56b",
         "5ce570fa0264b4e84c3dea7d32d638214c05ed8a5a02ec0e8bdb5a2218e582a6",
-        "dba32e166123bf9030b61a493eeaf63f2fadcefd68a18f7f4e60fb0cfc4116b2"
+        "dba32e166123bf9030b61a493eeaf63f2fadcefd68a18f7f4e60fb0cfc4116b2",
+        "5dbb01dc398278f49dba8ad4ded7ca1675a339b2309707dbd45046b99a1d5ec8"
       ],
       "bans": [
         "title:كفته بالصينيه مع طحينه القرنبيط",
@@ -117,7 +118,9 @@
         "title:دنيس مشوي بالليمون والاوريجانو مع سلطه خضراء",
         "ings:a5ec50c5b5644396d5356c69bc79c5f0e0b10fa1bfdb3c373a488d531e7481bf",
         "title:كالاماري مقلي بزيت الزيتون مع سلطه خضراء",
-        "ings:dd2eb9155e81ca03fe614cb622a640447b4665382330b4ef53e2aee313f15c7b"
+        "ings:dd2eb9155e81ca03fe614cb622a640447b4665382330b4ef53e2aee313f15c7b",
+        "title:سردين مشوي بزيت الزيتون والاوريجانو",
+        "ings:4e68dc391c8dae31ab6c07babf8aae5e55e35ecc9f2e844ff2db2ab47f1acc07"
       ]
     }
   }

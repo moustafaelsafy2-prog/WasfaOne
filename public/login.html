@@ -8,7 +8,7 @@
   <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Google Fonts (نفس الصفحة الرئيسية) -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">
@@ -31,7 +31,6 @@
       color:var(--ink); background:var(--soft-bg);
     }
 
-    /* خلفية مطابقة للصفحة الرئيسية */
     .auth-hero{
       position:relative; min-height:100vh; display:grid; place-items:center; overflow:hidden;
     }
@@ -48,13 +47,11 @@
       backdrop-filter: blur(2px);
     }
 
-    /* نفس هوية العنوان */
     .brand-title{
       background:linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
       -webkit-background-clip:text; -webkit-text-fill-color:transparent;
     }
 
-    /* بطاقة احترافية مطابقة */
     .pro-card{
       position:relative;
       background:linear-gradient(180deg, #fff, #fafafa);
@@ -68,7 +65,6 @@
     .auth-wrap{ width:100%; max-width:480px; padding:24px }
     .auth-card{ padding:28px }
 
-    /* الحقول + الأيقونات */
     .field{ position:relative }
     .field input{
       width:100%; min-height:52px; padding:0 48px 0 14px;
@@ -89,7 +85,6 @@
       display:grid; place-items:center; width:44px; color:#6b7280;
     }
 
-    /* زر مطابق لزر CTA العام مع تأثير الوميض/التموج */
     .cta-button{
       position:relative; overflow:hidden;
       display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
@@ -108,14 +103,12 @@
     .ripple{ position:absolute; border-radius:9999px; transform:translate(-50%,-50%); pointer-events:none; animation:ripple 600ms ease-out forwards; background:rgba(255,255,255,.35) }
     @keyframes ripple{ from{ width:0; height:0; opacity:.6 } to{ width:340px; height:340px; opacity:0 } }
 
-    /* سبينر لو أردته في login.js */
     .spinner{
       border:2px solid #fff; border-top-color:transparent; border-radius:999px;
       width:20px; height:20px; animation:spin 1s linear infinite;
     }
     @keyframes spin{ to{ transform:rotate(360deg) } }
 
-    /* تفاصيل صغيرة */
     .mini-header{ display:flex; align-items:center; gap:.75rem; margin-bottom:10px }
     .mini-badge{
       display:inline-grid; place-items:center; width:42px; height:42px;
@@ -131,9 +124,7 @@
 
   <section class="auth-hero">
     <div class="relative z-10 auth-wrap">
-      <!-- بطاقة تسجيل الدخول -->
       <div class="pro-card auth-card">
-        <!-- شعار وعنوان (Wasfa مثل الرئيسية) -->
         <header class="text-center mb-6">
           <div class="inline-flex items-center gap-3">
             <img id="login-logo" class="h-14 w-14 rounded-2xl shadow-md ring-1 ring-white/40" alt="Logo" src="https://placehold.co/60x60/ef4444/ffffff?text=W" />
@@ -142,7 +133,6 @@
           <p class="text-[var(--muted)] mt-2">مرحبًا بك — من فضلك سجّل دخولك للمتابعة</p>
         </header>
 
-        <!-- شارة صغيرة -->
         <div class="mini-header">
           <span class="mini-badge"><i data-lucide="lock" class="w-5 h-5"></i></span>
           <div>
@@ -151,15 +141,12 @@
           </div>
         </div>
 
-        <!-- النموذج (نفس IDs تمامًا) -->
         <form id="login-form" class="space-y-5 mt-3">
-          <!-- البريد -->
           <div class="field">
             <span class="icon"><i data-lucide="mail" class="w-5 h-5"></i></span>
             <input id="email" class="text-[15px]" placeholder="البريد الإلكتروني" type="email" required />
           </div>
 
-          <!-- كلمة المرور -->
           <div class="field">
             <span class="icon"><i data-lucide="lock-keyhole" class="w-5 h-5"></i></span>
             <input id="password" class="text-[15px]" placeholder="كلمة المرور" type="password" required />
@@ -169,7 +156,6 @@
             </button>
           </div>
 
-          <!-- روابط مساعدة -->
           <div class="flex items-center justify-between text-sm">
             <div class="flex items-center gap-2 text-[var(--muted)]">
               <i data-lucide="shield-check" class="w-4 h-4"></i>
@@ -178,40 +164,36 @@
             <a href="https://wa.me/971502061209" target="_blank" rel="noopener" class="link">نسيت كلمة المرور؟</a>
           </div>
 
-          <!-- زر الدخول (نفس IDs) -->
           <button id="login-button" class="cta-button" type="submit">
             <span id="button-text">دخول</span>
             <div id="button-spinner" class="spinner hidden"></div>
           </button>
 
-          <!-- رسالة خطأ (لا تتغيّر) -->
           <div id="login-error" class="text-red-600 text-sm hidden pt-1 text-center"></div>
         </form>
 
-        <!-- روابط سفلى صغيرة -->
         <div class="mt-6 text-center text-sm">
           <a href="privacy.html" class="text-[var(--muted)] hover:text-[var(--ink)] underline decoration-dotted">سياسة الخصوصية</a>
         </div>
       </div>
 
-      <!-- فوتر شفاف أعلى الخلفية -->
       <footer class="mt-6 text-center auth-footer text-sm">
         <span>&copy; 2024 Wasfa. جميع الحقوق محفوظة.</span>
       </footer>
     </div>
   </section>
 
-  <!-- منطق الصفحة يبقى كما هو -->
-  <script src="login.js"></script>
+  <!-- تحميل الأدوات العامة التي تثبّت wasfa_device_id وتوفّر wasfaLogout/saveSession -->
+  <script src="/public/assets/app.js"></script>
 
-  <!-- تحسينات تفاعلية بالواجهة فقط (لا تغيّر طريقة العمل) -->
   <script>
     // تهيئة الأيقونات
     lucide.createIcons();
 
-    // تأثير ضوء + Ripple على زر الدخول (مطابق لهوية الموقع)
-    const btn = document.getElementById('login-button');
-    if (btn){
+    // تأثيرات زر الدخول (ضوء + Ripple)
+    (function enhanceCTA(){
+      const btn = document.getElementById('login-button');
+      if (!btn) return;
       btn.addEventListener('mousemove', (e)=>{
         const r = btn.getBoundingClientRect();
         btn.style.setProperty('--mx', `${e.clientX - r.left}px`);
@@ -228,28 +210,123 @@
         btn.appendChild(circle);
         setTimeout(()=> circle.remove(), 650);
       });
-    }
+    })();
 
-    // شعار احتياطي
-    const logo = document.getElementById('login-logo');
-    if (logo && !logo.src) {
-      logo.src = 'https://placehold.co/60x60/ef4444/ffffff?text=W';
-    }
-
-    // تبديل إظهار كلمة المرور (لا يمس إرسال النموذج)
-    const togglePassword = document.getElementById('toggle-password');
-    const passwordInput  = document.getElementById('password');
-    const eyeIcon        = document.getElementById('eye-icon');
-    const eyeSlashIcon   = document.getElementById('eye-slash-icon');
-
-    if (togglePassword){
+    // تبديل إظهار كلمة المرور
+    (function bindTogglePassword(){
+      const togglePassword = document.getElementById('toggle-password');
+      const passwordInput  = document.getElementById('password');
+      const eyeIcon        = document.getElementById('eye-icon');
+      const eyeSlashIcon   = document.getElementById('eye-slash-icon');
+      if (!togglePassword) return;
       togglePassword.addEventListener('click', function(){
         const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
         passwordInput.setAttribute('type', type);
         eyeIcon.classList.toggle('hidden');
         eyeSlashIcon.classList.toggle('hidden');
       });
+    })();
+
+    // -------- Fingerprint --------
+    async function computeFingerprintHash() {
+      // تثبيت/قراءة device_id مرة واحدة
+      const deviceId = (window.WasfaApp && window.WasfaApp.ensureDeviceId)
+        ? window.WasfaApp.ensureDeviceId()
+        : (function(){
+            let id = localStorage.getItem('wasfa_device_id');
+            if (!id) {
+              id = ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+              localStorage.setItem('wasfa_device_id', id);
+            }
+            return id;
+          })();
+
+      const parts = [
+        deviceId,
+        navigator.userAgent || '',
+        navigator.language || '',
+        (screen && screen.width) ? String(screen.width) : '',
+        (screen && screen.height) ? String(screen.height) : '',
+        (screen && screen.colorDepth) ? String(screen.colorDepth) : '',
+        String(new Date().getTimezoneOffset()),
+        navigator.platform || '',
+        String(navigator.hardwareConcurrency || '')
+      ].join('|');
+
+      const enc = new TextEncoder().encode(parts);
+      const buf = await crypto.subtle.digest('SHA-256', enc);
+      return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
     }
+
+    // -------- Login Submit --------
+    (function bindLogin(){
+      const form   = document.getElementById('login-form');
+      const email  = document.getElementById('email');
+      const pass   = document.getElementById('password');
+      const btn    = document.getElementById('login-button');
+      const btnTxt = document.getElementById('button-text');
+      const spin   = document.getElementById('button-spinner');
+      const error  = document.getElementById('login-error');
+
+      function setBusy(v){
+        if (!btn) return;
+        btn.disabled = v;
+        if (spin) spin.classList.toggle('hidden', !v);
+        if (btnTxt) btnTxt.textContent = v ? 'جاري تسجيل الدخول…' : 'دخول';
+      }
+      function setError(msg){
+        if (!error) return;
+        error.textContent = msg || '';
+        error.classList.toggle('hidden', !msg);
+      }
+
+      if (!form) return;
+      form.addEventListener('submit', async (e)=>{
+        e.preventDefault();
+        setError('');
+        setBusy(true);
+        try{
+          const device_fingerprint_hash = await computeFingerprintHash();
+
+          const res = await fetch('/.netlify/functions/login', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body: JSON.stringify({
+              email: (email.value||'').trim(),
+              password: pass.value || '',
+              device_fingerprint_hash
+            })
+          });
+
+          const out = await res.json().catch(()=>({ ok:false, message:'Bad JSON' }));
+          if (!res.ok || !out || !out.ok){
+            setError(out && out.message ? out.message : 'فشل تسجيل الدخول');
+            return;
+          }
+
+          // حفظ الجلسة (واترك wasfa_device_id كما هو)
+          if (window.WasfaApp && window.WasfaApp.saveSession){
+            window.WasfaApp.saveSession({
+              token: out.token,
+              session_nonce: out.session_nonce,
+              user: { email: out.email, name: out.name }
+            });
+          } else {
+            localStorage.setItem('wasfa_token', out.token);
+            localStorage.setItem('wasfa_session_nonce', out.session_nonce);
+            localStorage.setItem('wasfa_user', JSON.stringify({ email: out.email, name: out.name }));
+          }
+
+          // انتقال للتطبيق
+          window.location.href = '/app.html';
+        } catch(err){
+          console.error(err);
+          setError('تعذّر إتمام العملية الآن. حاول لاحقًا.');
+        } finally {
+          setBusy(false);
+        }
+      });
+    })();
   </script>
 </body>
 </html>

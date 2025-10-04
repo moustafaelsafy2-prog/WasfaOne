@@ -1,12 +1,7 @@
 /* WasfaOne Frontend — Server-only flow (Netlify Function) with Custom Macros */
-/* نسخة كاملة بعد إدخال التعديلات:
-   - تمرير رؤوس الاشتراك X-Auth-Token و X-Session-Nonce لكل الطلبات
-   - تصحيح اسم الحقل إلى caloriesTarget (بدلاً من calorieTarget)
-   - استخدام normalizeAllergies للإرسال
-   - استخدام نفس الرؤوس في توليد صورة الطبق
-*/
 
 const API_ENDPOINT = "/.netlify/functions/generateRecipe";
+
 const API_IMAGE_ENDPOINT = "/.netlify/functions/generateRecipeImage";
 
 // DOM refs
@@ -15,9 +10,7 @@ let customBox, customProteinEl, customCarbsEl, customFatEl;
 let generateBtn, loadingIndicator, errorMsg, statusMsg;
 let recipeTitle, timeValue, servingsValue, caloriesValue, proteinValue, carbsValue, fatsValue, ingredientsList, preparationSteps, rawJson;
 
-/* ====================== Helpers ====================== */
-function $(sel) { return document.querySelector(sel); }
-
+// helpers
 function showStatus(message, isError = false) {
   statusMsg.textContent = message || "";
   statusMsg.classList.toggle("hidden", !message);
@@ -28,8 +21,13 @@ function showError(message) {
   errorMsg.textContent = message || "";
   errorMsg.classList.toggle("hidden", !message);
 }
+function $(sel) { return document.querySelector(sel); }
+
 function clearOutput() {
-  if (recipeTitle) recipeTitle.innerHTML = ""; // إزالة أي صورة سابقة داخل العنوان
+  // إزالة أي صورة سابقة مدمجة داخل العنوان
+  if (recipeTitle) {
+    recipeTitle.innerHTML = "";
+  }
   timeValue.textContent = "—";
   servingsValue.textContent = "—";
   caloriesValue.textContent = "—";
@@ -40,18 +38,6 @@ function clearOutput() {
   preparationSteps.innerHTML = "";
   rawJson.textContent = "";
 }
-
-// رؤوس المصادقة تُرسل في كل طلب (token + nonce)
-function getAuthHeaders() {
-  const token = (localStorage.getItem('auth_token') || '').trim();
-  const nonce = (localStorage.getItem('session_nonce') || '').trim();
-  const h = { 'Content-Type': 'application/json' };
-  if (token) h['X-Auth-Token'] = token;
-  if (nonce) h['X-Session-Nonce'] = nonce;
-  return h;
-}
-
-/* ====================== Schema check ====================== */
 function validateRecipeSchema(rec) {
   const must = ["title","servings","total_time_min","macros","ingredients","steps","lang"];
   if (!rec || typeof rec !== "object") return { ok:false, error:"recipe_not_object" };
@@ -66,10 +52,11 @@ function validateRecipeSchema(rec) {
   return { ok:true };
 }
 
-/* ====================== Render ====================== */
+// Render
 function renderRecipe(recipe) {
   recipeTitle.textContent = recipe.title;
-  generateAndRenderRecipeImage(recipe); // توليد الصورة بجانب الاسم
+  // بعد عرض البيانات النصية، نولّد الصورة ونلصقها بجانب الاسم
+  generateAndRenderRecipeImage(recipe);
   timeValue.textContent = `${recipe.total_time_min} دقيقة`;
   servingsValue.textContent = `${recipe.servings}`;
   caloriesValue.textContent = `${recipe.macros.calories}`;
@@ -81,9 +68,10 @@ function renderRecipe(recipe) {
   if (rawJson) rawJson.textContent = JSON.stringify(recipe, null, 2);
 }
 
-/* ====== توليد وعرض صورة الطبق عبر دالة منفصلة ====== */
+// ====== إضافة توليد وعرض صورة الطبق عبر Gemini (واجهة مستقلة) ======
 async function generateAndRenderRecipeImage(recipe) {
   try {
+    // تجهيز الحمولة للوظيفة الخلفية
     const payload = {
       title: recipe.title || "",
       ingredients: Array.isArray(recipe.ingredients) ? recipe.ingredients : [],
@@ -94,13 +82,19 @@ async function generateAndRenderRecipeImage(recipe) {
 
     const res = await fetch(API_IMAGE_ENDPOINT, {
       method: "POST",
-      headers: getAuthHeaders(), // نفس بوابة الاشتراك إن كانت الدالة محمية
+      headers: { "Content-Type":"application/json" },
       body: JSON.stringify(payload)
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok || !data.image || !data.image.data_url) return;
+    if (!res.ok || !data.ok || !data.image || !data.image.data_url) {
+      // لا نكسر الواجهة إن فشل توليد الصورة — نكتفي بالعنوان النصي.
+      return;
+    }
 
+    // إدراج الصورة بجانب الاسم داخل <h2 id="recipeTitle">
     if (!recipeTitle) return;
+    // نبني العنوان مجددًا: صورة + نص
+    // ملاحظة: لا نغير أي تصميم عام — تنسيق محلي داخل img فقط.
     const img = document.createElement("img");
     img.src = data.image.data_url;
     img.alt = recipe.title || "صورة الطبق";
@@ -118,15 +112,17 @@ async function generateAndRenderRecipeImage(recipe) {
     titleSpan.textContent = recipe.title || "";
     titleSpan.style.verticalAlign = "middle";
 
+    // في حال كان العنوان يحتوي نصًا سابقًا — نعيد بناؤه للصورة + النص
     recipeTitle.innerHTML = "";
     recipeTitle.appendChild(img);
     recipeTitle.appendChild(titleSpan);
   } catch (e) {
-    console.error("image_generation_failed", e); // لا نكسر الواجهة
+    // تجاهل أي خطأ — الحفاظ على الاستقرار
+    console.error("image_generation_failed", e);
   }
 }
 
-/* ====================== Input sanitation ====================== */
+// Input sanitation
 function normalizeAllergies(arr) {
   return (Array.isArray(arr) ? arr : [])
     .map(s => String(s || "").trim())
@@ -134,7 +130,7 @@ function normalizeAllergies(arr) {
     .slice(0, 10);
 }
 
-/* ====================== Main action ====================== */
+// Main action
 async function onGenerate() {
   clearOutput();
   showError("");
@@ -152,7 +148,9 @@ async function onGenerate() {
         : []
     );
 
-  const isCustom = dietTypeEl && dietTypeEl.value === "custom";
+  const isCustom = 
+    dietTypeEl && dietTypeEl.value === "custom";
+
   const customMacros = isCustom ? {
     protein_g: customProteinEl ? (+customProteinEl.value || 0) : 0,
     carbs_g: customCarbsEl ? (+customCarbsEl.value || 0) : 0,
@@ -163,31 +161,24 @@ async function onGenerate() {
     mealType: mealTypeEl ? mealTypeEl.value : "",
     cuisine: cuisineEl ? cuisineEl.value : "",
     dietType: dietTypeEl ? dietTypeEl.value : "",
-    // ✅ الاسم الصحيح كما يتوقعه الخادم
-    caloriesTarget: calorieTargetEl ? (Number(calorieTargetEl.value) || 500) : 500,
-    // ✅ إرسال قائمة نظيفة
-    allergies: normalizeAllergies(allergies),
+    calorieTarget: calorieTargetEl ? (Number(calorieTargetEl.value) || 500) : 500,
+    allergies,
     focus: (focusEl && focusEl.value) || "",
     customMacros,
     lang: "ar"
   };
 
-  // Debug اختياري لتأكيد إرسال الرؤوس (احذفها لاحقًا)
-  try {
-    const _t = (localStorage.getItem('auth_token') || '').trim();
-    const _n = (localStorage.getItem('session_nonce') || '').trim();
-    console.debug('auth_debug', { token_tail: _t.slice(-6), nonce_tail: _n.slice(-6) });
-  } catch {}
-
   try {
     const res = await fetch(API_ENDPOINT, {
       method: "POST",
-      headers: getAuthHeaders(), // ✅ تمرير الرؤوس المطلوبة
+      headers: { "Content-Type":"application/json" },
       body: JSON.stringify(payload)
     });
 
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) throw new Error(data?.error || "تعذر الاتصال بالخادم.");
+    if (!res.ok || !data.ok) {
+      throw new Error(data?.error || "تعذر الاتصال بالخادم.");
+    }
 
     showStatus(data.note || "تم التوليد بنجاح.");
     const v = validateRecipeSchema(data.recipe);
@@ -197,6 +188,7 @@ async function onGenerate() {
   } catch (err) {
     showError(err.message || "حدث خطأ غير متوقع.");
     showStatus("", false);
+  
   } finally {
     generateBtn.disabled = false;
     if (loadingIndicator) loadingIndicator.classList.add("hidden");
@@ -204,9 +196,9 @@ async function onGenerate() {
   }
 }
 
-/* ====================== Setup ====================== */
+// Setup
 function setup() {
-  // Bind elements
+  // Bind elements if present on the page using this JS
   mealTypeEl = document.getElementById("mealType");
   cuisineEl = document.getElementById("cuisine");
   dietTypeEl = document.getElementById("dietType");
@@ -235,7 +227,7 @@ function setup() {
     const v = calorieTargetEl ? (+calorieTargetEl.value || 0) : 0;
     if (v < 100 || v > 2000) { showError("أدخل سعرات بين 100 و 2000"); return; }
     if (dietTypeEl && dietTypeEl.value === "custom") {
-      const p = Number(customProteinEl?.value)||0, c = Number(customCarbsEl?.value)||0, f = Number(customFatEl?.value)||0;
+      const p = Number(customProteinEl.value)||0, c = Number(customCarbsEl.value)||0, f = Number(customFatEl.value)||0;
       if (p<=0 && c<=0 && f<=0) { showError("أدخل قيم الماكروز للمخصص (بروتين/كارب/دهون)."); return; }
     }
     onGenerate();
@@ -246,7 +238,6 @@ function setup() {
 
 document.addEventListener("DOMContentLoaded", setup);
 
-/* ====================== Settings & Custom Diet Box ====================== */
 async function loadSettingsAndBindDietList() {
   try {
     const res = await fetch("/data/settings.json?ts=" + Date.now(), { cache: "no-store" });

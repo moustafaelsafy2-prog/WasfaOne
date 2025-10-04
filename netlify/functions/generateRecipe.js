@@ -7,16 +7,14 @@
 // Enhancements: Arabic normalization, grams-only enforcement, dessert positivity checks,
 // mass–macros plausibility guard, available-ingredients sanitization, target-calorie tightening.
 // NOTE: No change to public API or deployment flow.
-// + Subscription enforcement by headers (x-auth-token & x-session-nonce), auto-suspend on expiry.
-// + AI-only serving suggestions -> recipe.serving_suggestions:string[] (2–5 نقاط قصيرة)
-// + Serving suggestions compliance filter for selected diet & allergies
-// + NEW (no API change): anti-dup diversity vs user history (14d lookback), robust logging, safe retries
+// + NEW: Subscription enforcement by headers (x-auth-token & x-session-nonce), auto-suspend on expiry.
+// + NEW: AI-only serving suggestions -> recipe.serving_suggestions:string[] (2–5 نقاط قصيرة)
+// + NEW: Serving suggestions compliance filter for selected diet & allergies
 
-/* ---------------- Core Config ---------------- */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-let MODEL_POOL = [
+const MODEL_POOL = [
   "gemini-1.5-pro-latest",
   "gemini-1.5-pro",
   "gemini-1.5-pro-001",
@@ -29,14 +27,13 @@ let MODEL_POOL = [
   "gemini-1.5-flash-latest"
 ];
 
-/* ---------------- GitHub helpers ---------------- */
+/* ---------------- GitHub helpers for user auth / policy ---------------- */
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
 const GH_TOKEN = process.env.GITHUB_TOKEN;
 const GH_API = "https://api.github.com";
 const USERS_PATH = "data/users.json";
-const RECIPES_INDEX_PATH = "data/recipes_index.json"; // لكل مستخدم: تاريخ آخر وصفات لمنع التكرار
 
 async function ghGetJson(path){
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}?ref=${REF}`, {
@@ -47,6 +44,7 @@ async function ghGetJson(path){
   const content = Buffer.from(data.content || "", "base64").toString("utf-8");
   return { json: JSON.parse(content), sha: data.sha };
 }
+
 async function ghPutJson(path, json, sha, message){
   const content = Buffer.from(JSON.stringify(json, null, 2), "utf-8").toString("base64");
   const r = await fetch(`${GH_API}/repos/${OWNER}/${REPO}/contents/${path}`, {
@@ -57,15 +55,7 @@ async function ghPutJson(path, json, sha, message){
   if(!r.ok) throw new Error(`GitHub PUT ${path} ${r.status}`);
   return r.json();
 }
-async function loadRecipesIndex(){
-  try{ const { json, sha } = await ghGetJson(RECIPES_INDEX_PATH); return { index: json||{}, sha }; }
-  catch{ return { index:{}, sha:null }; }
-}
-async function saveRecipesIndex(index, sha, message){
-  return ghPutJson(RECIPES_INDEX_PATH, index, sha, message);
-}
 
-/* ---------------- Time / CORS / Headers ---------------- */
 function todayDubai(){
   const now = new Date();
   return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
@@ -76,31 +66,17 @@ function withinWindow(start, end){
   if(end && d > end) return false;
   return true;
 }
-const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || "").split(",").map(s=>s.trim()).filter(Boolean);
+
+/* ---------------- HTTP helpers ---------------- */
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
-  "Access-Control-Allow-Origin": (ALLOWED_ORIGINS[0] || "*"),
-  "Access-Control-Allow-Headers": "Content-Type, X-Auth-Token, X-Session-Nonce, X-Idempotency-Key",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type, X-Auth-Token, X-Session-Nonce",
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 const jsonRes = (code, obj) => ({ statusCode: code, headers, body: JSON.stringify(obj) });
 const bad = (code, error, extra = {}) => jsonRes(code, { ok: false, error, ...extra });
 const ok  = (payload) => jsonRes(200, { ok: true, ...payload });
-
-/* ---------------- Logging (structured) ---------------- */
-function newReqId(){ return Math.random().toString(36).slice(2,10)+Date.now().toString(36).slice(-4); }
-function logInfo(obj){ try{ console.log(JSON.stringify({level:"info", ...obj})); }catch{} }
-function logWarn(obj){ try{ console.warn(JSON.stringify({level:"warn", ...obj})); }catch{} }
-function logErr (obj){ try{ console.error(JSON.stringify({level:"error",...obj})); }catch{} }
-
-/* ---------------- Utils: sanitize headers ---------------- */
-function safeHeader(h){ return String(h||"").replace(/[^a-zA-Z0-9:_\-.]/g,"").slice(0,128); }
-function readAuthHeaders(event){
-  const token = safeHeader(event.headers["x-auth-token"] || event.headers["X-Auth-Token"]);
-  const nonce = safeHeader(event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"]);
-  const idem  = safeHeader(event.headers["x-idempotency-key"] || event.headers["X-Idempotency-Key"]);
-  return { token, nonce, idem };
-}
 
 /* ---------------- Arabic normalization & utils ---------------- */
 function toNum(x){ const n = Number(x); return Number.isFinite(n) ? n : 0; }
@@ -126,6 +102,7 @@ function normalizeMacros(macros){
   let f = clamp(round1(Math.max(0, toNum(macros?.fat_g))), 0, 200);
   return { protein_g: p, carbs_g: c, fat_g: f };
 }
+
 function reconcileCalories(macros) {
   const orig = {
     protein_g: toNum(macros?.protein_g),
@@ -154,6 +131,7 @@ function reconcileCalories(macros) {
 /* grams-only enforcement */
 const GRAM_RE = /\b\d+(\.\d+)?\s*(?:جم|غ|g|gram|grams|جرام|غرام)\b/i;
 const NON_GRAM_UNITS_RE = /\b(?:مل|ml|مليلتر|l|ليتر|كوب|ملعقه(?:\s*(?:صغيره|كبيره))?|ملعقة(?:\s*(?:صغيرة|كبيرة))?|حبه|حبة|رشه|رش|قطره|ملم)\b/i;
+
 function hasGramWeightLine(s){ return typeof s==="string" && GRAM_RE.test(s); }
 function containsNonGramUnit(s){ return typeof s==="string" && NON_GRAM_UNITS_RE.test(normalizeArabic(s)); }
 function enforceGramHints(ingredients){
@@ -194,6 +172,15 @@ function validateRecipeSchema(rec) {
   }
   if (rec.lang !== "ar") return { ok:false, error:"lang_must_be_ar" };
 
+  // serving suggestions: 2–5 concise bullet points
+  if (!Array.isArray(rec.serving_suggestions) || rec.serving_suggestions.length < 2 || rec.serving_suggestions.length > 5) {
+    return { ok:false, error:"serving_suggestions_count_invalid" };
+  }
+  if (rec.serving_suggestions.some(x => typeof x !== "string" || !x.trim())) {
+    return { ok:false, error:"serving_suggestions_type" };
+  }
+
+  // grams coverage (diagnostic) + forbid non-gram units
   const gramCount = rec.ingredients.filter(hasGramWeightLine).length;
   rec._ingredients_gram_coverage = `${gramCount}/${rec.ingredients.length}`;
   if (rec.ingredients.some(containsNonGramUnit)) {
@@ -337,6 +324,7 @@ const DESSERT_SAVORY_BANNED = normalizeArrArabic([
 const DESSERT_SWEET_POSITIVE = normalizeArrArabic([
   "ستيفيا","فانيلا","كاكاو","زبدة الفول السوداني","قرفه","هيل","توت","فراوله","لبنه","زبادي","ماسكربوني","كريمه"
 ]);
+
 function isDessert(mealType){ return /حلويات|تحليه|dessert/i.test(String(mealType||"")); }
 function dessertLooksIllogical(recipe){
   const ingN = normalizeArabic((recipe?.ingredients||[]).join(" "));
@@ -371,6 +359,7 @@ function allergyBansFromUser(allergiesRaw){
   if (s.includes("صويا")) bans.push(...SOY);
   return Array.from(new Set(bans));
 }
+
 function dietSpecificBans(dietType){
   const d = n(dietType);
   const bans = [];
@@ -378,22 +367,30 @@ function dietSpecificBans(dietType){
   if (d.includes("dr_mohamed_saeed") || d.includes("محمد سعيد")){
     bans.push(...SWEETENERS, ...PROCESSED_OILS, ...HIGH_CARB_SIDES);
   }
-  if (d === "low_fat") bans.push(n("زبدة"), n("سمن"), n("قلي عميق"));
+  if (d === "low_fat") {
+    // نسمح "رشة زيت زيتون" لكن نتجنب عبارات تزيد الدهون أو زبدة/سمن
+    bans.push(n("زبدة"), n("سمن"), n("قلي عميق"));
+  }
   if (d === "vegan") bans.push(...DAIRY, ...EGG);
   if (d === "renal") bans.push(n("مخللات"), n("مرق مكعبات"));
   return Array.from(new Set(bans));
 }
+
 function isSuggestionAllowed(text, dietType, allergies){
   const t = n(text);
+  // حظر خاص بالنظام
   const bans = new Set([...dietSpecificBans(dietType), ...allergyBansFromUser(allergies)]);
   for (const b of bans){ if (b && t.includes(b)) return false; }
+  // منع اقتراح مكونات مصنعة/محليات في "د. محمد سعيد"
   if ((n(dietType).includes("محمد سعيد") || n(dietType).includes("dr_mohamed_saeed")) && SWEETENERS.some(sw => t.includes(sw))) return false;
   return true;
 }
+
 function filterServingSuggestions(servingArr, dietType, allergies){
   const arr = Array.isArray(servingArr) ? servingArr : [];
   const cleaned = arr.map(s => String(s||"").trim()).filter(Boolean);
   const allowed = cleaned.filter(s => isSuggestionAllowed(s, dietType, allergies));
+  // إزالة التكرارات بعد التطبيع
   const uniq = [];
   const seen = new Set();
   for (const s of allowed){
@@ -401,71 +398,6 @@ function filterServingSuggestions(servingArr, dietType, allergies){
     if (!seen.has(key)){ seen.add(key); uniq.push(s); }
   }
   return uniq.slice(0,5);
-}
-
-/* ---------------- Diversity (anti-dup) ---------------- */
-const DIVERSITY_DEFAULTS = { lookbackDays: 14, minTitleDistance: 0.35, maxIngredientJaccard: 0.55 };
-
-function slugifyArabicTitle(s){
-  const t = normalizeArabic(String(s||""));
-  return t.replace(/[^a-z0-9\u0621-\u064A]+/g,"-").replace(/^-+|-+$/g,"");
-}
-function tokenizeIngredients(ings){
-  const bag = new Set();
-  for(const line of (Array.isArray(ings)?ings:[])){
-    const nline = normalizeArabic(String(line||""));
-    nline.split(/\s+/).forEach(tok=>{
-      if(tok.length>=3 && !/^\d+$/.test(tok)) bag.add(tok);
-    });
-  }
-  return bag;
-}
-function jaccard(aSet,bSet){
-  const a = new Set(aSet), b = new Set(bSet);
-  const inter = [...a].filter(x=>b.has(x)).length;
-  const uni = new Set([...a,...b]).size || 1;
-  return inter/uni;
-}
-function titleSimilarity(a,b){ // 1=متشابه جدًا .. 0=مختلف
-  const A = slugifyArabicTitle(a), B = slugifyArabicTitle(b);
-  const la=A.length, lb=B.length; if(!la||!lb) return 0;
-  const dp = Array.from({length:la+1},()=>Array(lb+1).fill(0));
-  for(let i=0;i<=la;i++) dp[i][0]=i; for(let j=0;j<=lb;j++) dp[0][j]=j;
-  for(let i=1;i<=la;i++){ for(let j=1;j<=lb;j++){
-    const cost = A[i-1]===B[j-1]?0:1;
-    dp[i][j]=Math.min(dp[i-1][j]+1,dp[i][j-1]+1,dp[i-1][j-1]+cost);
-  }} const lev=dp[la][lb]; return 1-(lev/Math.max(la,lb));
-}
-function proteinFamilyFromIngredients(ings){
-  const n = normalizeArabic((ings||[]).join(" "));
-  if(n.includes("دجاج")) return "chicken";
-  if(n.includes("لحم")) return "beef";
-  if(n.includes("ديك رومي")) return "turkey";
-  if(n.includes("سمك")||n.includes("سلمون")||n.includes("تونه")) return "fish";
-  if(n.includes("بيض")) return "egg";
-  if(n.includes("جبن")||n.includes("زبادي")||n.includes("لبنه")) return "dairy";
-  if(n.includes("حمص")||n.includes("فول")||n.includes("عدس")) return "legume";
-  return "other";
-}
-function withinDays(dateStr, days){
-  try{
-    const d = new Date(dateStr+"T00:00:00Z");
-    const now = new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Dubai"}));
-    return ((now-d)/(1000*60*60*24)) <= days;
-  }catch{ return false; }
-}
-function violatesDiversity(rec,{recent},policy){
-  const pol = { ...DIVERSITY_DEFAULTS, ...(policy||{}) };
-  const bag = tokenizeIngredients(rec?.ingredients||[]);
-  const pf = proteinFamilyFromIngredients(rec?.ingredients||[]);
-  const title = String(rec?.title||"");
-  for(const h of (recent||[])){
-    if(!withinDays(h.date, pol.lookbackDays)) continue;
-    if(titleSimilarity(h.title,title) >= pol.minTitleDistance) return "title_similar_history";
-    if(jaccard(h.bag, bag) >= pol.maxIngredientJaccard) return "ingredients_similar_history";
-    if(h.pf === pf) return "protein_family_repeat_history";
-  }
-  return null;
 }
 
 /* ---------------- Prompting ---------------- */
@@ -504,6 +436,7 @@ function systemInstruction(maxSteps = 10) {
 أعد الإخراج وفق المخطط حرفيًا وبالعربية فقط.
 `.trim();
 }
+
 function sanitizeAvailableList(list){
   const arr = Array.isArray(list) ? list : [];
   return Array.from(new Set(
@@ -514,6 +447,7 @@ function sanitizeAvailableList(list){
     ).filter(Boolean)
   ));
 }
+
 function userPrompt(input) {
   const {
     mealType = "وجبة",
@@ -531,10 +465,7 @@ function userPrompt(input) {
     __repair_energy = false,
     __repair_units = false,
     __repair_target = false,
-    __repair_serving = false,
-    __ban_titles = [],
-    __ban_ingredients = [],
-    __seed = undefined
+    __repair_serving = false
   } = input || {};
 
   const avoid = (Array.isArray(allergies) && allergies.length) ? allergies.join(", ") : "لا شيء";
@@ -558,16 +489,10 @@ function userPrompt(input) {
 - نوّع الأساليب داخل هذا المطبخ (تقنيات/أقاليم/نكهات) وتجنّب تكرار نفس الطبق.
 - اجعل العنوان فريدًا ويصف التقنية/النكهة الأساسية.`;
 
-  const diversitySeed = Number.isFinite(Number(__seed))
-    ? Number(__seed)
-    : (Math.floor(Date.now()/60000)%9973);
-
+  const diversitySeed = Math.floor(Date.now()/60000)%9973;
   const diversityLines = `
 [تنويع صارم] diversity_seed=${diversitySeed}
 - لا تكرر نفس الطبق/العنوان/التركيبة مع نفس المطبخ بين المحاولات.
-[حظر صريح لتقليل التكرار]
-- تجنّب هذه العناوين/القوالب: ${(__ban_titles||[]).map(slugifyArabicTitle).join(", ") || "لا شيء"}.
-- تجنّب مكوّنات/تراكيب متشابهة مع: ${(__ban_ingredients||[]).join(", ") || "لا شيء"}.
 [دليل المطبخ]
 ${guide}
 `.trim();
@@ -628,7 +553,7 @@ function extractJsonFromCandidates(jr) {
   catch { return null; }
 }
 
-/* ---------------- Call model (robust, same API) ---------------- */
+/* ---------------- Call model ---------------- */
 async function callOnce(model, input, timeoutMs = 28000) {
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 
@@ -643,60 +568,43 @@ async function callOnce(model, input, timeoutMs = 28000) {
   const t = setTimeout(() => abort.abort(), Math.max(1000, Math.min(29000, timeoutMs)));
 
   let resp, data;
-  const classify = (resp, data) => {
-    if (!resp) return { type:"network" };
-    if (!resp.ok) return { type: (resp.status>=500?"upstream_5xx":"upstream_4xx"), status: resp.status, msg: data?.error?.message };
-    return { type:"ok" };
-  };
-
   try {
-    // محاولتان عند أخطاء شبكة/5xx فقط — لا تغيير للـ API
-    let attempt = 0, lastErr = null;
-    while (attempt < 2) {
-      attempt++;
-      resp = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        signal: abort.signal
-      });
-      const text = await resp.text();
-      try { data = JSON.parse(text); } catch { data = null; }
+    resp = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: abort.signal
+    });
+    const text = await resp.text();
+    try { data = JSON.parse(text); } catch { data = null; }
 
-      const cls = classify(resp, data);
-      if (cls.type!=="ok") {
-        lastErr = cls;
-        if (cls.type==="network" || cls.type==="upstream_5xx") {
-          await new Promise(r=>setTimeout(r, 300 * attempt));
-          continue;
-        }
-        return { ok:false, error: cls.msg || cls.type, status: cls.status };
-      }
-
-      let json = data && typeof data === "object" && data.title ? data : extractJsonFromCandidates(data);
-      if (!json) return { ok:false, error:"gemini_returned_non_json" };
-
-      // Defaults & cleanup
-      if (!json.lang) json.lang = "ar";
-      if (Array.isArray(json.steps) && json.steps.length > 10) {
-        const chunk = Math.ceil(json.steps.length / 10);
-        const merged = [];
-        for (let i=0;i<json.steps.length;i+=chunk) merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
-        json.steps = merged.slice(0,6);
-      }
-      if (Array.isArray(json.ingredients)) json.ingredients = enforceGramHints(json.ingredients);
-      if (!Array.isArray(json.serving_suggestions)) json.serving_suggestions = [];
-      else json.serving_suggestions = json.serving_suggestions.map(s=>String(s||"").trim()).filter(Boolean).slice(0,5);
-
-      // Energy strict
-      if (json.macros) json.macros = reconcileCalories(json.macros);
-
-      const v = validateRecipeSchema(json);
-      if (!v.ok) return { ok:false, error:`schema_validation_failed:${v.error}` };
-
-      return { ok:true, recipe: json };
+    if (!resp.ok) {
+      const msg = data?.error?.message || `HTTP_${resp.status}`;
+      return { ok:false, error: msg };
     }
-    return { ok:false, error: lastErr?.type || "unknown_error" };
+
+    let json = data && typeof data === "object" && data.title ? data : extractJsonFromCandidates(data);
+    if (!json) return { ok:false, error:"gemini_returned_non_json" };
+
+    // Defaults & cleanup
+    if (!json.lang) json.lang = "ar";
+    if (Array.isArray(json.steps) && json.steps.length > 10) {
+      const chunk = Math.ceil(json.steps.length / 10);
+      const merged = [];
+      for (let i=0;i<json.steps.length;i+=chunk) merged.push(json.steps.slice(i,i+chunk).join(" ثم "));
+      json.steps = merged.slice(0,6);
+    }
+    if (Array.isArray(json.ingredients)) json.ingredients = enforceGramHints(json.ingredients);
+    if (!Array.isArray(json.serving_suggestions)) json.serving_suggestions = [];
+    else json.serving_suggestions = json.serving_suggestions.map(s=>String(s||"").trim()).filter(Boolean).slice(0,5);
+
+    // Energy strict
+    if (json.macros) json.macros = reconcileCalories(json.macros);
+
+    const v = validateRecipeSchema(json);
+    if (!v.ok) return { ok:false, error:`schema_validation_failed:${v.error}` };
+
+    return { ok:true, recipe: json };
   } catch (e) {
     return { ok:false, error: String(e && e.message || e) };
   } finally {
@@ -706,6 +614,7 @@ async function callOnce(model, input, timeoutMs = 28000) {
 
 /* ---------------- Policy & plausibility checks ---------------- */
 const DR_MOH = /محمد\s*سعيد|dr_mohamed_saeed/i;
+
 function violatesDrMoh(recipe) {
   const carbs = toNum(recipe?.macros?.carbs_g || 0);
   const ing = normalizeArabic((recipe?.ingredients || []).join(" "));
@@ -715,12 +624,13 @@ function violatesDrMoh(recipe) {
     "msg","جلوتامات","glutamate","نتريت","نترات","ملون","نكهات صناعيه","مواد حافظه","مستحلب",
     "مهدرج","مارجرين","زيت كانولا","زيت ذره","زيت صويا","بذر العنب","vegetable oil",
     "دقيق ابيض","طحين ابيض","نشا الذره","cornstarch","خبز","مكرونه","رز ابيض","سكر بني",
-    "ستيفيا"
+    "ستيفيا" // ممنوعة
   ]);
   const hasBanned = banned.some(k => ing.includes(k));
   const carbsOk = carbs <= 5;
   return (!carbsOk || hasBanned);
 }
+
 function includesAllAvailable(recipe, availableRaw) {
   const available = sanitizeAvailableList(availableRaw);
   if (!available.length) return true;
@@ -730,6 +640,7 @@ function includesAllAvailable(recipe, availableRaw) {
     return term && ing.includes(" " + term + " ");
   });
 }
+
 function energyLooksOff(recipe){
   const m = recipe?.macros||{};
   const p = toNum(m.protein_g), c = toNum(m.carbs_g), f = toNum(m.fat_g), cal = toNum(m.calories);
@@ -759,9 +670,10 @@ function macrosVsMassImplausible(recipe){
   return false;
 }
 
-/* ---------------- Subscription gate ---------------- */
+/* ---------------- Subscription gate (unchanged) ---------------- */
 async function ensureActiveSubscription(event) {
-  const { token, nonce } = readAuthHeaders(event);
+  const token = event.headers["x-auth-token"] || event.headers["X-Auth-Token"];
+  const nonce = event.headers["x-session-nonce"] || event.headers["X-Session-Nonce"];
   if (!token || !nonce) return { ok:false, code:401, msg:"unauthorized" };
 
   const { json: users, sha } = await ghGetJson(USERS_PATH);
@@ -784,7 +696,7 @@ async function ensureActiveSubscription(event) {
     return { ok:false, code:403, msg:"inactive_or_out_of_window" };
   }
 
-  return { ok:true, user };
+  return { ok:true };
 }
 
 /* ---------------- Handler ---------------- */
@@ -793,16 +705,11 @@ exports.handler = async (event) => {
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
   if (!GEMINI_API_KEY) return bad(500, "GEMINI_API_KEY is missing on the server");
 
-  const req_id = newReqId();
-  logInfo({ req_id, event:"start" });
-
   // Subscription enforcement
-  let gate;
   try {
-    gate = await ensureActiveSubscription(event);
-    if (!gate.ok) { logWarn({ req_id, event:"gate_block", msg:gate.msg }); return bad(gate.code, gate.msg); }
+    const gate = await ensureActiveSubscription(event);
+    if (!gate.ok) return bad(gate.code, gate.msg);
   } catch (e) {
-    logErr({ req_id, event:"gate_error", err:String(e?.message||e) });
     return bad(500, "subscription_gate_error");
   }
 
@@ -829,59 +736,46 @@ exports.handler = async (event) => {
   const wantDrMoh = DR_MOH.test(String(input?.dietType || ""));
   const wantDessert = isDessert(input?.mealType);
   const caloriesTarget = Number(input?.caloriesTarget)||0;
+
   const allergies = Array.isArray(input?.allergies) ? input.allergies : [];
 
-  // Diversity history (no API change)
-  const { token, idem } = readAuthHeaders(event);
-  const userKey = token ? `u:${String(token).slice(0,12)}` : "u:anon";
-  const { index: recIndex, sha: recSha } = await loadRecipesIndex();
-  const userHist = recIndex[userKey] || [];
-  const recent = userHist.slice(-120).map(h=>({ title:h.title, bag:new Set(h.bag||[]), pf:h.pf, date:h.date }));
-
-  // Prepare ban lists from recent history
-  const banTitles = userHist.slice(-10).map(h=>h.title||"");
-  const banIngs = Array.from(new Set(userHist.slice(-10).flatMap(h=>h.bag||[])));
-
-  // Seed stability from idempotency key (optional)
-  const seedFromIdem = idem ? Array.from(idem).reduce((a,c)=>(a*33 + c.charCodeAt(0))>>>0, 5381)%9973 : undefined;
-
-  // Serial model attempts (unchanged external behavior)
   const errors = {};
   for (const model of MODEL_POOL) {
-    // 1st pass with anti-dup bans
-    const r1 = await callOnce(model, { ...input, customMacros, availableIngredients, __ban_titles: banTitles, __ban_ingredients: banIngs, __seed: seedFromIdem });
+    // 1st pass
+    const r1 = await callOnce(model, { ...input, customMacros, availableIngredients });
     if (!r1.ok) { errors[model] = r1.error; continue; }
+
     let rec = r1.recipe;
 
-    // Ensure serving_suggestions present & compliant
+    // Ensure serving_suggestions present
     if (!Array.isArray(rec.serving_suggestions) || rec.serving_suggestions.length < 2) {
-      const rServing = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_serving: true, __seed: seedFromIdem });
+      const rServing = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_serving: true, __repair_energy: true, __repair_units: true });
       if (rServing.ok) rec = rServing.recipe;
     }
 
     // grams-only enforcement
     if (unitsLookOff(rec)) {
-      const rUnits = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_units: true, __seed: seedFromIdem });
+      const rUnits = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_units: true });
       if (rUnits.ok) rec = rUnits.recipe;
     }
 
     // Dr. Mohamed enforcement
     if (wantDrMoh && violatesDrMoh(rec)) {
-      const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true, __repair_energy: true, __repair_units: true, __repair_serving: true, __seed: seedFromIdem });
+      const r2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair: true, __repair_energy: true, __repair_units: true, __repair_serving: true });
       if (r2.ok && !violatesDrMoh(r2.recipe)) rec = r2.recipe;
       else return ok({ recipe: r2.ok ? r2.recipe : rec, model, warning: "dr_moh_rules_not_strictly_met" });
     }
 
     // Available-ingredients enforcement
     if (availableIngredients.length && !includesAllAvailable(rec, availableIngredients)) {
-      const rAvail = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true, __repair_energy: true, __repair_units: true, __repair_serving: true, __seed: seedFromIdem });
+      const rAvail = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_available: true, __repair_energy: true, __repair_units: true, __repair_serving: true });
       if (rAvail.ok && includesAllAvailable(rAvail.recipe, availableIngredients)) rec = rAvail.recipe;
       else return ok({ recipe: rAvail.ok ? rAvail.recipe : rec, model, warning: "available_ingredients_not_fully_used" });
     }
 
     // Dessert sanity
     if (wantDessert && (dessertLooksIllogical(rec) || (!wantDrMoh && dessertLacksSweetness(rec)))) {
-      const rDess = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_dessert: true, __repair_energy: true, __repair_units: true, __repair_serving: true, __seed: seedFromIdem });
+      const rDess = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_dessert: true, __repair_energy: true, __repair_units: true, __repair_serving: true });
       if (rDess.ok && !dessertLooksIllogical(rDess.recipe) && (!wantDrMoh ? !dessertLacksSweetness(rDess.recipe) : true)) {
         rec = rDess.recipe;
       }
@@ -889,70 +783,48 @@ exports.handler = async (event) => {
 
     // Energy strictness
     if (energyLooksOff(rec)) {
-      const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true, __repair_serving: true, __seed: seedFromIdem });
+      const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true, __repair_serving: true });
       if (rEnergy.ok && !energyLooksOff(rEnergy.recipe)) rec = rEnergy.recipe;
     }
 
     // Calories target tightening
     if (caloriesTarget && targetCaloriesFar(rec, caloriesTarget)) {
-      const rTarget = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_target: true, __repair_energy: true, __repair_serving: true, __seed: seedFromIdem });
+      const rTarget = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_target: true, __repair_energy: true, __repair_serving: true });
       if (rTarget.ok && !targetCaloriesFar(rTarget.recipe, caloriesTarget)) rec = rTarget.recipe;
     }
 
     // Mass–macros plausibility
     if (macrosVsMassImplausible(rec)) {
-      const rMass = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true, __repair_units: true, __repair_serving: true, __seed: seedFromIdem });
+      const rMass = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_energy: true, __repair_units: true, __repair_serving: true });
       if (rMass.ok && !macrosVsMassImplausible(rMass.recipe)) rec = rMass.recipe;
     }
 
-    // Diversify generic titles & enforce anti-dup vs recent history
-    let diversityWarning = null;
+    // Diversify generic titles
     if (titleTooGeneric(rec)) {
-      const rDiv = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_diversity: true, __repair_energy: true, __repair_serving: true, __seed: seedFromIdem, __ban_titles: banTitles, __ban_ingredients: banIngs });
+      const rDiv = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_diversity: true, __repair_energy: true, __repair_serving: true });
       if (rDiv.ok) rec = rDiv.recipe;
-    }
-    const violation = violatesDiversity(rec, { recent }, {});
-    if (violation) {
-      // محاولة بديلة واحدة مع قوائم حظر أقوى (بدون تغيير API)
-      const rDiv2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_diversity: true, __ban_titles: [...banTitles, rec.title], __ban_ingredients: [...banIngs, ...tokenizeIngredients(rec.ingredients)], __seed: seedFromIdem });
-      if (rDiv2.ok && !violatesDiversity(rDiv2.recipe, { recent }, {})) {
-        rec = rDiv2.recipe;
-      } else {
-        diversityWarning = "diversity_soft_violation";
-      }
     }
 
     // Final normalize
     rec.macros = reconcileCalories(rec.macros);
     if (Array.isArray(rec.ingredients)) rec.ingredients = enforceGramHints(rec.ingredients);
 
-    // Final serving_suggestions compliance
+    // ---- NEW: Final serving_suggestions compliance filter ----
     rec.serving_suggestions = filterServingSuggestions(rec.serving_suggestions, String(input?.dietType||"").trim(), allergies);
+
+    // If became <2, repair once to regenerate compliant suggestions, then filter again
     if (!Array.isArray(rec.serving_suggestions) || rec.serving_suggestions.length < 2) {
-      const rServe2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_serving: true, __seed: seedFromIdem });
+      const rServe2 = await callOnce(model, { ...input, customMacros, availableIngredients, __repair_serving: true });
       if (rServe2.ok) {
         const fixed = filterServingSuggestions(rServe2.recipe.serving_suggestions, String(input?.dietType||"").trim(), allergies);
-        rec.serving_suggestions = fixed.length >= 2 ? fixed.slice(0,5) : ["قدّم دافئًا.","زيّن بأعشاب طازجة."];
+        if (fixed.length >= 2) rec.serving_suggestions = fixed.slice(0,5);
+        else rec.serving_suggestions = fixed.length ? fixed : ["قدّم دافئًا.","زيّن بأعشاب طازجة."]; // لن يصل لهذا غالبًا
       }
     }
 
-    // Update user history (cap 300)
-    const entry = {
-      title: rec.title,
-      bag: Array.from(tokenizeIngredients(rec.ingredients)),
-      pf: proteinFamilyFromIngredients(rec.ingredients),
-      date: todayDubai()
-    };
-    const updated = [...userHist, entry].slice(-300);
-    recIndex[userKey] = updated;
-    try { await saveRecipesIndex(recIndex, recSha, `recipes-index: append ${userKey} +1 @ ${todayDubai()}`); }
-    catch(e){ logWarn({ req_id, event:"history_save_failed", err:String(e?.message||e) }); }
-
-    logInfo({ req_id, event:"done", model, diversityWarning: diversityWarning||null });
-    return ok({ recipe: rec, model, ...(diversityWarning?{warning:diversityWarning}:{}) });
+    return ok({ recipe: rec, model });
   }
 
-  logErr({ req_id, event:"models_failed", errors });
   return bad(502, "All models failed for your key/region on v1beta", { errors, tried: MODEL_POOL });
 };
 

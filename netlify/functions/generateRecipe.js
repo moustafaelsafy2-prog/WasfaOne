@@ -228,6 +228,18 @@ const EGG = normalizeArrArabic(["بيض","بياض البيض","صفار"]);
 const SEAFOOD = normalizeArrArabic(["سمك","تونه","روبيان","جمبري","سلمون","محار"]);
 const SOY = normalizeArrArabic(["صويا","توفو","تمبيه","صلصه صويا"]);
 
+// === إضافات صارمة لنظام د. محمد سعيد ===
+const LEGUMES = normalizeArrArabic(["فول","فاصوليا","حمص","عدس","بازلاء","لوبيا","ترمس"]);
+const GRAINS_STARCHES = normalizeArrArabic(["قمح","شوفان","شعير","ذره","ارز","أرز","برغل","كسكس","كينوا","دخن","نشاء","نشا","بطاطس","بطاطا","يام","كسافا","خبز","توست","مكرونه","باستا"]);
+const PROCESSED_MEATS = normalizeArrArabic(["لانشون","نقانق","سلامي","بسطرمه","مرتديلا","هوت دوج"]);
+const ADDITIVES = normalizeArrArabic(["msg","جلوتامات","نتريت","نترات","ملون","نكهات صناعيه","مواد حافظه","مستحلب"]);
+const FRUITS_BANNED = normalizeArrArabic(["تفاح","موز","عنب","مانجو","برتقال","يوسفي","ليمون حلو","جريب فروت","اجاص","كمثرى","خوخ","مشمش","تين","رمان","بابايا","اناناس","أناناس","بطيخ","شمام","كانتلوب","جوافه","كيوي","تمر","زبيب","توت العليق المجفف"]);
+const BERRIES_ALLOWED = normalizeArrArabic(["توت","توت بري","توت ازرق","توت اسود","فراوله"]); // الاستثناء الوحيد
+const DAIRY_ALLOWED_EXCEPTIONS = normalizeArrArabic([
+  "كريمه","كريمة الطبخ","قشده","قشطة",
+  "جبن كامل الدسم","جبنه كاملة الدسم","شيدر","موزاريلا","بارميزان","ريكوتا","ماسكربوني","جبن حلوم","لبنه كاملة الدسم"
+]);
+
 function n(s){ return normalizeArabic(String(s||"")); }
 function allergyBansFromUser(allergiesRaw){
   const s = n((Array.isArray(allergiesRaw)?allergiesRaw.join(" "):""));
@@ -244,16 +256,30 @@ function dietSpecificBans(dietType){
   const d = n(dietType);
   const bans = [];
   if (DIET_FAMILY_KETO.has(d)) bans.push(...HIGH_CARB_SIDES);
-  if (d.includes("محمد سعيد") || d.includes("dr_mohamed_saeed")) bans.push(...SWEETENERS, ...PROCESSED_OILS, ...HIGH_CARB_SIDES);
+  if (d.includes("محمد سعيد") || d.includes("dr_mohamed_saeed")){
+    // قواعد صارمة: لا كارب/سكر/مصنعات/بقوليات/حبوب/فواكه (عدا التوتيات) + زيوت نباتية
+    bans.push(...SWEETENERS, ...PROCESSED_OILS, ...HIGH_CARB_SIDES, ...LEGUMES, ...GRAINS_STARCHES, ...PROCESSED_MEATS, ...ADDITIVES);
+    // حظر كل الفواكه عدا التوتيات
+    bans.push(...FRUITS_BANNED);
+  }
   if (d === "low_fat") bans.push(n("زبدة"), n("سمن"), n("قلي عميق"));
   if (d === "vegan") bans.push(...DAIRY, ...EGG);
   return Array.from(new Set(bans));
 }
 function isSuggestionAllowed(text, dietType, allergies){
   const t = n(text);
+  const d = n(dietType);
   const bans = new Set([...dietSpecificBans(dietType), ...allergyBansFromUser(allergies)]);
   for (const b of bans){ if (b && t.includes(b)) return false; }
-  if ((n(dietType).includes("محمد سعيد") || n(dietType).includes("dr_mohamed_saeed")) && SWEETENERS.some(sw => t.includes(sw))) return false;
+  // استثناء التوتيات في نظام د. محمد سعيد
+  if (d.includes("محمد سعيد") || d.includes("dr_mohamed_saeed")){
+    // أي ذكر لفواكه عامة مرفوض، لكن لو النص يذكر "توت" صراحة فهو مسموح
+    const mentionsBerry = BERRIES_ALLOWED.some(k => t.includes(k));
+    const mentionsOtherFruit = FRUITS_BANNED.some(k => t.includes(k));
+    if (mentionsOtherFruit && !mentionsBerry) return false;
+  }
+  // ممنوع أي محليات حتى ستيفيا
+  if ((d.includes("محمد سعيد") || d.includes("dr_mohamed_saeed")) && SWEETENERS.some(sw => t.includes(sw))) return false;
   return true;
 }
 function filterServingSuggestions(servingArr, dietType, allergies){
@@ -364,6 +390,21 @@ function systemInstruction(maxSteps = 8){
 6) الحلويات منطقية؛ ستيفيا نقية فقط حيث يسمح النظام، وممنوعة في "نظام د. محمد سعيد".
 `.trim();
 }
+
+function drMohHardRulesPrompt(){
+  return `
+[قواعد نظام د. محمد سعيد — صارمة]
+- لا كاربوهيدرات إطلاقًا؛ صافي الكارب للحصة ≤ 3 جم كحد أقصى (لهوامش الخضار الورقية/التتبيل).
+- ممنوع السكريات والمحلّيات جميعها (بما فيها ستيفيا وسائر البدائل).
+- ممنوع المصنّعات والمعلّبات والزيوت النباتية (كانولا/ذرة/صويا/بذر العنب...) والمواد المضافة الصناعية.
+- ممنوع البقوليات والحبوب والنشويات والخبز/الأرز/المعكرونة والبطاطس والذرة.
+- ممنوع جميع الفواكه، ويسمح فقط بالتوتيات (توت/فراولة/توت أزرق/أسود...).
+- مسموح الدهون من أصل حيواني، ومسموح كريمة الطبخ والأجبان الدسمة من أصل حيواني.
+- مسموح ألياف الخضراوات الورقية فقط.
+- لا تذكر كلمة "كيتو" نهائيًا لا في العنوان ولا في أي نص.
+`.trim();
+}
+
 function sanitizeAvailableList(list){
   const arr = Array.isArray(list) ? list : [];
   return Array.from(new Set(
@@ -389,6 +430,8 @@ function userPrompt(input, banList = []){
 
   const banBlock = banList.length ? `\n[محظورات التكرار]\n- ${banList.slice(0,25).join("\n- ")}\n` : "";
 
+  const drMohBlock = DR_MOH.test(String(dietType||"")) ? `\n${drMohHardRulesPrompt()}\n` : "";
+
   return `
 أنشئ وصفة ${/حلويات|تحليه/i.test(mealType)?"حلويات":mealType} من مطبخ ${cuisine} لنظام ${dietType}.
 السعرات المستهدفة للحصة: ${Number(caloriesTarget)}.
@@ -398,6 +441,7 @@ ${focus ? `تركيز خاص: ${focus}.` : ""}
 ${guide}
 ${availableLine}
 ${customLine}
+${drMohBlock}
 ${banBlock}
 أعد النتيجة كـ JSON فقط.
 `.trim();
@@ -532,19 +576,42 @@ function filterServingBlock(rec, input){
     Array.isArray(input?.allergies)?input.allergies:[]
   );
 }
+
+// === فحص صارم لنظام د. محمد سعيد ===
 function violatesDrMoh(recipe){
   const carbs = toNum(recipe?.macros?.carbs_g || 0);
-  const ing = normalizeArabic((recipe?.ingredients || []).join(" "));
-  const banned = normalizeArrArabic([
-    "سكر","عسل","دبس","شراب","سيرب","glucose","fructose","corn syrup","hfcs",
-    "لانشون","نقانق","سلامي","بسطرمه","مرتديلا","مصنع","معلبات","مرق","مكعبات",
-    "msg","جلوتامات","نتريت","نترات","ملون","نكهات صناعيه","مواد حافظه","مستحلب",
-    "مهدرج","مارجرين","كانولا","ذره","صويا","بذر العنب","vegetable oil",
-    "دقيق","طحين","نشا","خبز","مكرونه","رز","سكر بني","ستيفيا"
-  ]);
-  const hasBanned = banned.some(k => ing.includes(k));
-  const carbsOk = carbs <= 5;
-  return (!carbsOk || hasBanned);
+  const titleN = normalizeArabic(String(recipe?.title||""));
+  const ingText = normalizeArabic((recipe?.ingredients || []).join(" "));
+
+  // 1) لا تذكر "كيتو" إطلاقًا
+  if (titleN.includes("كيتو")) return true;
+
+  // 2) حد صارم للكارب (≤ 3 جم صافي/حصة كهامش تقني)
+  if (carbs > 3) return true;
+
+  // 3) ممنوع المحليات/السكريات
+  if (SWEETENERS.some(k => ingText.includes(k))) return true;
+
+  // 4) ممنوع الزيوت النباتية/المهدرجة/الإضافات الصناعية
+  if (PROCESSED_OILS.some(k => ingText.includes(k))) return true;
+  if (ADDITIVES.some(k => ingText.includes(k))) return true;
+
+  // 5) ممنوع البقوليات والحبوب/النشويات والخبز/الأرز/المعكرونة والبطاطس والذرة
+  const bansCarbish = [...LEGUMES, ...GRAINS_STARCHES, ...HIGH_CARB_SIDES, ...PROCESSED_MEATS];
+  if (bansCarbish.some(k => ingText.includes(k))) return true;
+
+  // 6) ممنوع كل الفواكه باستثناء التوتيات
+  const mentionsBerry = BERRIES_ALLOWED.some(k => ingText.includes(k));
+  const mentionsOtherFruit = FRUITS_BANNED.some(k => ingText.includes(k));
+  if (mentionsOtherFruit && !mentionsBerry) return true;
+
+  // 7) منتجات الألبان: القاعدة العامة ممنوعة، لكن يسمح بالاستثناءات المحددة (كريمة طبخ/أجبان دسمة حيوانية)
+  // إن ذُكرت كلمة عامة مثل "حليب/زبادي/لبن" تُعد خرقًا، أما الاستثناءات فمسموحة.
+  const mentionsGenericDairy = DAIRY.some(k => ingText.includes(k));
+  const mentionsAllowedDairy = DAIRY_ALLOWED_EXCEPTIONS.some(k => ingText.includes(k));
+  if (mentionsGenericDairy && !mentionsAllowedDairy) return true;
+
+  return false;
 }
 
 // ===== المدخل الرئيسي =====
@@ -617,17 +684,26 @@ exports.handler = async (event) => {
         const rDiv = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, Math.min(8000, CALL_TIMEOUT_MS));
         if (rDiv.ok) rec = rDiv.recipe; else { errors[`${model}#${attempts}-div`] = rDiv.error; break; }
       }
+
+      // === فرض صارم لنظام د. محمد سعيد ===
       if (wantDrMoh && violatesDrMoh(rec)){
         const r2 = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (r2.ok && !violatesDrMoh(r2.recipe)) rec = r2.recipe;
       }
+
       if (availableIngredients.length && !includesAllAvailable(rec, availableIngredients)){
         const rAvail = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rAvail.ok && includesAllAvailable(rAvail.recipe, availableIngredients)) rec = rAvail.recipe;
       }
-      if (wantDessert && (dessertLooksIllogical(rec) || (!wantDrMoh && dessertLacksSweetness(rec)))){
-        const rDess = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
-        if (rDess.ok && !dessertLooksIllogical(rDess.recipe) && (!wantDrMoh ? !dessertLacksSweetness(rDess.recipe) : true)) rec = rDess.recipe;
+      if (wantDessert){
+        const illogical = dessertLooksIllogical(rec);
+        const lacksSweet = dessertLacksSweetness(rec);
+        // في نظام د. محمد سعيد نمنع المحليات أساسًا، لذا لا نفرض "حلاوة" صناعية
+        if (illogical || (!wantDrMoh && lacksSweet)){
+          const rDess = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
+          const okDess = rDess.ok && !dessertLooksIllogical(rDess.recipe) && (!wantDrMoh ? !dessertLacksSweetness(rDess.recipe) : true);
+          if (okDess) rec = rDess.recipe;
+        }
       }
       if (energyLooksOff(rec)){
         const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
@@ -642,7 +718,7 @@ exports.handler = async (event) => {
         if (rMass.ok && !macrosVsMassImplausible(rMass.recipe)) rec = rMass.recipe;
       }
 
-      // اقتراحات تقديم
+      // اقتراحات تقديم مع فلترة صارمة للنظام
       rec.serving_suggestions = filterServingSuggestions(rec.serving_suggestions, String(input?.dietType||"").trim(), allergies);
 
       // --------- فحص الاسم (لا يُسقط الطلب) ---------
@@ -683,7 +759,7 @@ exports.handler = async (event) => {
       // حفظ والرد
       pushRecipeToHistory(userNode, input, rec);
       try { await saveHistory(history, historySha, `recipe: add fp for ${userId}`); } catch { /* لا تعطل الاستجابة */ }
-      return ok({ recipe: rec, model, note: "unique_recipe_generated" });
+      return ok({ recipe: rec, model, note: wantDrMoh ? "strict_drmoh_rules_enforced" : "unique_recipe_generated" });
     }
   }
 

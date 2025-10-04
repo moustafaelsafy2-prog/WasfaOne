@@ -17,7 +17,8 @@
         "e38c959f1dc059d5fc97f71428f7b8c180b22fe76a99541252b9f39f2bea0277",
         "8de9ea6bba687798b5f822a51e9bfbd89cce21e4d6548b767686c50b494dba15",
         "4370cacaaedcdd71f7dd1b15f5d934f9d1ae8cfc8b951029325bbd5772a72b65",
-        "b241ab27acc025cea6d9c5fb2ecda8ff26236c5f94c1a1b19963a4ea1fc7fae4"
+        "b241ab27acc025cea6d9c5fb2ecda8ff26236c5f94c1a1b19963a4ea1fc7fae4",
+        "ec2f631e2ff243d852ff58656a2d93e4bf97328c0580712f67c9e9c61a1a42a7"
       ],
       "bans": [
         "title:كباب دجاج بالليمون والكزبره",
@@ -50,7 +51,9 @@
         "title:شيش طاووق باللبن والنعناع",
         "ings:293fd894c1044082f0e54da5a1ffd47430df8261483fda897310d3c6405c527a",
         "title:شيش طاووق بالزبادي والاعشاب",
-        "ings:b46df7e3944141c0430068126e6f2d383a553f9901e1dcc182c30496e95266b9"
+        "ings:b46df7e3944141c0430068126e6f2d383a553f9901e1dcc182c30496e95266b9",
+        "title:كفته دجاج بالنعناع والكمون",
+        "ings:3f17cdd4f065aa58cddd53912346d7ff0efc2021a9959f1b17e7fca6c634368c"
       ]
     }
   }

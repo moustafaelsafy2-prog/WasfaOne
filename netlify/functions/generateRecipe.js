@@ -1,46 +1,50 @@
 // netlify/functions/generateRecipe.js
-// وصفات عربية باحتراف — منع تكرار نهائي + أسماء أطباق أصيلة + تجربة جميع نماذج Gemini المتاحة حتى نجاح التوليد.
+// وصفات عربية باحتراف — منع تكرار نهائي + أسماء أطباق أصيلة + التزام صارم بقواعد الأنظمة
+// (تحديث نظام د. محمد سعيد: يَسمح بالزيوت غير المهدرجة مثل زيت الزيتون والأفوكادو والسمسم وجوز الهند، مع بقاء منع الزيوت البذرية/المهدرجة، وحد الكارب ≤ 5 جم/حصة)
 
-// ===== مفاتيح ونماذج =====
+/* ========================================================================== */
+/*                               مفاتيح ونماذج                                */
+/* ========================================================================== */
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-// 👇 أضفنا معظم إصدارات Gemini الشائعة/المتاحة تاريخيًا وحديثًا.
-// سيجربها الكود بالتتابع حتى ينجح أحدها (مع مهلة قصيرة لكل واحد).
+// مجموعة نماذج Gemini (يُجرَّب بالتتابع حتى ينجح أحدها)
 const MODEL_POOL = [
   // Gemini 2.x
   "gemini-2.0-flash",
   "gemini-2.0-pro",
 
-  // Gemini 1.5 Pro (سلاسل)
+  // Gemini 1.5 Pro
   "gemini-1.5-pro-latest",
   "gemini-1.5-pro-002",
   "gemini-1.5-pro-001",
   "gemini-1.5-pro",
 
-  // Gemini 1.5 Flash + 8B (سلاسل)
+  // Gemini 1.5 Flash + 8B
   "gemini-1.5-flash-latest",
   "gemini-1.5-flash-001",
   "gemini-1.5-flash",
   "gemini-1.5-flash-8b-latest",
   "gemini-1.5-flash-8b",
 
-  // إصدارات 1.0 / Pro قديمة (لضمان التوافق إن كانت ما زالت مفعّلة على حسابك)
+  // إصدارات قديمة لضمان التوافق
   "gemini-1.0-pro",
   "gemini-pro",
   "gemini-pro-vision"
 ];
 
-// ==== Time & Retry Budget ====
+/* ========================================================================== */
+/*                             مهلة ومحاولات                                  */
+/* ========================================================================== */
 const CALL_TIMEOUT_MS = 10000;       // 10s لكل نداء توليد
 const NAMECHECK_TIMEOUT_MS = 5000;   // 5s لفحص الاسم
 const NAMECHECK_MIN_CONF = 0.70;     // ثقة مقبولة
-
-// جرّب كل النماذج مرة واحدة بشكل سريع حتى ينجح أحدها:
 const MAX_MODELS = MODEL_POOL.length;
 const MAX_ATTEMPTS_PER_MODEL = 1;
 
-// ===== GitHub: اشتراك + تاريخ منع التكرار =====
+/* ========================================================================== */
+/*                            GitHub: اشتراك/تاريخ                            */
+/* ========================================================================== */
 const OWNER = process.env.GITHUB_REPO_OWNER;
 const REPO  = process.env.GITHUB_REPO_NAME;
 const REF   = process.env.GITHUB_REF || "main";
@@ -74,7 +78,9 @@ async function ghPutJson(path, json, sha, message){
   return r.json();
 }
 
-// ===== HTTP =====
+/* ========================================================================== */
+/*                                   HTTP                                     */
+/* ========================================================================== */
 const headers = {
   "Content-Type": "application/json; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
@@ -85,7 +91,9 @@ const resJson = (code, obj)=>({ statusCode: code, headers, body: JSON.stringify(
 const bad = (code, error, extra={}) => resJson(code, { ok:false, error, ...extra });
 const ok  = (payload) => resJson(200, { ok:true, ...payload });
 
-// ===== وقت واشتراك =====
+/* ========================================================================== */
+/*                                 اشتراك                                     */
+/* ========================================================================== */
 function todayDubai(){
   const now = new Date();
   return now.toLocaleDateString("en-CA", { timeZone:"Asia/Dubai", year:"numeric", month:"2-digit", day:"2-digit" });
@@ -119,7 +127,9 @@ async function ensureActiveSubscription(event){
   return { ok:true, user };
 }
 
-// ===== أدوات أرقام/نصوص =====
+/* ========================================================================== */
+/*                           أدوات أرقام/نصوص/هاش                             */
+/* ========================================================================== */
 function toNum(x){ const n = Number(x); return Number.isFinite(n) ? n : 0; }
 function round1(x){ return Math.round(x*10)/10; }
 function clamp(x,min,max){ return Math.min(max, Math.max(min, x)); }
@@ -135,7 +145,9 @@ function normalizeArrArabic(arr){ return (Array.isArray(arr)?arr:[]).map(x=>norm
 const crypto = require("crypto");
 function hash(str){ return crypto.createHash("sha256").update(String(str||"")).digest("hex"); }
 
-// ===== وحدات القياس =====
+/* ========================================================================== */
+/*                               وحدات القياس                                 */
+/* ========================================================================== */
 const GRAM_RE = /\b\d+(\.\d+)?\s*(?:جم|غ|g|gram|grams|جرام|غرام)\b/i;
 const NON_GRAM_UNITS_RE = /\b(?:مل|ml|مليلتر|l|ليتر|كوب|ملعقه(?:\s*(?:صغيره|كبيره))?|ملعقة(?:\s*(?:صغيرة|كبيرة))?|حبه|حبة|رشه|رش|قطره|ملم)\b/i;
 function hasGramWeightLine(s){ return typeof s==="string" && GRAM_RE.test(s); }
@@ -153,7 +165,9 @@ function totalMassG(ingredients){
   return (Array.isArray(ingredients)?ingredients:[]).reduce((acc, s)=> acc + parseIngredientMassG(String(s||"")), 0);
 }
 
-// ===== طاقة (4/4/9) =====
+/* ========================================================================== */
+/*                            طاقة (4/4/9) ومصداقية                           */
+/* ========================================================================== */
 function normalizeMacros(macros){
   let p = clamp(round1(Math.max(0, toNum(macros?.protein_g))), 0, 200);
   let c = clamp(round1(Math.max(0, toNum(macros?.carbs_g))), 0, 200);
@@ -172,7 +186,9 @@ function energyLooksOff(recipe){
   return Math.abs(calc - cal) > Math.max(8, Math.round(calc*0.02));
 }
 
-// ===== مخطط الوصفة =====
+/* ========================================================================== */
+/*                              مخطط الوصفة                                   */
+/* ========================================================================== */
 function validateRecipeSchema(rec){
   const must = ["title","servings","total_time_min","macros","ingredients","steps","lang","serving_suggestions"];
   if (!rec || typeof rec !== "object") return { ok:false, error:"recipe_not_object" };
@@ -215,71 +231,87 @@ function macrosVsMassImplausible(recipe){
   return false;
 }
 
-// ===== أنظمة/حساسية =====
-const DR_MOH = /محمد\s*سعيد|dr_mohamed_saeed/i;
-const DIET_FAMILY_KETO = new Set(["keto","lchf","high_protein_keto","psmf","atkins","low_carb","dr_mohamed_saeed"]);
-const HIGH_CARB_SIDES = normalizeArrArabic(["خبز","عيش","توست","رز","ارز","أرز","مكرونه","باستا","بطاطس","بطاطا","ذره","فشار","تمر","كعك","حلويات","سكر","عسل"]);
-const SWEETENERS = normalizeArrArabic(["ستيفيا","سكر","محلي","شراب","سيرب","دبس","عسل"]);
-const PROCESSED_OILS = normalizeArrArabic(["كانولا","صويا","ذره","بذر العنب","زيوت نباتيه","مهدرج","مارجرين"]);
+/* ========================================================================== */
+/*                        أنظمة/حساسية + قوائم محظورات                        */
+/* ========================================================================== */
+const DR_MOH = /محمد\s*سعيد|dr_mohamed_saeed/i;  // التعرّف على النظام
+
+// عائلات/قوائم عامة
+const DIET_FAMILY_KETO = new Set([
+  "keto","lchf","high_protein_keto","psmf","atkins","low_carb","dr_mohamed_saeed","دكتور محمد سعيد","نظام د محمد سعيد","نظام د. محمد سعيد"
+]);
+
+const HIGH_CARB_SIDES = normalizeArrArabic(["خبز","عيش","توست","رز","ارز","أرز","مكرونه","باستا","بطاطس","بطاطا","ذره","فشار","تمر","كعك","حلويات","سكر","عسل","شوفان","كسكس","برغل","شعير"]);
+const SWEETENERS = normalizeArrArabic(["ستيفيا","سكر","محلي","شراب","سيرب","دبس","عسل","سكر بني","سكر جوز الهند","اريثريتول","سوربيتول","مالتيتول"]);
+const PROCESSED_OILS = normalizeArrArabic(["كانولا","صويا","ذره","بذر العنب","زيوت نباتيه","مهدرج","مارجرين","دوار الشمس","عباد الشمس","قطن","نخيل","نواة النخيل","زيت نباتي","زيت نباتى","vegetable oil","seed oil","rapeseed","sunflower","corn oil","soy oil","grapeseed"]);
 const GLUTEN = normalizeArrArabic(["خبز","قمح","جلوتين","طحين","مكرونه","برغل","كسكس","شعير"]);
-const DAIRY = normalizeArrArabic(["حليب","جبن","زبادي","لبن","قشده","كريمه","ماسكرپوني"]);
 const NUTS = normalizeArrArabic(["مكسرات","لوز","فستق","كاجو","بندق","جوز"]);
 const EGG = normalizeArrArabic(["بيض","بياض البيض","صفار"]);
 const SEAFOOD = normalizeArrArabic(["سمك","تونه","روبيان","جمبري","سلمون","محار"]);
-const SOY = normalizeArrArabic(["صويا","توفو","تمبيه","صلصه صويا"]);
+const SOY = normalizeArrArabic(["صويا","توفو","تمبيه","صلصه صويا","صوص صويا"]);
+const LEGUMES = normalizeArrArabic(["فول","فاصوليا","لوبيا","حمص","عدس","بزلاء","بازلاء","فول الصويا","ترمس"]);
+const ALL_FRUITS = normalizeArrArabic([
+  "تفاح","موز","برتقال","عنب","كمثرى","خوخ","مشمش","كيوي","مانجو","اناناس","رمان","تين","تمر","بطيخ","شمام","جوافه","بابايا","كاكا","يوسفي","نكتارين","افوكادو","قشطة","تين شوكي","برقوق","ليمون","ليمون حلو","جريب فروت"
+]);
+const BERRIES_ALLOWED = normalizeArrArabic(["توت","توت ازرق","بلو بيري","فراوله","فراولة","توت اسود","بلاك بيري","كرانبيري","توت بري"]);
 
-// === إضافات صارمة لنظام د. محمد سعيد ===
-const LEGUMES = normalizeArrArabic(["فول","فاصوليا","حمص","عدس","بازلاء","لوبيا","ترمس"]);
-const GRAINS_STARCHES = normalizeArrArabic(["قمح","شوفان","شعير","ذره","ارز","أرز","برغل","كسكس","كينوا","دخن","نشاء","نشا","بطاطس","بطاطا","يام","كسافا","خبز","توست","مكرونه","باستا"]);
-const PROCESSED_MEATS = normalizeArrArabic(["لانشون","نقانق","سلامي","بسطرمه","مرتديلا","هوت دوج"]);
-const ADDITIVES = normalizeArrArabic(["msg","جلوتامات","نتريت","نترات","ملون","نكهات صناعيه","مواد حافظه","مستحلب"]);
-const FRUITS_BANNED = normalizeArrArabic(["تفاح","موز","عنب","مانجو","برتقال","يوسفي","ليمون حلو","جريب فروت","اجاص","كمثرى","خوخ","مشمش","تين","رمان","بابايا","اناناس","أناناس","بطيخ","شمام","كانتلوب","جوافه","كيوي","تمر","زبيب","توت العليق المجفف"]);
-const BERRIES_ALLOWED = normalizeArrArabic(["توت","توت بري","توت ازرق","توت اسود","فراوله"]); // الاستثناء الوحيد
-const DAIRY_ALLOWED_EXCEPTIONS = normalizeArrArabic([
-  "كريمه","كريمة الطبخ","قشده","قشطة",
-  "جبن كامل الدسم","جبنه كاملة الدسم","شيدر","موزاريلا","بارميزان","ريكوتا","ماسكربوني","جبن حلوم","لبنه كاملة الدسم"
+// الزيوت النباتية المسموحة (غير مهدرجة) حسب التحديث:
+const ALLOWED_PLANT_OILS = normalizeArrArabic([
+  "زيت زيتون","زيت الافوكادو","زيت أفوكادو","زيت سمسم","زيت جوز الهند"
+]);
+
+// منتجات الألبان: المسموح فقط "كريمة الطبخ" الحيوانية والأجبان الحيوانية كاملة الدسم
+const DAIRY_PERMITTED_KEYWORDS = normalizeArrArabic([
+  "كريمه طبخ","كريمة طبخ","كريمه خفق","كريمة خفق","جبن كامل الدسم","جبنه كامله الدسم","شيدر كامل الدسم","موزاريلا كامله الدسم","جبن حيواني","جبنه حيوانيه","قشطه بلدي","قشطة بلدي"
+]);
+const DAIRY_WIDE = normalizeArrArabic([
+  "حليب","لبن","زبادي","يوغرت","جبن","جبنه","قشطه","قشطة","كريمه","كريمة","لبنه","لبنة","ماسكرپوني","ماسكربوني","ريكوتا","قريش","قشطة نباتية","كريمة نباتية"
 ]);
 
 function n(s){ return normalizeArabic(String(s||"")); }
+
+/* ========================================================================== */
+/*                     حظر الاقتراحات (التقديم) وفق النظام                    */
+/* ========================================================================== */
 function allergyBansFromUser(allergiesRaw){
   const s = n((Array.isArray(allergiesRaw)?allergiesRaw.join(" "):""));
   const bans = [];
   if (s.includes("جلوتين") || s.includes("قمح")) bans.push(...GLUTEN);
-  if (s.includes("ألبان") || s.includes("البان") || s.includes("لاكتوز")) bans.push(...DAIRY);
+  if (s.includes("ألبان") || s.includes("البان") || s.includes("لاكتوز")) bans.push(...DAIRY_WIDE);
   if (s.includes("مكسرات")) bans.push(...NUTS);
   if (s.includes("بيض")) bans.push(...EGG);
   if (s.includes("مأكولات بحريه") || s.includes("بحري")) bans.push(...SEAFOOD);
   if (s.includes("صويا")) bans.push(...SOY);
   return Array.from(new Set(bans));
 }
+
 function dietSpecificBans(dietType){
   const d = n(dietType);
   const bans = [];
   if (DIET_FAMILY_KETO.has(d)) bans.push(...HIGH_CARB_SIDES);
-  if (d.includes("محمد سعيد") || d.includes("dr_mohamed_saeed")){
-    // قواعد صارمة: لا كارب/سكر/مصنعات/بقوليات/حبوب/فواكه (عدا التوتيات) + زيوت نباتية
-    bans.push(...SWEETENERS, ...PROCESSED_OILS, ...HIGH_CARB_SIDES, ...LEGUMES, ...GRAINS_STARCHES, ...PROCESSED_MEATS, ...ADDITIVES);
-    // حظر كل الفواكه عدا التوتيات
-    bans.push(...FRUITS_BANNED);
+  // نظام د. محمد سعيد: ممنوعات إضافية في الاقتراحات/التقديم
+  if (d.includes("محمد سعيد") || d.includes("dr_mohamed_saeed")) {
+    bans.push(
+      ...SWEETENERS,
+      ...PROCESSED_OILS,        // الزيوت البذرية/المهدرجة/الصناعية
+      ...HIGH_CARB_SIDES,
+      ...LEGUMES,
+      ...ALL_FRUITS             // سنسمح في المكوّنات فقط بالتوتيات صراحة
+    );
+    // لا نمنع الزيوت المسموحة (زيت زيتون/أفوكادو/سمسم/جوز الهند)
   }
   if (d === "low_fat") bans.push(n("زبدة"), n("سمن"), n("قلي عميق"));
-  if (d === "vegan") bans.push(...DAIRY, ...EGG);
+  if (d === "vegan") bans.push(n("حيواني"), ...normalizeArrArabic(["لحم","دجاج","بيض","سمك","حليب","جبن","زبادي"]));
   return Array.from(new Set(bans));
 }
+
 function isSuggestionAllowed(text, dietType, allergies){
   const t = n(text);
-  const d = n(dietType);
   const bans = new Set([...dietSpecificBans(dietType), ...allergyBansFromUser(allergies)]);
   for (const b of bans){ if (b && t.includes(b)) return false; }
-  // استثناء التوتيات في نظام د. محمد سعيد
-  if (d.includes("محمد سعيد") || d.includes("dr_mohamed_saeed")){
-    // أي ذكر لفواكه عامة مرفوض، لكن لو النص يذكر "توت" صراحة فهو مسموح
-    const mentionsBerry = BERRIES_ALLOWED.some(k => t.includes(k));
-    const mentionsOtherFruit = FRUITS_BANNED.some(k => t.includes(k));
-    if (mentionsOtherFruit && !mentionsBerry) return false;
-  }
-  // ممنوع أي محليات حتى ستيفيا
-  if ((d.includes("محمد سعيد") || d.includes("dr_mohamed_saeed")) && SWEETENERS.some(sw => t.includes(sw))) return false;
+  // لا مُحلّيات إطلاقًا
+  if ((n(dietType).includes("محمد سعيد") || n(dietType).includes("dr_mohamed_saeed")) && SWEETENERS.some(sw => t.includes(sw))) return false;
+  // لا نمنع ذكر الزيوت المسموحة؛ نمنع فقط الزيوت الصناعية/المهدرجة المذكورة أعلاه
   return true;
 }
 function filterServingSuggestions(servingArr, dietType, allergies){
@@ -291,23 +323,28 @@ function filterServingSuggestions(servingArr, dietType, allergies){
   return uniq.slice(0,5);
 }
 
-// ===== حلويات: منطق سلامة =====
+/* ========================================================================== */
+/*                            منطق الحلويات والسلامة                           */
+/* ========================================================================== */
 const DESSERT_SAVORY_BANNED = normalizeArrArabic([
   "لحم","دجاج","ديك رومي","سمك","تونة","سجق","نقانق","سلامي","بسطرمة","مرق",
   "ثوم","بصل","كركم","كمون","كزبرة ناشفة","بهارات","شطة","صلصة صويا","معجون طماطم"
 ]);
-const DESSERT_SWEET_POSITIVE = normalizeArrArabic(["ستيفيا","فانيلا","كاكاو","زبدة الفول السوداني","قرفه","هيل","توت","فراوله","لبنه","زبادي","ماسكربوني","كريمه"]);
+const DESSERT_SWEET_POSITIVE = normalizeArrArabic(["فانيلا","كاكاو","قرفه","هيل","توت","فراوله","ماسكربوني","كريمه","كريمة","زبدة الفول السوداني"]);
 function isDessert(mealType){ return /حلويات|تحليه|dessert/i.test(String(mealType||"")); }
 function dessertLooksIllogical(recipe){
   const ingN = normalizeArabic((recipe?.ingredients||[]).join(" "));
   return DESSERT_SAVORY_BANNED.some(k => ingN.includes(k));
 }
 function dessertLacksSweetness(recipe){
+  // عام لغير نظام د. محمد سعيد (لأن المُحليات ممنوعة هناك)
   const ingN = normalizeArabic((recipe?.ingredients||[]).join(" "));
   return !DESSERT_SWEET_POSITIVE.some(k => ingN.includes(k));
 }
 
-// ===== تاريخ منع التكرار =====
+/* ========================================================================== */
+/*                             تاريخ منع التكرار                               */
+/* ========================================================================== */
 async function loadHistory(){
   const { json, sha, missing } = await ghGetJson(HISTORY_PATH);
   if (missing || !json) return { data:{ users:{} }, sha:null };
@@ -351,22 +388,26 @@ function pushRecipeToHistory(userNode, input, recipe){
   return fp;
 }
 
-// ===== أدلة مطابخ (إرشادية فقط) =====
+/* ========================================================================== */
+/*                        أدلة مطابخ (إرشادية فقط)                            */
+/* ========================================================================== */
 const CUISINE_GUIDES = {
   "مطبخ مصري": `- منزلي/إسكندراني/ريفي؛ اختلاف تقنية (طاجن/تسبيك/شوي).`,
   "شامي": `- لبناني/سوري/فلسطيني؛ حمضي-عشبي (سماق/ليمون/زيت زيتون).`,
   "خليجي": `- كبسات/مندي/مظبي؛ توابل دافئة ونكهات دخانية.`,
   "مغربي": `- طواجن/طاجين؛ كمون/كركم/زنجبيل/قرفة مع زيت زيتون.`,
   "متوسطي (Mediterranean)": `- يوناني/إيطالي/إسباني؛ فرق في الشوي/الخبز/اليخنات.`,
-  "إيطالي": `- لحوم/أسماك/خضار؛ تجنّب الخبز/المعكرونة في الكيتو.`,
+  "إيطالي": `- لحوم/أسماك/خضار؛ تجنّب الخبز/المعكرونة.`,
   "يوناني": `- زيت زيتون/أعشاب/ليمون؛ أطباق بحرية وخضار.`,
   "تركي": `- مشويات/مقبلات زيت الزيتون.`,
   "هندي": `- شمالي/جنوبي؛ اضبط الكارب.`,
   "تايلندي": `- حلو-حامض-حار مع أعشاب طازجة.`,
-  "ياباني": `- بحرية/شوي؛ تجنّب الأرز/السكر في الكيتو.`
+  "ياباني": `- بحرية/شوي؛ تجنّب الأرز/السكر.`
 };
 
-// ===== برمبت أساسي =====
+/* ========================================================================== */
+/*                              برمبت أساسي                                   */
+/* ========================================================================== */
 function systemInstruction(maxSteps = 8){
   return `
 أنت شيف محترف وخبير تغذية. أعد **JSON فقط** وفق المخطط:
@@ -387,24 +428,17 @@ function systemInstruction(maxSteps = 8){
 3) صافي الكارب فقط، والسعرات = 4/4/9 بدقة ±2%.
 4) التزام صارم بالنظام الغذائي والحساسيات والمكوّنات المتاحة.
 5) عنوان فريد وتقنية/نكهة مختلفة.
-6) الحلويات منطقية؛ ستيفيا نقية فقط حيث يسمح النظام، وممنوعة في "نظام د. محمد سعيد".
+6) في نظام "د. محمد سعيد":
+   - الحد الأقصى للكارب **5 جم/حصة**.
+   - ممنوع السكريات والمحليات (حتى ستيفيا).
+   - **الزيوت المسموحة فقط**: غير المهدرجة مثل (زيت الزيتون، زيت الأفوكادو، زيت السمسم، زيت جوز الهند) + الدهون الحيوانية (زبدة/سمن/شحم).
+   - ممنوع الزيوت البذرية/الصناعية/المهدرجة (كانولا، ذرة، صويا، عباد الشمس، بذر العنب…).
+   - ممنوع البقوليات والنشويات والدقيق/الطحين.
+   - ممنوع الفواكه، **مسموح فقط التوتيات** ضمن حد الكارب.
+   - منتجات الألبان **المسموحة فقط**: كريمة الطبخ الحيوانية، والأجبان الحيوانية كاملة الدسم.
+   - ممنوع ذكر كلمة "كيتو" بتاتًا.
 `.trim();
 }
-
-function drMohHardRulesPrompt(){
-  return `
-[قواعد نظام د. محمد سعيد — صارمة]
-- لا كاربوهيدرات إطلاقًا؛ صافي الكارب للحصة ≤ 3 جم كحد أقصى (لهوامش الخضار الورقية/التتبيل).
-- ممنوع السكريات والمحلّيات جميعها (بما فيها ستيفيا وسائر البدائل).
-- ممنوع المصنّعات والمعلّبات والزيوت النباتية (كانولا/ذرة/صويا/بذر العنب...) والمواد المضافة الصناعية.
-- ممنوع البقوليات والحبوب والنشويات والخبز/الأرز/المعكرونة والبطاطس والذرة.
-- ممنوع جميع الفواكه، ويسمح فقط بالتوتيات (توت/فراولة/توت أزرق/أسود...).
-- مسموح الدهون من أصل حيواني، ومسموح كريمة الطبخ والأجبان الدسمة من أصل حيواني.
-- مسموح ألياف الخضراوات الورقية فقط.
-- لا تذكر كلمة "كيتو" نهائيًا لا في العنوان ولا في أي نص.
-`.trim();
-}
-
 function sanitizeAvailableList(list){
   const arr = Array.isArray(list) ? list : [];
   return Array.from(new Set(
@@ -428,9 +462,21 @@ function userPrompt(input, banList = []){
     ? `استخدم هذه الماكروز **لكل حصة** حرفيًا: بروتين ${Number(customMacros.protein_g)} جم، كارب ${Number(customMacros.carbs_g)} جم (صافي)، دهون ${Number(customMacros.fat_g)} جم. والسعرات = 4P+4C+9F.`
     : "";
 
-  const banBlock = banList.length ? `\n[محظورات التكرار]\n- ${banList.slice(0,25).join("\n- ")}\n` : "";
+  const drMohHard = (DR_MOH.test(String(dietType||"")))
+    ? `
+[قواعد "د. محمد سعيد" الصارمة]
+- ≤ 5 جم كارب/حصة.
+- لا محليات/سكريات مطلقًا (حتى ستيفيا/اريثريتول/سيروبات).
+- **مسموح بالزيوت غير المهدرجة فقط**: زيت الزيتون، زيت الأفوكادو، زيت السمسم، زيت جوز الهند. ومسموح الدهون الحيوانية.
+- **ممنوع الزيوت البذرية/الصناعية/المهدرجة**: كانولا، ذرة، صويا، عباد الشمس، بذر العنب… إلخ.
+- لا بقوليات ولا نشويات ولا دقيق/طحين ولا حبوب.
+- لا فواكه؛ الاستثناء الوحيد: التوتيات.
+- منتجات الألبان المسموحة فقط: كريمة طبخ حيوانية + أجبان حيوانية كاملة الدسم.
+- لا تكتب كلمة "كيتو".
+`.trim()
+    : "";
 
-  const drMohBlock = DR_MOH.test(String(dietType||"")) ? `\n${drMohHardRulesPrompt()}\n` : "";
+  const banBlock = banList.length ? `\n[محظورات التكرار]\n- ${banList.slice(0,25).join("\n- ")}\n` : "";
 
   return `
 أنشئ وصفة ${/حلويات|تحليه/i.test(mealType)?"حلويات":mealType} من مطبخ ${cuisine} لنظام ${dietType}.
@@ -441,13 +487,15 @@ ${focus ? `تركيز خاص: ${focus}.` : ""}
 ${guide}
 ${availableLine}
 ${customLine}
-${drMohBlock}
+${drMohHard}
 ${banBlock}
 أعد النتيجة كـ JSON فقط.
 `.trim();
 }
 
-// ===== استخراج JSON من Gemini =====
+/* ========================================================================== */
+/*                       استخراج JSON من رد Gemini                            */
+/* ========================================================================== */
 function extractJsonFromCandidates(jr){
   const text =
     jr?.candidates?.[0]?.content?.parts?.map(p => p?.text || "").join("") ||
@@ -459,7 +507,9 @@ function extractJsonFromCandidates(jr){
   try { return JSON.parse(s.slice(first,last+1)); } catch { return null; }
 }
 
-// ===== نداء توليد واحد =====
+/* ========================================================================== */
+/*                           نداء توليد واحد للموديل                           */
+/* ========================================================================== */
 async function callOnce(model, input, banList = [], timeoutMs = CALL_TIMEOUT_MS){
   const url = `${BASE}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
   const body = {
@@ -501,7 +551,9 @@ async function callOnce(model, input, banList = [], timeoutMs = CALL_TIMEOUT_MS)
   }
 }
 
-// ===== فحص أصالة الاسم (لا يُسقط الطلب) =====
+/* ========================================================================== */
+/*                      فحص أصالة الاسم (لا يُسقط الطلب)                      */
+/* ========================================================================== */
 function nameCheckSystemInstruction(){
   return `
 أنت خبير مطابخ وثقافات غذائية. قرّر هل الاسم معروف ومتعارف عليه ضمن المطبخ/الدولة.
@@ -559,7 +611,9 @@ ${hint}
 `.trim();
 }
 
-// ===== مساعدين =====
+/* ========================================================================== */
+/*                        مساعدين لتطبيق القيود الصارمة                        */
+/* ========================================================================== */
 function includesAllAvailable(recipe, availableRaw){
   const available = sanitizeAvailableList(availableRaw);
   if (!available.length) return true;
@@ -577,44 +631,85 @@ function filterServingBlock(rec, input){
   );
 }
 
-// === فحص صارم لنظام د. محمد سعيد ===
+/* إزالة كلمة كيتو من العنوان إن وُجدت */
+function sanitizeTitleNoKeto(title){
+  let t = String(title||"");
+  t = t.replace(/كيتو/gi, "").replace(/keto/gi,"").replace(/\s{2,}/g," ").trim();
+  if (!t) t = "وصفة منخفضة الكارب";
+  return t;
+}
+
+/* قيد صريح لقواعد د. محمد سعيد لإعادة الإرسال عند الإصلاح */
+function drMohHardConstraintPrompt(){
+  return `
+[قواعد إلزامية لنظام د. محمد سعيد]
+- ≤ 5 جم كارب صافي للحصة.
+- لا محليات/سكريات مطلقًا (حتى ستيفيا/اريثريتول/سيروبات).
+- مسموح بالزيوت غير المهدرجة فقط: زيت الزيتون، زيت الأفوكادو، زيت السمسم، زيت جوز الهند. ومسموح الدهون الحيوانية.
+- ممنوع الزيوت البذرية/الصناعية/المهدرجة (كانولا، ذرة، صويا، عباد الشمس، بذر العنب…).
+- لا بقوليات ولا نشويات ولا دقيق/طحين ولا حبوب.
+- لا فواكه؛ الاستثناء الوحيد: التوتيات.
+- منتجات الألبان المسموحة فقط: كريمة طبخ حيوانية، أجبان حيوانية كاملة الدسم.
+- لا تذكر كلمة "كيتو".
+`.trim();
+}
+
+/* تحقّق صارم لمكوّنات/ماكروز نظام د. محمد سعيد */
 function violatesDrMoh(recipe){
   const carbs = toNum(recipe?.macros?.carbs_g || 0);
-  const titleN = normalizeArabic(String(recipe?.title||""));
-  const ingText = normalizeArabic((recipe?.ingredients || []).join(" "));
+  const ingRaw = (recipe?.ingredients || []).join(" | ");
+  const ing = normalizeArabic(ingRaw);
 
-  // 1) لا تذكر "كيتو" إطلاقًا
-  if (titleN.includes("كيتو")) return true;
+  // 1) كارب ≤ 5 جم/حصة
+  if (carbs > 5) return true;
 
-  // 2) حد صارم للكارب (≤ 3 جم صافي/حصة كهامش تقني)
-  if (carbs > 3) return true;
+  // 2) سكريات/محليات ممنوعة تمامًا
+  const bannedSweet = normalizeArrArabic([
+    "سكر","عسل","دبس","شراب","سيرب","glucose","fructose","corn syrup","hfcs",
+    "ستيفيا","اريثريتول","سوربيتول","مالتيتول","سكر جوز الهند","سكر بني"
+  ]);
+  if (bannedSweet.some(k => ing.includes(k))) return true;
 
-  // 3) ممنوع المحليات/السكريات
-  if (SWEETENERS.some(k => ingText.includes(k))) return true;
+  // 3) الزيوت: نمنع الزيوت البذرية/المهدرجة/الصناعية، ونسمح
+  // زيت الزيتون/الأفوكادو/السمسم/جوز الهند والدهون الحيوانية.
+  const mentionsAnyProcessedOil = PROCESSED_OILS.some(k => ing.includes(k));
+  if (mentionsAnyProcessedOil) return true;
 
-  // 4) ممنوع الزيوت النباتية/المهدرجة/الإضافات الصناعية
-  if (PROCESSED_OILS.some(k => ingText.includes(k))) return true;
-  if (ADDITIVES.some(k => ingText.includes(k))) return true;
+  const mentionsGenericOil = ing.includes("زيت");
+  const mentionsAllowedOil = ALLOWED_PLANT_OILS.some(k => ing.includes(k));
+  // إذا ذُكرت كلمة "زيت" دون تحديد نوع، نعتبرها مخالفة لتجنّب إدخال زيت صناعي مبهم.
+  if (mentionsGenericOil && !mentionsAllowedOil) return true;
 
-  // 5) ممنوع البقوليات والحبوب/النشويات والخبز/الأرز/المعكرونة والبطاطس والذرة
-  const bansCarbish = [...LEGUMES, ...GRAINS_STARCHES, ...HIGH_CARB_SIDES, ...PROCESSED_MEATS];
-  if (bansCarbish.some(k => ingText.includes(k))) return true;
+  // 4) بقوليات ممنوعة
+  if (LEGUMES.some(k => ing.includes(k))) return true;
 
-  // 6) ممنوع كل الفواكه باستثناء التوتيات
-  const mentionsBerry = BERRIES_ALLOWED.some(k => ingText.includes(k));
-  const mentionsOtherFruit = FRUITS_BANNED.some(k => ingText.includes(k));
-  if (mentionsOtherFruit && !mentionsBerry) return true;
+  // 5) نشويات/حبوب/دقيق/طحين/رز/خبز/بطاطس/ذرة... إلخ
+  if (HIGH_CARB_SIDES.some(k => ing.includes(k))) return true;
+  if (GLUTEN.some(k => ing.includes(k))) return true;
+  if (/\bنشا|نشا\b/.test(ing)) return true;
 
-  // 7) منتجات الألبان: القاعدة العامة ممنوعة، لكن يسمح بالاستثناءات المحددة (كريمة طبخ/أجبان دسمة حيوانية)
-  // إن ذُكرت كلمة عامة مثل "حليب/زبادي/لبن" تُعد خرقًا، أما الاستثناءات فمسموحة.
-  const mentionsGenericDairy = DAIRY.some(k => ingText.includes(k));
-  const mentionsAllowedDairy = DAIRY_ALLOWED_EXCEPTIONS.some(k => ingText.includes(k));
-  if (mentionsGenericDairy && !mentionsAllowedDairy) return true;
+  // 6) فواكه (مسموح فقط التوتيات)
+  const hasAnyFruit = ALL_FRUITS.some(k => ing.includes(k));
+  if (hasAnyFruit){
+    // مخالفة إن وُجدت أي فاكهة ليست ضمن التوتيات
+    const hasNonBerryFruit = ALL_FRUITS.some(f => ing.includes(f) && !BERRIES_ALLOWED.some(b => ing.includes(b)));
+    if (hasNonBerryFruit) return true;
+  }
 
+  // 7) منتجات الألبان: مسموح فقط كريمة طبخ حيوانية + أجبان كاملة الدسم حيوانية
+  const mentionsDairy = DAIRY_WIDE.some(k => ing.includes(k));
+  if (mentionsDairy){
+    const permitted = DAIRY_PERMITTED_KEYWORDS.some(k => ing.includes(k));
+    if (!permitted) return true;
+  }
+
+  // 8) العنوان سيُنظّف لاحقًا من كلمة "كيتو"
   return false;
 }
 
-// ===== المدخل الرئيسي =====
+/* ========================================================================== */
+/*                              المدخل الرئيسي                                */
+/* ========================================================================== */
 exports.handler = async (event) => {
   if (event.httpMethod === "OPTIONS") return resJson(204, {});
   if (event.httpMethod !== "POST") return bad(405, "Method Not Allowed");
@@ -663,9 +758,13 @@ exports.handler = async (event) => {
   const baseBanList = buildBanList(userNode);
 
   const errors = {};
+
+  // قيد واضح لنظام د. محمد سعيد
+  const hardConstraint = wantDrMoh ? [drMohHardConstraintPrompt()] : [];
+
   for (const model of MODEL_POOL.slice(0, MAX_MODELS)){
     let attempts = 0;
-    let usedBanList = baseBanList.slice();
+    let usedBanList = [...baseBanList, ...hardConstraint];
 
     while (attempts < MAX_ATTEMPTS_PER_MODEL){
       attempts++;
@@ -675,53 +774,83 @@ exports.handler = async (event) => {
       if (!gen.ok){ errors[`${model}#${attempts}`] = `${gen.stage||"model"}:${gen.error}`; break; }
       let rec = gen.recipe;
 
-      // تصحيحات سريعة
+      // تصحيحات عامة
       if (Array.isArray(rec.ingredients)) rec.ingredients = enforceGramHints(rec.ingredients);
       rec.macros = reconcileCalories(rec.macros);
 
-      // قواعد إضافية
+      // عنوان غير عام
       if (titleTooGeneric(rec)) {
         const rDiv = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, Math.min(8000, CALL_TIMEOUT_MS));
         if (rDiv.ok) rec = rDiv.recipe; else { errors[`${model}#${attempts}-div`] = rDiv.error; break; }
       }
 
-      // === فرض صارم لنظام د. محمد سعيد ===
-      if (wantDrMoh && violatesDrMoh(rec)){
-        const r2 = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
-        if (r2.ok && !violatesDrMoh(r2.recipe)) rec = r2.recipe;
+      // ===== إصلاحات خاصة بنظام د. محمد سعيد =====
+      if (wantDrMoh) {
+        rec.title = sanitizeTitleNoKeto(rec.title);
+
+        if (violatesDrMoh(rec)){
+          const tightenBans = [
+            "no_sweeteners_any_kind",
+            "no_seed_oils_or_hydrogenated_oils",
+            "only_non_hydrogenated_oils_allowed:olive,avocado,sesame,coconut",
+            "no_legumes_no_starches_no_flours",
+            "no_fruits_except_berries",
+            "dairy_only_cooking_cream_and_full_fat_animal_cheese",
+            "carbs_per_serving_max_5g",
+            "never_write_keto_word"
+          ].map(x => `drmoh:${x}`);
+          const r2 = await callOnce(
+            model,
+            { ...input, customMacros, availableIngredients },
+            [...usedBanList, ...tightenBans, drMohHardConstraintPrompt()],
+            CALL_TIMEOUT_MS
+          );
+          if (r2.ok) {
+            r2.recipe.title = sanitizeTitleNoKeto(r2.recipe.title);
+            if (!violatesDrMoh(r2.recipe)) rec = r2.recipe;
+          }
+        }
       }
 
+      // توافق مع المكوّنات المتاحة
       if (availableIngredients.length && !includesAllAvailable(rec, availableIngredients)){
         const rAvail = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rAvail.ok && includesAllAvailable(rAvail.recipe, availableIngredients)) rec = rAvail.recipe;
       }
+
+      // منطق الحلويات
       if (wantDessert){
-        const illogical = dessertLooksIllogical(rec);
-        const lacksSweet = dessertLacksSweetness(rec);
-        // في نظام د. محمد سعيد نمنع المحليات أساسًا، لذا لا نفرض "حلاوة" صناعية
-        if (illogical || (!wantDrMoh && lacksSweet)){
+        if (!wantDrMoh && (dessertLooksIllogical(rec) || dessertLacksSweetness(rec))){
           const rDess = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
-          const okDess = rDess.ok && !dessertLooksIllogical(rDess.recipe) && (!wantDrMoh ? !dessertLacksSweetness(rDess.recipe) : true);
-          if (okDess) rec = rDess.recipe;
+          if (rDess.ok && !dessertLooksIllogical(rDess.recipe) && !dessertLacksSweetness(rDess.recipe)) rec = rDess.recipe;
+        } else if (wantDrMoh && dessertLooksIllogical(rec)) {
+          const rDess2 = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
+          if (rDess2.ok && !dessertLooksIllogical(rDess2.recipe)) rec = rDess2.recipe;
         }
       }
+
+      // اتّساق الطاقة
       if (energyLooksOff(rec)){
         const rEnergy = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rEnergy.ok && !energyLooksOff(rEnergy.recipe)) rec = rEnergy.recipe;
       }
+
+      // اقتراب السعرات من الهدف
       if (caloriesTarget && targetCaloriesFar(rec, caloriesTarget)){
         const rTarget = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rTarget.ok && !targetCaloriesFar(rTarget.recipe, caloriesTarget)) rec = rTarget.recipe;
       }
+
+      // معقولية الماكروز مقابل الكتلة
       if (macrosVsMassImplausible(rec)){
         const rMass = await callOnce(model, { ...input, customMacros, availableIngredients }, usedBanList, CALL_TIMEOUT_MS);
         if (rMass.ok && !macrosVsMassImplausible(rMass.recipe)) rec = rMass.recipe;
       }
 
-      // اقتراحات تقديم مع فلترة صارمة للنظام
-      rec.serving_suggestions = filterServingSuggestions(rec.serving_suggestions, String(input?.dietType||"").trim(), allergies);
+      // اقتراحات تقديم ملتزمة
+      rec.serving_suggestions = filterServingBlock(rec, input) || [];
 
-      // --------- فحص الاسم (لا يُسقط الطلب) ---------
+      // فحص الاسم (اختياري)
       const nameCheck = await verifyDishNameWithAI(model, rec, input, NAMECHECK_TIMEOUT_MS);
       if (nameCheck.ok){
         const v = nameCheck.verdict;
@@ -756,10 +885,15 @@ exports.handler = async (event) => {
         break; // جرّب الموديل التالي
       }
 
+      // تنظيف العنوان نهائيًا من "كيتو"
+      rec.title = sanitizeTitleNoKeto(rec.title);
+
       // حفظ والرد
       pushRecipeToHistory(userNode, input, rec);
       try { await saveHistory(history, historySha, `recipe: add fp for ${userId}`); } catch { /* لا تعطل الاستجابة */ }
-      return ok({ recipe: rec, model, note: wantDrMoh ? "strict_drmoh_rules_enforced" : "unique_recipe_generated" });
+
+      const finalNote = wantDrMoh ? "strict_drmoh_rules_enforced" : "unique_recipe_generated";
+      return ok({ recipe: rec, model, note: finalNote });
     }
   }
 

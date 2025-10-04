@@ -104,7 +104,8 @@
         "0eafe665ef4f96a900f64f7f1c0b108f209bb6ca2254b046ad46f580d95b6688",
         "1037725a73deb139a50cae77a347a9203a14ad5116f03b951c4cb375b3009435",
         "d9f297a02c1c6758fde45ab0884782104c83550942d49ceceb7707acb1d83b7b",
-        "f58bbdfefbb2172b35136b17e7b8863c4b59f981395b15437a45070cbf1adcb7"
+        "f58bbdfefbb2172b35136b17e7b8863c4b59f981395b15437a45070cbf1adcb7",
+        "bdfa5220d286befafad1b88b5b5f6e90aa44e253b18132f96e10cdd441a7f242"
       ],
       "bans": [
         "title:كفته بالصينيه مع طحينه القرنبيط",
@@ -132,7 +133,9 @@
         "title:سمك ابو سيف مشوي بالليمون والاعشاب مع سلطه السبانخ",
         "ings:f4b96de9e209d0d9396f008401101c0aa5ba0b6c92b9d46f0df1634d27ddfdac",
         "title:كباب حلبي",
-        "ings:82d5956516d80da0cdaa5ec81f5e4d2ebfa5d5d85f7c5cce07bdc0cc126811ca"
+        "ings:82d5956516d80da0cdaa5ec81f5e4d2ebfa5d5d85f7c5cce07bdc0cc126811ca",
+        "title:كفته لحم ضان مشويه مع صلصه طحينه بالليمون",
+        "ings:e572dd37df89e72b3f4f0b950077e00e323467d20ebc1505c1cc83ed87d303e9"
       ]
     }
   }

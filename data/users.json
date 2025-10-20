@@ -30,10 +30,10 @@
     "status": "active",
     "start_date": "2025-09-29",
     "end_date": "2025-10-30",
-    "device_fingerprint": "",
-    "session_nonce": "",
+    "device_fingerprint": "4ddaabd183a8ce1abff0f09451244fa0857e914975d9a7813fcd26fe2b4830b1",
+    "session_nonce": "8cafb8a5-6fa4-4f05-972d-721035982bb0",
     "lock_reason": null,
-    "auth_token": ""
+    "auth_token": "7c524dc1-a4f7-4062-80a2-6c8c3a4732ee"
   },
   {
     "email": "mustafa2@gmail.com",
